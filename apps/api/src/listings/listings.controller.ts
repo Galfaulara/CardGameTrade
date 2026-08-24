@@ -1,0 +1,140 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from "@nestjs/common";
+import {
+  createUserListingSchema,
+  setUserListingStatusSchema,
+  updateUserListingSchema,
+} from "@repo/validation";
+import type {
+  CreateUserListingInput,
+  SetUserListingStatusInput,
+  UpdateUserListingInput,
+} from "@repo/validation";
+
+import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
+import { ListingsService } from "./listings.service";
+
+@Controller("listings")
+export class ListingsController {
+  constructor(
+    private readonly listingsService: ListingsService,
+  ) {}
+
+  @Get()
+  getActiveListings() {
+    return this.listingsService.getActiveListings();
+  }
+
+  @Get(":listingId")
+  getListing(
+    @Param(
+      "listingId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    listingId: string,
+  ) {
+    return this.listingsService.getListing(
+      listingId,
+    );
+  }
+
+  @Post("users/:userId")
+  createUserListing(
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    userId: string,
+
+    @Body(
+      new ZodValidationPipe(
+        createUserListingSchema,
+      ),
+    )
+    input: CreateUserListingInput,
+  ) {
+    return this.listingsService.createUserListing(
+      userId,
+      input,
+    );
+  }
+
+  @Patch(
+    "users/:userId/:listingId",
+  )
+  updateUserListing(
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    userId: string,
+
+    @Param(
+      "listingId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    listingId: string,
+
+    @Body(
+      new ZodValidationPipe(
+        updateUserListingSchema,
+      ),
+    )
+    input: UpdateUserListingInput,
+  ) {
+    return this.listingsService.updateUserListing(
+      userId,
+      listingId,
+      input,
+    );
+  }
+
+  @Patch(
+    "users/:userId/:listingId/status",
+  )
+  setUserListingStatus(
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    userId: string,
+
+    @Param(
+      "listingId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    listingId: string,
+
+    @Body(
+      new ZodValidationPipe(
+        setUserListingStatusSchema,
+      ),
+    )
+    input: SetUserListingStatusInput,
+  ) {
+    return this.listingsService.setUserListingStatus(
+      userId,
+      listingId,
+      input,
+    );
+  }
+}

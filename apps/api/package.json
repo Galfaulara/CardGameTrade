@@ -7,24 +7,33 @@
     "dev": "nest start --watch",
     "start": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings 0",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "sync:scryfall:sets": "npm run build && node dist/scripts/sync-scryfall-sets.js",
+    "sync:scryfall:canonical": "npm run build && node dist/scripts/sync-scryfall-canonical-cards.js",
+    "sync:scryfall:printings": "npm run build && node dist/scripts/sync-scryfall-printings.js",
+    "bootstrap:user": "npm run build && node dist/scripts/bootstrap-user.js"
   },
   "dependencies": {
-    "@repo/types": "*",
-    "@repo/domain": "*",
-    "@repo/validation": "*",
     "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "@repo/db": "^0.0.0",
+    "@repo/domain": "*",
+    "@repo/types": "*",
+    "@repo/validation": "*",
+    "@supabase/supabase-js": "^2.112.3",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@repo/typescript-config": "*",
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
+    "@repo/typescript-config": "*",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.15.3",
+    "tsx": "^4.23.12",
     "typescript": "5.9.2"
   }
 }

@@ -1,13 +1,16 @@
 {
   "name": "my-turborepo",
   "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
-  },
+"scripts": {
+  "build": "nest build",
+  "dev": "nest start --watch",
+  "start": "node dist/main",
+  "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings 0",
+  "check-types": "tsc --noEmit",
+  "sync:scryfall:sets": "npm run build && node dist/scripts/sync-scryfall-sets.js",
+  "sync:scryfall:canonical": "npm run build && node dist/scripts/sync-scryfall-canonical-cards.js",
+  "sync:scryfall:printings": "npm run build && node dist/scripts/sync-scryfall-printings.js"
+},
   "devDependencies": {
     "prettier": "^3.7.4",
     "turbo": "^2.9.0",

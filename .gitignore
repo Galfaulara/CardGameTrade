@@ -36,3 +36,16 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+apps/api/.cache/
+apps/api/.env
+
+# Local AI/editor tooling
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+
+# Generated Prisma Client
+packages/db/src/generated/
+# Temporary Prisma introspection snapshots
+*.introspected.prisma
