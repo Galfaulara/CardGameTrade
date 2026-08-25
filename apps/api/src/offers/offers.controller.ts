@@ -63,6 +63,50 @@ export class OffersController {
     );
   }
 
+  @Post(
+    "listings/:listingId/users/:userId/from-interest/:interestId",
+  )
+  createUserOfferFromInterest(
+    @Param(
+      "listingId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    listingId: string,
+
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    userId: string,
+
+    @Param(
+      "interestId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    interestId: string,
+
+    @Body(
+      new ZodValidationPipe(
+        createListingOfferSchema,
+      ),
+    )
+    input:
+      CreateListingOfferInput,
+  ) {
+    return this.offersService.createUserOffer(
+      userId,
+      listingId,
+      input,
+      interestId,
+    );
+  }
+
   @Get(
     "users/:userId/sent",
   )

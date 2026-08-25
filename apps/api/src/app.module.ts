@@ -10,6 +10,7 @@ import { AppService } from "./app.service";
 import { CatalogModule } from "./catalog/catalog.module";
 import { DatabaseModule } from "./database/database.module";
 import { InventoryModule } from "./inventory/inventory.module";
+import { InventoryInterestsModule } from "./inventory-interests/inventory-interests.module";
 import { ListingsModule } from "./listings/listings.module";
 import { OffersModule } from "./offers/offers.module";
 import { PreferencesModule } from "./preferences/preferences.module";
@@ -27,6 +28,7 @@ import { WishlistsModule } from "./wishlists/wishlists.module";
     DatabaseModule,
     CatalogModule,
     InventoryModule,
+    InventoryInterestsModule,
     ListingsModule,
     OffersModule,
     StoresModule,

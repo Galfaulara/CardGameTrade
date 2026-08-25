@@ -443,6 +443,7 @@ export class OffersService {
     userId: string,
     listingId: string,
     input: CreateListingOfferInput,
+    interestId?: string,
   ) {
     const user =
       await this.database.client.user_profiles.findUnique({
@@ -474,6 +475,7 @@ export class OffersService {
         },
         select: {
           id: true,
+          inventory_item_id: true,
           seller_user_id: true,
           seller_store_id: true,
           accepts_cash: true,
@@ -618,6 +620,103 @@ export class OffersService {
         async (
           transaction,
         ) => {
+          const now =
+            new Date();
+
+          if (interestId) {
+            const interest =
+              await transaction.inventory_item_interests.findUnique({
+                where: {
+                  id: interestId,
+                },
+                select: {
+                  id: true,
+                  inventory_item_id: true,
+                  interested_user_id: true,
+                  interested_store_id: true,
+                  interest_type: true,
+                  status: true,
+                  converted_listing_offer_id: true,
+                  converted_wishlist_offer_id: true,
+                  converted_at: true,
+                },
+              });
+
+            if (!interest) {
+              throw new NotFoundException(
+                "Inventory-item interest was not found.",
+              );
+            }
+
+            if (
+              interest.interested_user_id !==
+                userId ||
+              interest.interested_store_id !==
+                null
+            ) {
+              throw new ForbiddenException(
+                "Only the user who created this interest can convert it into a listing offer.",
+              );
+            }
+
+            if (
+              interest.inventory_item_id !==
+              listing.inventory_item_id
+            ) {
+              throw new BadRequestException(
+                "This interest does not target the inventory item used by this listing.",
+              );
+            }
+
+            if (
+              interest.status !==
+              "active"
+            ) {
+              throw new ConflictException(
+                "Only an active inventory-item interest can be converted into an offer.",
+              );
+            }
+
+            if (
+              interest.converted_listing_offer_id ||
+              interest.converted_wishlist_offer_id ||
+              interest.converted_at
+            ) {
+              throw new ConflictException(
+                "This inventory-item interest has already been converted.",
+              );
+            }
+
+            if (
+              interest.interest_type ===
+                "watch"
+            ) {
+              throw new BadRequestException(
+                "A watch-only interest cannot be converted into a marketplace offer.",
+              );
+            }
+
+            if (
+              interest.interest_type ===
+                "buy" &&
+              hasTradeItems
+            ) {
+              throw new BadRequestException(
+                "A buy-only interest cannot be converted into an offer containing trade items.",
+              );
+            }
+
+            if (
+              interest.interest_type ===
+                "trade" &&
+              hasCash
+            ) {
+              throw new BadRequestException(
+                "A trade-only interest cannot be converted into an offer containing cash.",
+              );
+            }
+          }
+
           const offer =
             await transaction.listing_offers.create({
               data: {
@@ -659,6 +758,37 @@ export class OffersService {
                   }),
                 ),
             });
+          }
+
+          if (interestId) {
+            const converted =
+              await transaction.inventory_item_interests.updateMany({
+                where: {
+                  id: interestId,
+                  interested_user_id: userId,
+                  interested_store_id: null,
+                  inventory_item_id: listing.inventory_item_id,
+                  status: "active",
+                  converted_listing_offer_id: null,
+                  converted_wishlist_offer_id: null,
+                  converted_at: null,
+                },
+                data: {
+                  status: "converted_to_offer",
+                  converted_listing_offer_id: offer.id,
+                  converted_at: now,
+                  updated_at: now,
+                },
+              });
+
+            if (
+              converted.count !==
+              1
+            ) {
+              throw new ConflictException(
+                "The inventory-item interest changed while the listing offer was being created.",
+              );
+            }
           }
 
           return offer.id;

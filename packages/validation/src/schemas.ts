@@ -1462,6 +1462,173 @@ export const createWishlistOfferSchema =
       },
     );
 
+    // -----------------------------------------------------------------------------
+// Wishlist offer acceptance
+// -----------------------------------------------------------------------------
+
+export const wishlistOfferRequestedInventorySelectionSchema =
+  z.object({
+    requestedItemId:
+      z.string().uuid(),
+
+    inventoryItemId:
+      z.string().uuid(),
+  });
+
+export const acceptWishlistOfferSchema =
+  z
+    .object({
+      /*
+       * Mandatory final LGS selection.
+       *
+       * A user's preferred store/wishlist store is
+       * only a UI default. Acceptance must always
+       * explicitly identify the actual mediating
+       * affiliated store.
+       */
+      storeId:
+        z.string().uuid(),
+
+      /*
+       * Only needed when a wishlist offer requests
+       * a flexible canonical-card or printing target.
+       *
+       * Exact requested_inventory_item_id terms need
+       * no selection because the inventory row is
+       * already known.
+       */
+      requestedInventorySelections:
+        z
+          .array(
+            wishlistOfferRequestedInventorySelectionSchema,
+          )
+          .max(100)
+          .default([]),
+    })
+    .superRefine(
+      (
+        value,
+        ctx,
+      ) => {
+        const requestedItemIds =
+          value.requestedInventorySelections.map(
+            (selection) =>
+              selection.requestedItemId,
+          );
+
+        if (
+          new Set(
+            requestedItemIds,
+          ).size !==
+          requestedItemIds.length
+        ) {
+          ctx.addIssue({
+            code:
+              z.ZodIssueCode.custom,
+            message:
+              "The same requested trade term cannot be selected more than once.",
+            path: [
+              "requestedInventorySelections",
+            ],
+          });
+        }
+
+        const inventoryItemIds =
+          value.requestedInventorySelections.map(
+            (selection) =>
+              selection.inventoryItemId,
+          );
+
+        if (
+          new Set(
+            inventoryItemIds,
+          ).size !==
+          inventoryItemIds.length
+        ) {
+          ctx.addIssue({
+            code:
+              z.ZodIssueCode.custom,
+            message:
+              "The same inventory item cannot satisfy more than one requested trade term.",
+            path: [
+              "requestedInventorySelections",
+            ],
+          });
+        }
+      },
+    );
+
+    // -----------------------------------------------------------------------------
+// Inventory item interests
+// -----------------------------------------------------------------------------
+
+export const inventoryItemInterestTypeSchema =
+  z.enum([
+    "buy",
+    "trade",
+    "buy_or_trade",
+    "watch",
+  ]);
+
+export const createInventoryItemInterestSchema =
+  z.object({
+    interestType:
+      inventoryItemInterestTypeSchema
+        .default(
+          "buy_or_trade",
+        ),
+
+    message:
+      z
+        .string()
+        .trim()
+        .max(2000)
+        .nullable()
+        .optional(),
+  });
+
+export const updateInventoryItemInterestSchema =
+  z
+    .object({
+      interestType:
+        inventoryItemInterestTypeSchema
+          .optional(),
+
+      message:
+        z
+          .string()
+          .trim()
+          .max(2000)
+          .nullable()
+          .optional(),
+    })
+    .refine(
+      (value) =>
+        Object.keys(
+          value,
+        ).length >
+        0,
+      {
+        message:
+          "At least one interest field must be provided.",
+      },
+    );
+
+export type CreateInventoryItemInterestInput =
+  z.infer<
+    typeof createInventoryItemInterestSchema
+  >;
+
+export type UpdateInventoryItemInterestInput =
+  z.infer<
+    typeof updateInventoryItemInterestSchema
+  >;
+
+export type AcceptWishlistOfferInput =
+  z.infer<
+    typeof acceptWishlistOfferSchema
+  >;
+
 export type CreateUserWishlistInput =
   z.infer<
     typeof createUserWishlistSchema

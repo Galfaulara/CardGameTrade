@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 
 import type {
+  AcceptWishlistOfferInput,
   CreateUserWishlistInput,
   CreateWishlistItemInput,
   CreateWishlistOfferInput,
@@ -2691,6 +2692,7 @@ export class WishlistsService {
     wishlistItemId: string,
     input:
       CreateWishlistOfferInput,
+    interestId?: string,
   ) {
     await this.requireActiveUser(
       userId,
@@ -2825,6 +2827,118 @@ export class WishlistsService {
         async (
           transaction,
         ) => {
+          const now =
+            new Date();
+
+          if (interestId) {
+            const interest =
+              await transaction.inventory_item_interests.findUnique({
+                where: {
+                  id:
+                    interestId,
+                },
+
+                select: {
+                  id: true,
+                  inventory_item_id:
+                    true,
+                  interested_user_id:
+                    true,
+                  interested_store_id:
+                    true,
+                  interest_type:
+                    true,
+                  status: true,
+                  converted_listing_offer_id:
+                    true,
+                  converted_wishlist_offer_id:
+                    true,
+                  converted_at:
+                    true,
+                },
+              });
+
+            if (!interest) {
+              throw new NotFoundException(
+                "Inventory-item interest was not found.",
+              );
+            }
+
+            if (
+              interest.interested_user_id !==
+                wishlist.user_id ||
+              interest.interested_store_id !==
+                null
+            ) {
+              throw new ForbiddenException(
+                "Only an interest created by the wishlist owner can be converted into a wishlist offer.",
+              );
+            }
+
+            const interestInventoryIsOffered =
+              input.items.some(
+                (item) =>
+                  item.inventoryItemId ===
+                  interest.inventory_item_id,
+              );
+
+            if (
+              !interestInventoryIsOffered
+            ) {
+              throw new BadRequestException(
+                "The wishlist offer must include the exact inventory item targeted by this interest.",
+              );
+            }
+
+            if (
+              interest.status !==
+              "active"
+            ) {
+              throw new ConflictException(
+                "Only an active inventory-item interest can be converted into an offer.",
+              );
+            }
+
+            if (
+              interest.converted_listing_offer_id ||
+              interest.converted_wishlist_offer_id ||
+              interest.converted_at
+            ) {
+              throw new ConflictException(
+                "This inventory-item interest has already been converted.",
+              );
+            }
+
+            if (
+              interest.interest_type ===
+              "watch"
+            ) {
+              throw new BadRequestException(
+                "A watch-only interest cannot be converted into a marketplace offer.",
+              );
+            }
+
+            if (
+              interest.interest_type ===
+                "buy" &&
+              input.requestsTrade
+            ) {
+              throw new BadRequestException(
+                "A buy-only interest cannot be converted into a wishlist offer requesting trade cards.",
+              );
+            }
+
+            if (
+              interest.interest_type ===
+                "trade" &&
+              input.requestsCash
+            ) {
+              throw new BadRequestException(
+                "A trade-only interest cannot be converted into a wishlist offer requesting cash.",
+              );
+            }
+          }
+
           const offer =
             await transaction.wishlist_offers.create({
               data: {
@@ -2951,6 +3065,48 @@ export class WishlistsService {
             });
           }
 
+          if (interestId) {
+            const converted =
+              await transaction.inventory_item_interests.updateMany({
+                where: {
+                  id:
+                    interestId,
+                  interested_user_id:
+                    wishlist.user_id,
+                  interested_store_id:
+                    null,
+                  status:
+                    "active",
+                  converted_listing_offer_id:
+                    null,
+                  converted_wishlist_offer_id:
+                    null,
+                  converted_at:
+                    null,
+                },
+
+                data: {
+                  status:
+                    "converted_to_offer",
+                  converted_wishlist_offer_id:
+                    offer.id,
+                  converted_at:
+                    now,
+                  updated_at:
+                    now,
+                },
+              });
+
+            if (
+              converted.count !==
+              1
+            ) {
+              throw new ConflictException(
+                "The inventory-item interest changed while the wishlist offer was being created.",
+              );
+            }
+          }
+
           return offer.id;
         },
       );
@@ -2959,6 +3115,7 @@ export class WishlistsService {
       offerId,
     );
   }
+
 
   async getUserSentWishlistOffers(
     userId: string,
@@ -3088,6 +3245,1580 @@ export class WishlistsService {
 
     return this.loadWishlistOffer(
       offerId,
+    );
+  }
+
+
+  async acceptUserWishlistOffer(
+    ownerUserId: string,
+    offerId: string,
+    input:
+      AcceptWishlistOfferInput,
+  ) {
+    await this.requireActiveUser(
+      ownerUserId,
+    );
+
+    return this.database.client.$transaction(
+      async (
+        transaction,
+      ) => {
+        const now =
+          new Date();
+
+        /*
+         * The store is mandatory at acceptance.
+         * A wishlist/preference store is only a
+         * convenience/default for the UI.
+         */
+        const store =
+          await transaction.stores.findFirst({
+            where: {
+              id:
+                input.storeId,
+
+              status:
+                "active",
+
+              verification_status:
+                "verified",
+
+              trade_mediation_enabled:
+                true,
+            },
+
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              city: true,
+              country_code:
+                true,
+            },
+          });
+
+        if (!store) {
+          throw new BadRequestException(
+            "The selected store must be an active affiliated DeckDeal trade-mediation store.",
+          );
+        }
+
+        const offer =
+          await transaction.wishlist_offers.findUnique({
+            where: {
+              id:
+                offerId,
+            },
+
+            select: {
+              id: true,
+              wishlist_item_id:
+                true,
+
+              offerer_user_id:
+                true,
+
+              offerer_store_id:
+                true,
+
+              requests_cash:
+                true,
+
+              requests_trade:
+                true,
+
+              status: true,
+              expires_at: true,
+            },
+          });
+
+        if (!offer) {
+          throw new NotFoundException(
+            "Wishlist offer was not found.",
+          );
+        }
+
+        if (
+          offer.status !==
+          "pending"
+        ) {
+          throw new BadRequestException(
+            "Only a pending wishlist offer can be accepted.",
+          );
+        }
+
+        if (
+          offer.expires_at &&
+          offer.expires_at <=
+            now
+        ) {
+          throw new BadRequestException(
+            "This wishlist offer has expired.",
+          );
+        }
+
+        /*
+         * Store-origin wishlist offers are not
+         * implemented yet. The current API only
+         * creates user-origin offers.
+         */
+        if (
+          !offer.offerer_user_id ||
+          offer.offerer_store_id
+        ) {
+          throw new BadRequestException(
+            "This acceptance flow currently supports user-to-user wishlist offers only.",
+          );
+        }
+
+        /*
+         * Payment processing is intentionally
+         * deferred in the current DeckDeal scope.
+         *
+         * Therefore conversion to a handoff is
+         * currently limited to pure card trades.
+         */
+        if (
+          offer.requests_cash ||
+          !offer.requests_trade
+        ) {
+          throw new BadRequestException(
+            "Wishlist offer acceptance currently supports pure card trades only. Cash and mixed trades require payment confirmation support first.",
+          );
+        }
+
+        const wishlistItem =
+          await transaction.wishlist_items.findUnique({
+            where: {
+              id:
+                offer.wishlist_item_id,
+            },
+
+            select: {
+              id: true,
+              wishlist_id: true,
+
+              canonical_card_id:
+                true,
+
+              printing_id: true,
+
+              desired_finish:
+                true,
+
+              desired_condition:
+                true,
+
+              language_code:
+                true,
+
+              quantity_desired:
+                true,
+
+              status: true,
+            },
+          });
+
+        if (!wishlistItem) {
+          throw new NotFoundException(
+            "The wishlist item for this offer was not found.",
+          );
+        }
+
+        if (
+          wishlistItem.status !==
+          "active"
+        ) {
+          throw new BadRequestException(
+            "The wishlist item is no longer active.",
+          );
+        }
+
+        const wishlist =
+          await transaction.wishlists.findUnique({
+            where: {
+              id:
+                wishlistItem.wishlist_id,
+            },
+
+            select: {
+              id: true,
+              user_id: true,
+              status: true,
+            },
+          });
+
+        if (!wishlist) {
+          throw new NotFoundException(
+            "The wishlist for this offer was not found.",
+          );
+        }
+
+        if (
+          wishlist.user_id !==
+          ownerUserId
+        ) {
+          throw new ForbiddenException(
+            "Only the wishlist owner can accept this offer.",
+          );
+        }
+
+        if (
+          wishlist.status !==
+          "active"
+        ) {
+          throw new BadRequestException(
+            "This wishlist is not currently active.",
+          );
+        }
+
+        if (
+          offer.offerer_user_id ===
+          ownerUserId
+        ) {
+          throw new ConflictException(
+            "The wishlist owner and offerer cannot be the same user.",
+          );
+        }
+
+        const offeredRows =
+          await transaction.wishlist_offer_items.findMany({
+            where: {
+              wishlist_offer_id:
+                offer.id,
+            },
+
+            select: {
+              id: true,
+
+              inventory_item_id:
+                true,
+
+              offerer_user_id:
+                true,
+
+              offerer_store_id:
+                true,
+
+              quantity: true,
+            },
+
+            orderBy: {
+              created_at:
+                "asc",
+            },
+          });
+
+        if (
+          offeredRows.length ===
+          0
+        ) {
+          throw new ConflictException(
+            "This wishlist offer contains no offered inventory items.",
+          );
+        }
+
+        const requestedRows =
+          await transaction.wishlist_offer_requested_items.findMany({
+            where: {
+              wishlist_offer_id:
+                offer.id,
+            },
+
+            select: {
+              id: true,
+
+              requested_inventory_item_id:
+                true,
+
+              requested_canonical_card_id:
+                true,
+
+              requested_printing_id:
+                true,
+
+              desired_finish:
+                true,
+
+              desired_condition:
+                true,
+
+              language_code:
+                true,
+
+              quantity: true,
+            },
+
+            orderBy: {
+              created_at:
+                "asc",
+            },
+          });
+
+        if (
+          requestedRows.length ===
+          0
+        ) {
+          throw new ConflictException(
+            "A pure card-trade wishlist offer must request at least one card in return.",
+          );
+        }
+
+        /*
+         * Resolve any flexible requested terms
+         * (canonical card / printing) to exact
+         * inventory rows before a transaction can
+         * be created.
+         *
+         * Exact requested_inventory_item_id rows
+         * do not need an explicit selection.
+         */
+        const selectionIds =
+          input.requestedInventorySelections.map(
+            (selection) =>
+              selection.requestedItemId,
+          );
+
+        const selectedInventoryIds =
+          input.requestedInventorySelections.map(
+            (selection) =>
+              selection.inventoryItemId,
+          );
+
+        if (
+          new Set(
+            selectionIds,
+          ).size !==
+          selectionIds.length
+        ) {
+          throw new BadRequestException(
+            "The same requested trade term cannot be selected more than once.",
+          );
+        }
+
+        if (
+          new Set(
+            selectedInventoryIds,
+          ).size !==
+          selectedInventoryIds.length
+        ) {
+          throw new BadRequestException(
+            "The same inventory item cannot satisfy more than one requested trade term.",
+          );
+        }
+
+        const selectionByRequestedItemId =
+          new Map(
+            input.requestedInventorySelections.map(
+              (selection) => [
+                selection.requestedItemId,
+                selection.inventoryItemId,
+              ],
+            ),
+          );
+
+        const requestedRowIds =
+          new Set(
+            requestedRows.map(
+              (row) =>
+                row.id,
+            ),
+          );
+
+        for (
+          const selection of
+          input.requestedInventorySelections
+        ) {
+          if (
+            !requestedRowIds.has(
+              selection.requestedItemId,
+            )
+          ) {
+            throw new BadRequestException(
+              "A requested inventory selection does not belong to this wishlist offer.",
+            );
+          }
+        }
+
+        /*
+         * Revalidate the exact cards the offerer
+         * is providing. Pending offers do NOT
+         * reserve inventory, so this must be done
+         * again at acceptance time.
+         */
+        const offeredInventoryIds =
+          offeredRows.map(
+            (row) =>
+              row.inventory_item_id,
+          );
+
+        const offeredInventory =
+          await transaction.inventory_items.findMany({
+            where: {
+              id: {
+                in:
+                  offeredInventoryIds,
+              },
+
+              owner_user_id:
+                offer.offerer_user_id,
+            },
+
+            select: {
+              id: true,
+              printing_id: true,
+              finish: true,
+              condition: true,
+              language_code:
+                true,
+              quantity: true,
+              status: true,
+              owner_user_id:
+                true,
+              owner_store_id:
+                true,
+            },
+          });
+
+        if (
+          offeredInventory.length !==
+          offeredInventoryIds.length
+        ) {
+          throw new ConflictException(
+            "One or more offered inventory items no longer belong to the offerer.",
+          );
+        }
+
+        const offeredInventoryById =
+          new Map(
+            offeredInventory.map(
+              (inventory) => [
+                inventory.id,
+                inventory,
+              ],
+            ),
+          );
+
+        const offeredPrintingIds = [
+          ...new Set(
+            offeredInventory.map(
+              (inventory) =>
+                inventory.printing_id,
+            ),
+          ),
+        ];
+
+        const offeredPrintings =
+          await transaction.card_printings.findMany({
+            where: {
+              id: {
+                in:
+                  offeredPrintingIds,
+              },
+            },
+
+            select: {
+              id: true,
+              canonical_card_id:
+                true,
+            },
+          });
+
+        const offeredPrintingById =
+          new Map(
+            offeredPrintings.map(
+              (printing) => [
+                printing.id,
+                printing,
+              ],
+            ),
+          );
+
+        let totalOfferedQuantity =
+          0;
+
+        for (
+          const offeredRow of
+          offeredRows
+        ) {
+          if (
+            offeredRow.offerer_user_id !==
+              offer.offerer_user_id ||
+            offeredRow.offerer_store_id !==
+              null
+          ) {
+            throw new ConflictException(
+              "An offered item no longer matches the wishlist offerer.",
+            );
+          }
+
+          const inventory =
+            offeredInventoryById.get(
+              offeredRow.inventory_item_id,
+            );
+
+          if (!inventory) {
+            throw new ConflictException(
+              "An offered inventory item could not be loaded.",
+            );
+          }
+
+          if (
+            inventory.status !==
+            "available"
+          ) {
+            throw new ConflictException(
+              "An offered inventory item is no longer available.",
+            );
+          }
+
+          if (
+            inventory.quantity !==
+            offeredRow.quantity
+          ) {
+            throw new ConflictException(
+              "An offered inventory quantity changed after the wishlist offer was created.",
+            );
+          }
+
+          const printing =
+            offeredPrintingById.get(
+              inventory.printing_id,
+            );
+
+          if (!printing) {
+            throw new ConflictException(
+              "The printing for an offered inventory item could not be loaded.",
+            );
+          }
+
+          const identityMatches =
+            wishlistItem.printing_id
+              ? inventory.printing_id ===
+                wishlistItem.printing_id
+              : printing.canonical_card_id ===
+                wishlistItem.canonical_card_id;
+
+          if (!identityMatches) {
+            throw new ConflictException(
+              "An offered card no longer matches the wishlist card target.",
+            );
+          }
+
+          if (
+            wishlistItem.desired_finish &&
+            inventory.finish !==
+              wishlistItem.desired_finish
+          ) {
+            throw new ConflictException(
+              "An offered card no longer matches the wishlist finish.",
+            );
+          }
+
+          if (
+            wishlistItem.desired_condition &&
+            inventory.condition !==
+              wishlistItem.desired_condition
+          ) {
+            throw new ConflictException(
+              "An offered card no longer matches the wishlist condition.",
+            );
+          }
+
+          if (
+            wishlistItem.language_code &&
+            inventory.language_code !==
+              wishlistItem.language_code
+          ) {
+            throw new ConflictException(
+              "An offered card no longer matches the wishlist language.",
+            );
+          }
+
+          totalOfferedQuantity +=
+            offeredRow.quantity;
+        }
+
+        if (
+          totalOfferedQuantity >
+          wishlistItem.quantity_desired
+        ) {
+          throw new ConflictException(
+            "The accepted offer now exceeds the wishlist quantity requested.",
+          );
+        }
+
+        /*
+         * Resolve the wishlist owner's cards that
+         * the offerer requested in return.
+         */
+        const resolvedOwnerItems:
+          Array<{
+            requestedItemId:
+              string;
+
+            inventoryItemId:
+              string;
+
+            quantity:
+              number;
+          }> =
+          [];
+
+        for (
+          const requestedRow of
+          requestedRows
+        ) {
+          if (
+            requestedRow.requested_inventory_item_id
+          ) {
+            if (
+              selectionByRequestedItemId.has(
+                requestedRow.id,
+              )
+            ) {
+              throw new BadRequestException(
+                "An exact requested inventory item must not be replaced by another selection.",
+              );
+            }
+
+            resolvedOwnerItems.push({
+              requestedItemId:
+                requestedRow.id,
+
+              inventoryItemId:
+                requestedRow.requested_inventory_item_id,
+
+              quantity:
+                requestedRow.quantity,
+            });
+
+            continue;
+          }
+
+          const selectedInventoryId =
+            selectionByRequestedItemId.get(
+              requestedRow.id,
+            );
+
+          if (
+            !selectedInventoryId
+          ) {
+            throw new BadRequestException(
+              "Every flexible requested trade term must be resolved to a specific registered inventory item before acceptance.",
+            );
+          }
+
+          resolvedOwnerItems.push({
+            requestedItemId:
+              requestedRow.id,
+
+            inventoryItemId:
+              selectedInventoryId,
+
+            quantity:
+              requestedRow.quantity,
+          });
+        }
+
+        const flexibleRequestedIds =
+          requestedRows
+            .filter(
+              (row) =>
+                !row.requested_inventory_item_id,
+            )
+            .map(
+              (row) =>
+                row.id,
+            );
+
+        if (
+          flexibleRequestedIds.length !==
+          input.requestedInventorySelections.length
+        ) {
+          throw new BadRequestException(
+            "The requested inventory selections do not exactly match the flexible trade terms in this offer.",
+          );
+        }
+
+        const ownerInventoryIds =
+          resolvedOwnerItems.map(
+            (item) =>
+              item.inventoryItemId,
+          );
+
+        if (
+          new Set(
+            ownerInventoryIds,
+          ).size !==
+          ownerInventoryIds.length
+        ) {
+          throw new BadRequestException(
+            "The same wishlist-owner inventory item cannot satisfy multiple requested trade terms.",
+          );
+        }
+
+        const ownerInventory =
+          await transaction.inventory_items.findMany({
+            where: {
+              id: {
+                in:
+                  ownerInventoryIds,
+              },
+
+              owner_user_id:
+                ownerUserId,
+            },
+
+            select: {
+              id: true,
+              printing_id: true,
+              finish: true,
+              condition: true,
+              language_code:
+                true,
+              quantity: true,
+              status: true,
+              owner_user_id:
+                true,
+              owner_store_id:
+                true,
+            },
+          });
+
+        if (
+          ownerInventory.length !==
+          ownerInventoryIds.length
+        ) {
+          throw new BadRequestException(
+            "Every card selected in return must belong to the wishlist owner.",
+          );
+        }
+
+        const ownerInventoryById =
+          new Map(
+            ownerInventory.map(
+              (inventory) => [
+                inventory.id,
+                inventory,
+              ],
+            ),
+          );
+
+        const ownerPrintingIds = [
+          ...new Set(
+            ownerInventory.map(
+              (inventory) =>
+                inventory.printing_id,
+            ),
+          ),
+        ];
+
+        const ownerPrintings =
+          await transaction.card_printings.findMany({
+            where: {
+              id: {
+                in:
+                  ownerPrintingIds,
+              },
+            },
+
+            select: {
+              id: true,
+              canonical_card_id:
+                true,
+            },
+          });
+
+        const ownerPrintingById =
+          new Map(
+            ownerPrintings.map(
+              (printing) => [
+                printing.id,
+                printing,
+              ],
+            ),
+          );
+
+        const requestedRowById =
+          new Map(
+            requestedRows.map(
+              (row) => [
+                row.id,
+                row,
+              ],
+            ),
+          );
+
+        for (
+          const resolved of
+          resolvedOwnerItems
+        ) {
+          const requestedRow =
+            requestedRowById.get(
+              resolved.requestedItemId,
+            );
+
+          const inventory =
+            ownerInventoryById.get(
+              resolved.inventoryItemId,
+            );
+
+          if (
+            !requestedRow ||
+            !inventory
+          ) {
+            throw new ConflictException(
+              "A requested trade item could not be resolved.",
+            );
+          }
+
+          if (
+            inventory.status !==
+            "available"
+          ) {
+            throw new ConflictException(
+              "A requested return card is no longer available.",
+            );
+          }
+
+          if (
+            inventory.quantity !==
+            resolved.quantity
+          ) {
+            throw new ConflictException(
+              "A requested return-card quantity no longer matches the accepted trade terms.",
+            );
+          }
+
+          const printing =
+            ownerPrintingById.get(
+              inventory.printing_id,
+            );
+
+          if (!printing) {
+            throw new ConflictException(
+              "The printing for a requested return card could not be loaded.",
+            );
+          }
+
+          if (
+            requestedRow.requested_inventory_item_id &&
+            inventory.id !==
+              requestedRow.requested_inventory_item_id
+          ) {
+            throw new ConflictException(
+              "The exact requested inventory item changed during acceptance.",
+            );
+          }
+
+          if (
+            requestedRow.requested_canonical_card_id &&
+            printing.canonical_card_id !==
+              requestedRow.requested_canonical_card_id
+          ) {
+            throw new BadRequestException(
+              "The selected inventory item does not match the requested canonical card.",
+            );
+          }
+
+          if (
+            requestedRow.requested_printing_id &&
+            inventory.printing_id !==
+              requestedRow.requested_printing_id
+          ) {
+            throw new BadRequestException(
+              "The selected inventory item does not match the requested printing.",
+            );
+          }
+
+          if (
+            requestedRow.desired_finish &&
+            inventory.finish !==
+              requestedRow.desired_finish
+          ) {
+            throw new BadRequestException(
+              "The selected inventory item does not match the requested finish.",
+            );
+          }
+
+          if (
+            requestedRow.desired_condition &&
+            inventory.condition !==
+              requestedRow.desired_condition
+          ) {
+            throw new BadRequestException(
+              "The selected inventory item does not match the requested condition.",
+            );
+          }
+
+          if (
+            requestedRow.language_code &&
+            inventory.language_code !==
+              requestedRow.language_code
+          ) {
+            throw new BadRequestException(
+              "The selected inventory item does not match the requested language.",
+            );
+          }
+        }
+
+        const allInventoryIds = [
+          ...offeredInventoryIds,
+          ...ownerInventoryIds,
+        ];
+
+        if (
+          new Set(
+            allInventoryIds,
+          ).size !==
+          allInventoryIds.length
+        ) {
+          throw new ConflictException(
+            "The same inventory item cannot appear on both sides of the same trade.",
+          );
+        }
+
+        /*
+         * An inventory item already exposed by an
+         * active/paused listing must not silently
+         * enter a separate wishlist transaction.
+         */
+        const conflictingListing =
+          await transaction.listings.findFirst({
+            where: {
+              inventory_item_id: {
+                in:
+                  allInventoryIds,
+              },
+
+              status: {
+                in: [
+                  "active",
+                  "paused",
+                ],
+              },
+            },
+
+            select: {
+              id: true,
+              inventory_item_id:
+                true,
+            },
+          });
+
+        if (
+          conflictingListing
+        ) {
+          throw new ConflictException(
+            "One of the cards in this wishlist trade is currently attached to an active or paused listing.",
+          );
+        }
+
+        /*
+         * Reserve every physical inventory row
+         * atomically. This is the point at which
+         * the accepted trade becomes exclusive.
+         */
+        for (
+          const offeredRow of
+          offeredRows
+        ) {
+          const reserved =
+            await transaction.inventory_items.updateMany({
+              where: {
+                id:
+                  offeredRow.inventory_item_id,
+
+                owner_user_id:
+                  offer.offerer_user_id,
+
+                owner_store_id:
+                  null,
+
+                status:
+                  "available",
+
+                quantity:
+                  offeredRow.quantity,
+              },
+
+              data: {
+                status:
+                  "in_trade",
+
+                updated_at:
+                  now,
+              },
+            });
+
+          if (
+            reserved.count !==
+            1
+          ) {
+            throw new ConflictException(
+              "An offered card changed while the wishlist offer was being accepted.",
+            );
+          }
+        }
+
+        for (
+          const ownerItem of
+          resolvedOwnerItems
+        ) {
+          const reserved =
+            await transaction.inventory_items.updateMany({
+              where: {
+                id:
+                  ownerItem.inventoryItemId,
+
+                owner_user_id:
+                  ownerUserId,
+
+                owner_store_id:
+                  null,
+
+                status:
+                  "available",
+
+                quantity:
+                  ownerItem.quantity,
+              },
+
+              data: {
+                status:
+                  "in_trade",
+
+                updated_at:
+                  now,
+              },
+            });
+
+          if (
+            reserved.count !==
+            1
+          ) {
+            throw new ConflictException(
+              "A requested return card changed while the wishlist offer was being accepted.",
+            );
+          }
+        }
+
+        /*
+         * For wishlist-origin trades we currently
+         * map item_role as follows:
+         *
+         * listed_item  = wishlist owner's side
+         * offered_item = wishlist offerer's side
+         *
+         * This preserves compatibility with the
+         * existing transaction_items constraint.
+         */
+        const transactionHeader =
+          await transaction.transactions.create({
+            data: {
+              listing_id:
+                null,
+
+              accepted_offer_id:
+                null,
+
+              accepted_wishlist_offer_id:
+                offer.id,
+
+              seller_user_id:
+                ownerUserId,
+
+              seller_store_id:
+                null,
+
+              counterparty_user_id:
+                offer.offerer_user_id,
+
+              counterparty_store_id:
+                null,
+
+              transaction_type:
+                "card_trade",
+
+              cash_amount:
+                0,
+
+              currency_code:
+                "USD",
+
+              status:
+                "awaiting_handoff",
+
+              agreed_at:
+                now,
+
+              completed_at:
+                null,
+
+              updated_at:
+                now,
+            },
+
+            select: {
+              id: true,
+              listing_id: true,
+
+              accepted_offer_id:
+                true,
+
+              accepted_wishlist_offer_id:
+                true,
+
+              seller_user_id:
+                true,
+
+              seller_store_id:
+                true,
+
+              counterparty_user_id:
+                true,
+
+              counterparty_store_id:
+                true,
+
+              transaction_type:
+                true,
+
+              cash_amount:
+                true,
+
+              currency_code:
+                true,
+
+              status: true,
+              agreed_at: true,
+              completed_at:
+                true,
+              created_at: true,
+              updated_at: true,
+            },
+          });
+
+        const transactionItems:
+          any[] =
+          [];
+
+        for (
+          const ownerItem of
+          resolvedOwnerItems
+        ) {
+          const created =
+            await transaction.transaction_items.create({
+              data: {
+                transaction_id:
+                  transactionHeader.id,
+
+                inventory_item_id:
+                  ownerItem.inventoryItemId,
+
+                item_role:
+                  "listed_item",
+
+                quantity:
+                  ownerItem.quantity,
+
+                from_user_id:
+                  ownerUserId,
+
+                from_store_id:
+                  null,
+
+                to_user_id:
+                  offer.offerer_user_id,
+
+                to_store_id:
+                  null,
+
+                market_snapshot_id:
+                  null,
+
+                agreed_unit_value:
+                  null,
+
+                currency_code:
+                  null,
+
+                result_inventory_item_id:
+                  null,
+              },
+
+              select: {
+                id: true,
+                transaction_id:
+                  true,
+                inventory_item_id:
+                  true,
+
+                result_inventory_item_id:
+                  true,
+
+                item_role: true,
+                quantity: true,
+
+                from_user_id:
+                  true,
+
+                from_store_id:
+                  true,
+
+                to_user_id:
+                  true,
+
+                to_store_id:
+                  true,
+
+                created_at: true,
+              },
+            });
+
+          transactionItems.push(
+            created,
+          );
+        }
+
+        for (
+          const offeredRow of
+          offeredRows
+        ) {
+          const created =
+            await transaction.transaction_items.create({
+              data: {
+                transaction_id:
+                  transactionHeader.id,
+
+                inventory_item_id:
+                  offeredRow.inventory_item_id,
+
+                item_role:
+                  "offered_item",
+
+                quantity:
+                  offeredRow.quantity,
+
+                from_user_id:
+                  offer.offerer_user_id,
+
+                from_store_id:
+                  null,
+
+                to_user_id:
+                  ownerUserId,
+
+                to_store_id:
+                  null,
+
+                market_snapshot_id:
+                  null,
+
+                agreed_unit_value:
+                  null,
+
+                currency_code:
+                  null,
+
+                result_inventory_item_id:
+                  null,
+              },
+
+              select: {
+                id: true,
+                transaction_id:
+                  true,
+                inventory_item_id:
+                  true,
+
+                result_inventory_item_id:
+                  true,
+
+                item_role: true,
+                quantity: true,
+
+                from_user_id:
+                  true,
+
+                from_store_id:
+                  true,
+
+                to_user_id:
+                  true,
+
+                to_store_id:
+                  true,
+
+                created_at: true,
+              },
+            });
+
+          transactionItems.push(
+            created,
+          );
+        }
+
+        const handoff =
+          await transaction.store_trade_handoffs.create({
+            data: {
+              transaction_id:
+                transactionHeader.id,
+
+              store_id:
+                store.id,
+
+              status:
+                "awaiting_items",
+
+              store_notes:
+                null,
+
+              completed_at:
+                null,
+
+              cancelled_at:
+                null,
+
+              updated_at:
+                now,
+            },
+
+            select: {
+              id: true,
+              transaction_id:
+                true,
+              store_id: true,
+              status: true,
+              store_notes: true,
+              completed_at:
+                true,
+              cancelled_at:
+                true,
+              created_at: true,
+              updated_at: true,
+            },
+          });
+
+        const custody:
+          any[] =
+          [];
+
+        for (
+          const transactionItem of
+          transactionItems
+        ) {
+          const created =
+            await transaction.transaction_item_custody.create({
+              data: {
+                handoff_id:
+                  handoff.id,
+
+                transaction_id:
+                  transactionHeader.id,
+
+                transaction_item_id:
+                  transactionItem.id,
+
+                store_id:
+                  store.id,
+
+                custody_status:
+                  "awaiting_delivery_to_store",
+
+                received_by_staff_id:
+                  null,
+
+                received_at:
+                  null,
+
+                verified_by_staff_id:
+                  null,
+
+                verified_at:
+                  null,
+
+                released_by_staff_id:
+                  null,
+
+                released_at:
+                  null,
+
+                issue_notes:
+                  null,
+
+                updated_at:
+                  now,
+              },
+
+              select: {
+                id: true,
+
+                handoff_id:
+                  true,
+
+                transaction_id:
+                  true,
+
+                transaction_item_id:
+                  true,
+
+                store_id: true,
+
+                custody_status:
+                  true,
+
+                received_by_staff_id:
+                  true,
+
+                received_at:
+                  true,
+
+                verified_by_staff_id:
+                  true,
+
+                verified_at:
+                  true,
+
+                released_by_staff_id:
+                  true,
+
+                released_at:
+                  true,
+
+                issue_notes:
+                  true,
+
+                created_at:
+                  true,
+
+                updated_at:
+                  true,
+              },
+            });
+
+          custody.push(
+            created,
+          );
+        }
+
+        /*
+         * The accepted offer is immediately
+         * represented by a transaction, so its
+         * terminal offer state is
+         * converted_to_transaction rather than
+         * merely accepted.
+         */
+        const converted =
+          await transaction.wishlist_offers.updateMany({
+            where: {
+              id:
+                offer.id,
+
+              status:
+                "pending",
+            },
+
+            data: {
+              status:
+                "converted_to_transaction",
+
+              responded_at:
+                now,
+
+              updated_at:
+                now,
+            },
+          });
+
+        if (
+          converted.count !==
+          1
+        ) {
+          throw new ConflictException(
+            "The wishlist offer changed while it was being accepted.",
+          );
+        }
+
+        /*
+         * Other pending offers were not expressly
+         * rejected by the owner; they are cancelled
+         * because this wishlist item is now locked
+         * into a transaction.
+         */
+        await transaction.wishlist_offers.updateMany({
+          where: {
+            wishlist_item_id:
+              wishlistItem.id,
+
+            id: {
+              not:
+                offer.id,
+            },
+
+            status:
+              "pending",
+          },
+
+          data: {
+            status:
+              "cancelled",
+
+            responded_at:
+              now,
+
+            updated_at:
+              now,
+          },
+        });
+
+        const paused =
+          await transaction.wishlist_items.updateMany({
+            where: {
+              id:
+                wishlistItem.id,
+
+              status:
+                "active",
+            },
+
+            data: {
+              status:
+                "paused",
+
+              updated_at:
+                now,
+            },
+          });
+
+        if (
+          paused.count !==
+          1
+        ) {
+          throw new ConflictException(
+            "The wishlist item changed while the offer was being accepted.",
+          );
+        }
+
+        return {
+          ...transactionHeader,
+
+          store,
+
+          transaction_items:
+            transactionItems,
+
+          store_trade_handoffs:
+            handoff,
+
+          custody,
+        };
+      },
+      {
+        isolationLevel:
+          "Serializable",
+      },
     );
   }
 

@@ -284,6 +284,9 @@ private async synchronizeHandoffStatus(
               accepted_offer_id:
                 true,
 
+              accepted_wishlist_offer_id:
+                true,
+
               seller_user_id:
                 true,
 
@@ -758,6 +761,10 @@ private async synchronizeHandoffStatus(
           select: {
             id: true,
             listing_id: true,
+
+            accepted_wishlist_offer_id:
+              true,
+
             transaction_type:
               true,
             status: true,
@@ -1342,6 +1349,80 @@ private async synchronizeHandoffStatus(
           ) {
             throw new ConflictException(
               "The listing changed while trade completion was being finalized.",
+            );
+          }
+        }
+
+        /*
+         * Wishlist-origin transactions are not
+         * fulfilled merely because an offer was
+         * accepted.
+         *
+         * Acceptance pauses the wishlist item.
+         * The item becomes fulfilled only after
+         * every card in the mediated LGS handoff
+         * has been released to its recipient.
+         */
+        if (
+          transactionHeader.accepted_wishlist_offer_id
+        ) {
+          const completedWishlistOffer =
+            await transaction.wishlist_offers.findUnique({
+              where: {
+                id:
+                  transactionHeader.accepted_wishlist_offer_id,
+              },
+
+              select: {
+                id: true,
+
+                wishlist_item_id:
+                  true,
+
+                status: true,
+              },
+            });
+
+          if (!completedWishlistOffer) {
+            throw new ConflictException(
+              "The wishlist offer linked to this transaction could not be found.",
+            );
+          }
+
+          if (
+            completedWishlistOffer.status !==
+            "converted_to_transaction"
+          ) {
+            throw new ConflictException(
+              "The wishlist offer is not in the expected transaction-converted state.",
+            );
+          }
+
+          const fulfilledWishlistItem =
+            await transaction.wishlist_items.updateMany({
+              where: {
+                id:
+                  completedWishlistOffer.wishlist_item_id,
+
+                status:
+                  "paused",
+              },
+
+              data: {
+                status:
+                  "fulfilled",
+
+                updated_at:
+                  now,
+              },
+            });
+
+          if (
+            fulfilledWishlistItem.count !==
+            1
+          ) {
+            throw new ConflictException(
+              "The wishlist item changed while transaction completion was being finalized.",
             );
           }
         }

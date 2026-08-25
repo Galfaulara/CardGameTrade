@@ -12,11 +12,13 @@ import {
   createUserWishlistSchema,
   createWishlistItemSchema,
   createWishlistOfferSchema,
+  acceptWishlistOfferSchema,
   updateUserWishlistSchema,
   updateWishlistItemSchema,
 } from "@repo/validation";
 
 import type {
+  AcceptWishlistOfferInput,
   CreateUserWishlistInput,
   CreateWishlistItemInput,
   CreateWishlistOfferInput,
@@ -272,6 +274,53 @@ export class WishlistsController {
     );
   }
 
+  @Post(
+    "items/:wishlistItemId/offers/users/:userId/from-interest/:interestId",
+  )
+  createUserWishlistOfferFromInterest(
+    @Param(
+      "wishlistItemId",
+      new ParseUUIDPipe({
+        version:
+          "4",
+      }),
+    )
+    wishlistItemId: string,
+
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version:
+          "4",
+      }),
+    )
+    userId: string,
+
+    @Param(
+      "interestId",
+      new ParseUUIDPipe({
+        version:
+          "4",
+      }),
+    )
+    interestId: string,
+
+    @Body(
+      new ZodValidationPipe(
+        createWishlistOfferSchema,
+      ),
+    )
+    input:
+      CreateWishlistOfferInput,
+  ) {
+    return this.wishlistsService.createUserWishlistOffer(
+      userId,
+      wishlistItemId,
+      input,
+      interestId,
+    );
+  }
+
   @Get(
     "offers/users/:userId/sent",
   )
@@ -343,6 +392,43 @@ export class WishlistsController {
     return this.wishlistsService.withdrawUserWishlistOffer(
       userId,
       offerId,
+    );
+  }
+
+  @Post(
+    "offers/:offerId/users/:userId/accept",
+  )
+  acceptUserWishlistOffer(
+    @Param(
+      "offerId",
+      new ParseUUIDPipe({
+        version:
+          "4",
+      }),
+    )
+    offerId: string,
+
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version:
+          "4",
+      }),
+    )
+    userId: string,
+
+    @Body(
+      new ZodValidationPipe(
+        acceptWishlistOfferSchema,
+      ),
+    )
+    input:
+      AcceptWishlistOfferInput,
+  ) {
+    return this.wishlistsService.acceptUserWishlistOffer(
+      userId,
+      offerId,
+      input,
     );
   }
 
