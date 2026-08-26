@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AllowUnmappedDeckDealUser = exports.ALLOW_UNMAPPED_DECKDEAL_USER_KEY = exports.Public = exports.IS_PUBLIC_KEY = void 0;
+const common_1 = require("@nestjs/common");
+exports.IS_PUBLIC_KEY = "deckdeal:is-public";
+const Public = () => (0, common_1.SetMetadata)(exports.IS_PUBLIC_KEY, true);
+exports.Public = Public;
+exports.ALLOW_UNMAPPED_DECKDEAL_USER_KEY = "deckdeal:allow-unmapped-user";
+const AllowUnmappedDeckDealUser = () => (0, common_1.SetMetadata)(exports.ALLOW_UNMAPPED_DECKDEAL_USER_KEY, true);
+exports.AllowUnmappedDeckDealUser = AllowUnmappedDeckDealUser;

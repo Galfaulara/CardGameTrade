@@ -12,7 +12,11 @@
 },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "bulk-import:inventory": "npm run build && node dist/scripts/bulk-inventory-import.js",
+    "fixtures:marketplace-preview": "npm run build && node dist/scripts/seed-marketplace-preview-listings.js",
+    "fixtures:user-preferred-stores": "npm run build && node dist/scripts/seed-user-preferred-stores.js",
+    "auth:link-clerk": "npm run build && node dist/scripts/link-clerk-identity.js"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

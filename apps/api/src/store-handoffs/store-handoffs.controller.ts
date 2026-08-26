@@ -7,6 +7,8 @@ import {
 } from "@nestjs/common";
 
 import { StoreHandoffsService } from "./store-handoffs.service";
+import { CurrentUser } from "../auth/current-user.decorator";
+import type { AuthenticatedPrincipal } from "../auth/auth.types";
 
 @Controller("store-handoffs")
 export class StoreHandoffsController {
@@ -25,9 +27,11 @@ export class StoreHandoffsController {
       }),
     )
     handoffId: string,
+    @CurrentUser() principal: AuthenticatedPrincipal,
   ) {
     return this.storeHandoffsService.getHandoff(
       handoffId,
+      principal.deckdealUserId!,
     );
   }
 

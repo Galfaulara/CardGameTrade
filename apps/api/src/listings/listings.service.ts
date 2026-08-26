@@ -436,6 +436,46 @@ export class ListingsService {
         where: {
           status:
             "active",
+
+          OR: [
+            {
+              accepts_trade: true,
+            },
+            {
+              accepts_cash: true,
+            },
+          ],
+
+          AND: {
+            OR: [
+              {
+                seller_user_id: { not: null },
+                seller_store_id: null,
+                inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: {
+                  is: {
+                    status: "available",
+                    owner_store_id: null,
+                    user_profiles: { status: "active" },
+                  },
+                },
+              },
+              {
+                seller_store_id: { not: null },
+                seller_user_id: null,
+                inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: {
+                  is: {
+                    status: "available",
+                    owner_user_id: null,
+                    stores: {
+                      status: "active",
+                      verification_status: "verified",
+                      trade_mediation_enabled: true,
+                    },
+                  },
+                },
+              },
+            ],
+          },
         },
 
         select:

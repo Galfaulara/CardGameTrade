@@ -1,0 +1,22 @@
+.main{min-height:100svh;display:grid;place-items:center;padding:var(--space-6);background:radial-gradient(circle at 50% 15%,color-mix(in srgb,var(--color-action-subtle) 75%,transparent),transparent 32rem),var(--color-canvas)}
+.shell{display:grid;justify-items:center;gap:var(--space-6);width:min(100%,40rem)}
+.panel{width:100%;padding:var(--space-8);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-md)}
+.panel a{display:inline-flex;margin-top:var(--space-5);color:var(--color-action);font-weight:var(--font-weight-bold)}
+.eyebrow{margin-bottom:var(--space-3);color:var(--color-action);font-size:var(--font-size-sm);font-weight:var(--font-weight-bold);text-transform:uppercase;letter-spacing:.08em}
+.panel h1{color:var(--color-brand-deep)}
+.description{margin-top:var(--space-3);color:var(--color-text-muted)}
+.form{display:grid;gap:var(--space-6);margin-top:var(--space-7)}
+.field{display:grid;gap:var(--space-2)}
+.field label{font-weight:var(--font-weight-semibold)}
+.field input{width:100%;min-height:3rem;padding:0 var(--space-4);border:1px solid var(--color-border-strong);border-radius:var(--radius-lg);background:var(--color-canvas);color:var(--color-text);transition:border-color 140ms ease,box-shadow 140ms ease}
+.field input:focus{border-color:var(--color-action);box-shadow:var(--shadow-focus)}
+.field input[aria-invalid="true"]{border-color:var(--color-danger)}
+.help{color:var(--color-text-muted);font-size:var(--font-size-sm)}
+.status{min-height:1.5rem;color:var(--color-text-muted);font-size:var(--font-size-sm)}
+.success{color:var(--color-success)}
+.error{color:var(--color-danger);font-size:var(--font-size-sm)}
+.submitError{padding:var(--space-4);color:var(--color-danger);background:color-mix(in srgb,var(--color-danger) 10%,var(--color-surface));border:1px solid color-mix(in srgb,var(--color-danger) 35%,var(--color-border));border-radius:var(--radius-lg)}
+.submit{min-height:3rem;padding:0 var(--space-5);border:0;border-radius:var(--radius-lg);color:var(--color-text-inverse);background:var(--color-action);font-weight:var(--font-weight-bold);cursor:pointer;transition:background-color 140ms ease,opacity 140ms ease}
+.submit:hover{background:var(--color-action-hover)}
+.submit:disabled{opacity:.7;cursor:progress}
+@media (max-width:42rem){.main{padding:var(--space-4)}.panel{padding:var(--space-6)}}

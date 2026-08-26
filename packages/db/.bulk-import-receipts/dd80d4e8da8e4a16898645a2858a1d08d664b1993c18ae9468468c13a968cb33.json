@@ -1,0 +1,11 @@
+{
+  "digest": "dd80d4e8da8e4a16898645a2858a1d08d664b1993c18ae9468468c13a968cb33",
+  "appliedAt": "2026-08-25T17:02:54.216Z",
+  "manifests": [
+    "avengers-assemble.json",
+    "turtle-power.json",
+    "silverquill-influence.json",
+    "lorehold-spirit.json",
+    "prismari-artistry.json"
+  ]
+}

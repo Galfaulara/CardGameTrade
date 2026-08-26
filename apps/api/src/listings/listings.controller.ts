@@ -20,6 +20,7 @@ import type {
 
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
 import { ListingsService } from "./listings.service";
+import { Public } from "../auth/public.decorator";
 
 @Controller("listings")
 export class ListingsController {
@@ -28,11 +29,13 @@ export class ListingsController {
   ) {}
 
   @Get()
+  @Public()
   getActiveListings() {
     return this.listingsService.getActiveListings();
   }
 
   @Get(":listingId")
+  @Public()
   getListing(
     @Param(
       "listingId",

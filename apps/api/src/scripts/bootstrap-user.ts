@@ -1,5 +1,8 @@
 import { NestFactory } from "@nestjs/core";
-
+import {
+  normalizeDeckDealDisplayName,
+  validateDeckDealUsername,
+} from "@repo/validation";
 import { AppModule } from "../app.module";
 import { DatabaseService } from "../database/database.service";
 
@@ -16,10 +19,10 @@ async function main() {
     const email =
       process.env.BOOTSTRAP_USER_EMAIL;
 
-    const username =
+    const usernameInput =
       process.env.BOOTSTRAP_USER_USERNAME;
 
-    const displayName =
+    const displayNameInput =
       process.env.BOOTSTRAP_USER_DISPLAY_NAME;
 
     if (!email) {
@@ -28,11 +31,33 @@ async function main() {
       );
     }
 
-    if (!username) {
+    if (!usernameInput) {
       throw new Error(
         "BOOTSTRAP_USER_USERNAME is required.",
       );
     }
+
+    if (!displayNameInput) {
+      throw new Error(
+        "BOOTSTRAP_USER_DISPLAY_NAME is required.",
+      );
+    }
+
+    const username =
+      validateDeckDealUsername(
+        usernameInput,
+      );
+
+    if (!username.ok) {
+      throw new Error(
+        username.message,
+      );
+    }
+
+    const displayName =
+      normalizeDeckDealDisplayName(
+        displayNameInput,
+      );
 
     if (!displayName) {
       throw new Error(
@@ -54,7 +79,9 @@ async function main() {
             id: existingUser.id,
           },
           data: {
-            username,
+            username: username.username,
+            username_normalized:
+              username.normalized,
             display_name:
               displayName,
             status: "active",
@@ -94,7 +121,10 @@ async function main() {
             "bootstrap-primary-user",
 
           email,
-          username,
+          username:
+            username.username,
+          username_normalized:
+            username.normalized,
           display_name:
             displayName,
 

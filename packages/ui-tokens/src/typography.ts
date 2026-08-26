@@ -15,3 +15,16 @@ export const fontWeights = {
   semibold: "600",
   bold: "700",
 } as const;
+
+export const lineHeights = {
+  tight: "1.15",
+  snug: "1.35",
+  normal: "1.5",
+  relaxed: "1.7",
+} as const;
+
+export const letterSpacing = {
+  tight: "-0.025em",
+  normal: "0",
+  wide: "0.04em",
+} as const;

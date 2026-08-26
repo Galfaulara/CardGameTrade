@@ -404,6 +404,7 @@ model stores {
   transactions_transactions_counterparty_store_idTostores   transactions[]             @relation("transactions_counterparty_store_idTostores")
   transactions_transactions_seller_store_idTostores         transactions[]             @relation("transactions_seller_store_idTostores")
   user_preferences                                          user_preferences[]
+  preferred_by_users                                        user_profiles[]            @relation("user_profiles_preferred_store")
   wishlist_offers                                           wishlist_offers[]
   wishlists                                                 wishlists[]
 
@@ -524,8 +525,10 @@ model user_profiles {
   auth_user_id                                                    String
   email                                                           String                     @unique(map: "uq_user_profiles_email")
   username                                                        String?                    @unique(map: "uq_user_profiles_username")
+  username_normalized                                             String?                    @unique(map: "uq_user_profiles_username_normalized")
   display_name                                                    String?
   avatar_url                                                      String?
+  preferred_store_id                                              String?                    @db.Uuid
   status                                                          String                     @default("active")
   created_at                                                      DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at                                                      DateTime                   @default(now()) @db.Timestamptz(6)
@@ -539,10 +542,12 @@ model user_profiles {
   transactions_transactions_counterparty_user_idTouser_profiles   transactions[]             @relation("transactions_counterparty_user_idTouser_profiles")
   transactions_transactions_seller_user_idTouser_profiles         transactions[]             @relation("transactions_seller_user_idTouser_profiles")
   user_preferences                                                user_preferences?
+  preferred_store                                                 stores?                    @relation("user_profiles_preferred_store", fields: [preferred_store_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_profiles_preferred_store")
   wishlist_offers                                                 wishlist_offers[]
   wishlists                                                       wishlists[]
 
   @@unique([auth_provider, auth_user_id], map: "uq_user_profiles_auth")
+  @@index([preferred_store_id], map: "idx_user_profiles_preferred_store_id")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

@@ -1,0 +1,3 @@
+.link{color:color-mix(in srgb,var(--color-gold-deep) 76%,var(--color-action));text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--color-brand-accent-warm) 68%,transparent);text-underline-offset:3px;border-radius:2px;transition:color 140ms ease,text-decoration-color 140ms ease,background-color 140ms ease}
+.link:hover{color:var(--color-action-hover);text-decoration-color:var(--color-brand-accent-warm);text-decoration-thickness:2px;background:color-mix(in srgb,var(--color-brand-accent-warm) 13%,transparent)}
+.link:focus-visible{outline:3px solid color-mix(in srgb,var(--color-highlight) 72%,var(--color-action));outline-offset:3px;background:var(--color-action-subtle)}

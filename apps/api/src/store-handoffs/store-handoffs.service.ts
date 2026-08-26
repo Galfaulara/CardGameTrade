@@ -384,7 +384,16 @@ private async synchronizeHandoffStatus(
 
   async getHandoff(
     handoffId: string,
+    staffUserId: string,
   ) {
+    const handoff = await this.database.client.store_trade_handoffs.findUnique({
+      where: { id: handoffId },
+      select: { store_id: true },
+    });
+    if (!handoff) {
+      throw new NotFoundException("Store handoff was not found.");
+    }
+    await this.requireActiveStoreStaff(handoff.store_id, staffUserId);
     return this.loadHandoff(
       handoffId,
     );
@@ -424,6 +433,13 @@ private async synchronizeHandoffStatus(
           );
         }
 
+        const staff =
+          await this.requireActiveStoreStaff(
+            handoff.store_id,
+            staffUserId,
+            transaction,
+          );
+
         if (
           handoff.status ===
             "completed" ||
@@ -436,13 +452,6 @@ private async synchronizeHandoffStatus(
             "Items cannot be received for a closed or disputed handoff.",
           );
         }
-
-        const staff =
-          await this.requireActiveStoreStaff(
-            handoff.store_id,
-            staffUserId,
-            transaction,
-          );
 
         const custody =
           await transaction.transaction_item_custody.findFirst({
@@ -566,6 +575,13 @@ private async synchronizeHandoffStatus(
           );
         }
 
+        const staff =
+          await this.requireActiveStoreStaff(
+            handoff.store_id,
+            staffUserId,
+            transaction,
+          );
+
         if (
           handoff.status ===
             "completed" ||
@@ -578,13 +594,6 @@ private async synchronizeHandoffStatus(
             "Items cannot be verified for a closed or disputed handoff.",
           );
         }
-
-        const staff =
-          await this.requireActiveStoreStaff(
-            handoff.store_id,
-            staffUserId,
-            transaction,
-          );
 
         const custody =
           await transaction.transaction_item_custody.findFirst({
@@ -728,6 +737,13 @@ private async synchronizeHandoffStatus(
         );
       }
 
+      const staff =
+        await this.requireActiveStoreStaff(
+          handoff.store_id,
+          staffUserId,
+          transaction,
+        );
+
       if (
         handoff.status !==
         "validated"
@@ -736,13 +752,6 @@ private async synchronizeHandoffStatus(
           "Cards can only be released after the entire store handoff has been validated.",
         );
       }
-
-      const staff =
-        await this.requireActiveStoreStaff(
-          handoff.store_id,
-          staffUserId,
-          transaction,
-        );
 
       /*
        * 2. For now, release only pure

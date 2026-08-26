@@ -1,0 +1,360 @@
+.main {
+  padding: var(--space-8) var(--space-6) var(--space-12);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-action-subtle) 72%, transparent), transparent 32rem),
+    radial-gradient(circle at 100% 10%, color-mix(in srgb, var(--color-highlight) 20%, transparent), transparent 20rem),
+    var(--color-canvas);
+}
+
+.shell {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+  display: grid;
+  gap: var(--space-8);
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.eyebrow,
+.sectionEyebrow,
+.stateEyebrow {
+  color: var(--color-action);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hero h1,
+.panelHeader h2,
+.statusCard h2,
+.statePanel h1 {
+  color: var(--color-brand-deep);
+}
+
+.intro,
+.help,
+.identityHandle,
+.statusLine,
+.selectedStore p,
+.statusCard p,
+.statePanel p,
+.submitHint,
+.muted {
+  color: var(--color-text-muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 0.95fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.panel,
+.statusCard,
+.statePanel {
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-cool));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.panel {
+  padding: var(--space-8);
+}
+
+.panelHeader,
+.statusCard,
+.statePanel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.identityHandle {
+  font-weight: var(--font-weight-semibold);
+}
+
+.identityCard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--color-action) 16%, var(--color-border));
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-surface-cool) 60%, var(--color-surface)), color-mix(in srgb, var(--color-brand-accent-warm) 10%, var(--color-surface)));
+}
+
+.identityCard div {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.identityCard span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.identityCard strong {
+  color: var(--color-brand-deep);
+  font-size: var(--font-size-lg);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-6);
+  margin-top: var(--space-7);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.field label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.field input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.field input:focus {
+  border-color: var(--color-action);
+  box-shadow: var(--shadow-focus);
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.readonlyInput {
+  color: var(--color-brand-deep);
+  background: color-mix(in srgb, var(--color-surface-muted) 84%, var(--color-surface));
+}
+
+.storeSelection {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.selectedStore {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-brand-accent-warm) 26%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-brand-accent-warm) 10%, var(--color-surface));
+}
+
+.inlineLink {
+  color: color-mix(in srgb, var(--color-gold-deep) 76%, var(--color-action));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inlineLink:hover {
+  color: var(--color-action-hover);
+}
+
+.clearButton,
+.secondaryAction,
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.clearButton {
+  border: 1px solid color-mix(in srgb, var(--color-brand-deep) 18%, var(--color-border));
+  background: var(--color-surface);
+  color: var(--color-brand-deep);
+  cursor: pointer;
+}
+
+.clearButton:hover {
+  border-color: color-mix(in srgb, var(--color-action) 32%, var(--color-border));
+  color: var(--color-action-hover);
+}
+
+.storeWarning,
+.error {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.statusLine {
+  min-height: 1.5rem;
+  font-size: var(--font-size-sm);
+}
+
+.storeResults {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.storeOption {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-action) 16%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-cool));
+  color: var(--color-brand-deep);
+  text-align: left;
+  cursor: pointer;
+}
+
+.storeOption:hover,
+.storeOption:focus-visible {
+  border-color: var(--color-action);
+  box-shadow: var(--shadow-focus);
+}
+
+.storeOption span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.successBanner,
+.submitError {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+}
+
+.successBanner {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-success) 28%, var(--color-border));
+}
+
+.submitError {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+}
+
+.submitRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.submit,
+.primaryAction {
+  min-height: 3rem;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-inverse);
+  background: var(--color-action);
+  font-weight: var(--font-weight-bold);
+}
+
+.submit {
+  cursor: pointer;
+  transition: background-color 140ms ease, opacity 140ms ease;
+}
+
+.submit:hover,
+.primaryAction:hover {
+  background: var(--color-action-hover);
+}
+
+.submit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.sidebar {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.statusCard,
+.statePanel {
+  padding: var(--space-6);
+}
+
+.secondaryAction {
+  width: fit-content;
+  border: 1px solid color-mix(in srgb, var(--color-action) 28%, var(--color-border));
+  color: var(--color-action);
+  background: color-mix(in srgb, var(--color-action-subtle) 64%, transparent);
+}
+
+.secondaryAction:hover {
+  color: var(--color-action-hover);
+  border-color: color-mix(in srgb, var(--color-action) 40%, var(--color-border));
+}
+
+.statePanel {
+  width: min(100%, 36rem);
+  margin: 0 auto;
+}
+
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+@media (max-width: 64rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 42rem) {
+  .main {
+    padding: var(--space-6) var(--space-4) var(--space-10);
+  }
+
+  .panel,
+  .statusCard,
+  .statePanel {
+    padding: var(--space-5);
+  }
+
+  .identityCard {
+    grid-template-columns: 1fr;
+  }
+
+  .selectedStore,
+  .submitRow,
+  .storeOption {
+    flex-direction: column;
+  }
+
+  .clearButton,
+  .secondaryAction,
+  .primaryAction,
+  .submit {
+    width: 100%;
+  }
+}

@@ -1,27 +1,17 @@
-import { type JSX } from "react";
+import type { HTMLAttributes } from "react";
+import styles from "./card.module.css";
 
-export function Card({
-  className,
-  title,
-  children,
-  href,
-}: {
-  className?: string;
-  title: string;
-  children: React.ReactNode;
-  href: string;
-}): JSX.Element {
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  elevated?: boolean;
+}
+
+export function Card({ className, elevated = false, ...props }: CardProps) {
   return (
-    <a
-      className={className}
-      href={`${href}?utm_source=create-turbo&utm_medium=basic&utm_campaign=create-turbo"`}
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      <h2>
-        {title} <span>-&gt;</span>
-      </h2>
-      <p>{children}</p>
-    </a>
+    <div
+      {...props}
+      className={[styles.card, elevated && styles.elevated, className]
+        .filter(Boolean)
+        .join(" ")}
+    />
   );
 }

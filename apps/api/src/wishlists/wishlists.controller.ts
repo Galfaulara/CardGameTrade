@@ -28,6 +28,7 @@ import type {
 
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
 import { WishlistsService } from "./wishlists.service";
+import { Public } from "../auth/public.decorator";
 
 @Controller("wishlists")
 export class WishlistsController {
@@ -39,6 +40,7 @@ export class WishlistsController {
   @Get(
     "public/items",
   )
+  @Public()
   getPublicWishlistItems() {
     return this.wishlistsService.getPublicWishlistItems();
   }
