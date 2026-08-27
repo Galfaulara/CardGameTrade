@@ -11,6 +11,7 @@
     "test:profile": "tsc -p tsconfig.test.json && node dist-test/test/profile-regression.js",
     "test:onboarding": "tsc -p tsconfig.test.json && node dist-test/test/onboarding-regression.js",
     "test:authorization": "tsc -p tsconfig.test.json && node dist-test/test/authenticated-authorization-regression.js",
+    "test:inventory": "tsc -p tsconfig.test.json && node dist-test/test/my-inventory-regression.js",
     "test:lifecycle": "tsc -p tsconfig.test.json && node dist-test/test/non-payment-lifecycle-regression.js",
     "sync:scryfall:sets": "npm run build && node dist/scripts/sync-scryfall-sets.js",
     "sync:scryfall:canonical": "npm run build && node dist/scripts/sync-scryfall-canonical-cards.js",

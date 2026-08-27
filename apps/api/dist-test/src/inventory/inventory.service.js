@@ -15,6 +15,20 @@ const node_crypto_1 = require("node:crypto");
 const common_1 = require("@nestjs/common");
 const database_service_1 = require("../database/database.service");
 const storage_service_1 = require("../storage/storage.service");
+const currentInventoryStatuses = [
+    "available",
+    "not_for_trade",
+    "reserved",
+    "in_trade",
+];
+const removableInventoryStatuses = [
+    "available",
+    "not_for_trade",
+];
+const openListingStatuses = [
+    "active",
+    "paused",
+];
 let InventoryService = InventoryService_1 = class InventoryService {
     database;
     storage;
@@ -30,6 +44,232 @@ let InventoryService = InventoryService_1 = class InventoryService {
     constructor(database, storage) {
         this.database = database;
         this.storage = storage;
+    }
+    myInventoryBaseWhere(userId) {
+        return {
+            owner_user_id: userId,
+            owner_store_id: null,
+            status: {
+                in: [...currentInventoryStatuses],
+            },
+        };
+    }
+    myInventoryTerms(query) {
+        return query
+            .trim()
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(Boolean);
+    }
+    myInventorySelect() {
+        return {
+            id: true,
+            printing_id: true,
+            finish: true,
+            collection_id: true,
+            condition: true,
+            language_code: true,
+            quantity: true,
+            is_signed: true,
+            is_altered: true,
+            is_graded: true,
+            grading_company: true,
+            grade: true,
+            certification_number: true,
+            acquired_at: true,
+            acquired_price: true,
+            status: true,
+            notes: true,
+            created_at: true,
+            updated_at: true,
+            collections: {
+                select: {
+                    id: true,
+                    name: true,
+                    visibility: true,
+                },
+            },
+            listings_listings_inventory_item_id_seller_user_idToinventory_items: {
+                where: {
+                    status: "active",
+                    seller_store_id: null,
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    accepts_cash: true,
+                    accepts_trade: true,
+                    asking_price: true,
+                    currency_code: true,
+                    created_at: true,
+                    updated_at: true,
+                },
+                orderBy: {
+                    created_at: "desc",
+                },
+                take: 1,
+            },
+            printing_finishes: {
+                select: {
+                    finish: true,
+                    card_printings: {
+                        select: {
+                            id: true,
+                            canonical_card_id: true,
+                            collector_number: true,
+                            language_code: true,
+                            printed_name: true,
+                            rarity: true,
+                            artist_name: true,
+                            treatment: true,
+                            image_small_uri: true,
+                            image_normal_uri: true,
+                            image_large_uri: true,
+                            canonical_cards: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
+                            card_sets: {
+                                select: {
+                                    id: true,
+                                    code: true,
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+    }
+    mapMyInventoryItem(item) {
+        const { collections, listings_listings_inventory_item_id_seller_user_idToinventory_items, printing_finishes, ...inventoryItem } = item;
+        return {
+            ...inventoryItem,
+            collection: collections,
+            active_listing: listings_listings_inventory_item_id_seller_user_idToinventory_items.at(0) ?? null,
+            printing: {
+                ...printing_finishes.card_printings,
+                finish: printing_finishes.finish,
+            },
+        };
+    }
+    myInventoryWhere(userId, query) {
+        const terms = this.myInventoryTerms(query.q);
+        return {
+            ...this.myInventoryBaseWhere(userId),
+            ...(query.status !== "all"
+                ? {
+                    status: query.status,
+                }
+                : {}),
+            ...(query.condition !== "all"
+                ? {
+                    condition: query.condition,
+                }
+                : {}),
+            ...(query.collection === "unassigned"
+                ? {
+                    collection_id: null,
+                }
+                : query.collection !== "all"
+                    ? {
+                        collection_id: query.collection,
+                    }
+                    : {}),
+            ...(terms.length
+                ? {
+                    AND: terms.map((term) => ({
+                        OR: [
+                            {
+                                printing_finishes: {
+                                    is: {
+                                        card_printings: {
+                                            is: {
+                                                canonical_cards: {
+                                                    is: {
+                                                        normalized_name: {
+                                                            contains: term,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                printing_finishes: {
+                                    is: {
+                                        card_printings: {
+                                            is: {
+                                                printed_name: {
+                                                    contains: term,
+                                                    mode: "insensitive",
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                printing_finishes: {
+                                    is: {
+                                        card_printings: {
+                                            is: {
+                                                collector_number: {
+                                                    contains: term,
+                                                    mode: "insensitive",
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                printing_finishes: {
+                                    is: {
+                                        card_printings: {
+                                            is: {
+                                                card_sets: {
+                                                    is: {
+                                                        OR: [
+                                                            {
+                                                                code: {
+                                                                    contains: term,
+                                                                    mode: "insensitive",
+                                                                },
+                                                            },
+                                                            {
+                                                                name: {
+                                                                    contains: term,
+                                                                    mode: "insensitive",
+                                                                },
+                                                            },
+                                                        ],
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        ],
+                    })),
+                }
+                : {}),
+        };
+    }
+    getInventoryItemNotFoundError() {
+        return new common_1.NotFoundException("Inventory item was not found or does not belong to this user.");
+    }
+    getOpenListingRemovalError() {
+        return new common_1.ConflictException("Remove the open listing before removing this inventory item.");
+    }
+    getProtectedRemovalStateError() {
+        return new common_1.ConflictException("Only available or not-for-trade inventory items can be removed.");
     }
     getValidatedImageExtension(file) {
         if (file.size <= 0 ||
@@ -90,6 +330,130 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 signed_url: null,
             };
         }
+    }
+    async getMyInventory(userId, query) {
+        const baseWhere = this.myInventoryBaseWhere(userId);
+        const where = this.myInventoryWhere(userId, query);
+        const [items, filteredAggregate, totalAggregate,] = await Promise.all([
+            this.database.client.inventory_items.findMany({
+                where,
+                select: this.myInventorySelect(),
+                orderBy: [
+                    {
+                        created_at: "desc",
+                    },
+                    {
+                        id: "asc",
+                    },
+                ],
+                skip: (query.page - 1) * query.pageSize,
+                take: query.pageSize,
+            }),
+            this.database.client.inventory_items.aggregate({
+                where,
+                _count: {
+                    _all: true,
+                },
+                _sum: {
+                    quantity: true,
+                },
+            }),
+            this.database.client.inventory_items.aggregate({
+                where: baseWhere,
+                _count: {
+                    _all: true,
+                },
+                _sum: {
+                    quantity: true,
+                },
+            }),
+        ]);
+        const filteredCount = filteredAggregate._count._all;
+        return {
+            items: items.map((item) => this.mapMyInventoryItem(item)),
+            summary: {
+                total_inventory_row_count: totalAggregate._count._all,
+                total_card_quantity: totalAggregate._sum.quantity ??
+                    0,
+                filtered_inventory_row_count: filteredCount,
+                filtered_card_quantity: filteredAggregate._sum.quantity ??
+                    0,
+            },
+            pagination: {
+                page: query.page,
+                page_size: query.pageSize,
+                total_count: filteredCount,
+                has_more: query.page * query.pageSize <
+                    filteredCount,
+            },
+        };
+    }
+    async getMyInventoryItem(userId, inventoryItemId) {
+        const item = await this.database.client.inventory_items.findFirst({
+            where: {
+                id: inventoryItemId,
+                owner_user_id: userId,
+                owner_store_id: null,
+            },
+            select: this.myInventorySelect(),
+        });
+        if (!item) {
+            throw this.getInventoryItemNotFoundError();
+        }
+        return this.mapMyInventoryItem(item);
+    }
+    async createMyInventoryItem(userId, input) {
+        const created = await this.createUserInventoryItem(userId, input);
+        return this.getMyInventoryItem(userId, created.id);
+    }
+    async updateMyInventoryItem(userId, inventoryItemId, input) {
+        await this.updateUserInventoryItem(userId, inventoryItemId, input);
+        return this.getMyInventoryItem(userId, inventoryItemId);
+    }
+    async removeMyInventoryItem(userId, inventoryItemId) {
+        const inventoryItem = await this.database.client.inventory_items.findFirst({
+            where: {
+                id: inventoryItemId,
+                owner_user_id: userId,
+                owner_store_id: null,
+            },
+            select: {
+                id: true,
+                status: true,
+            },
+        });
+        if (!inventoryItem) {
+            throw this.getInventoryItemNotFoundError();
+        }
+        this.assertInventoryItemIsMutable(inventoryItem);
+        if (!removableInventoryStatuses.includes(inventoryItem.status)) {
+            throw this.getProtectedRemovalStateError();
+        }
+        const openListing = await this.database.client.listings.findFirst({
+            where: {
+                inventory_item_id: inventoryItemId,
+                status: {
+                    in: [...openListingStatuses],
+                },
+            },
+            select: {
+                id: true,
+            },
+        });
+        if (openListing) {
+            throw this.getOpenListingRemovalError();
+        }
+        await this.database.client.inventory_items.update({
+            where: {
+                id: inventoryItemId,
+            },
+            data: {
+                status: "removed",
+                collection_id: null,
+                updated_at: new Date(),
+            },
+        });
+        return this.getMyInventoryItem(userId, inventoryItemId);
     }
     async getUserInventory(userId) {
         const items = await this.database.client.inventory_items.findMany({

@@ -1,0 +1,1 @@
+.pill{display:inline-flex;align-items:center;padding:var(--space-1) var(--space-2);border-radius:var(--radius-full);font-size:var(--font-size-xs);font-weight:var(--font-weight-bold);letter-spacing:var(--letter-spacing-wide)}.trade{color:#075985;background:#e0f2fe}.sale{color:#fff;background:#2563eb}.mixed{color:#fff;background:#4f46e5}

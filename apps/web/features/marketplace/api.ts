@@ -9,6 +9,30 @@ export type CardPrinting = {
   card_sets: { code: string; name: string };
 };
 
+export type CatalogPrinting = CardPrinting & {
+  canonical_card_id: string;
+  card_set_id: string;
+  language_code: string;
+  artist_name: string | null;
+  treatment: string | null;
+  frame_version: string | null;
+  border_color: string | null;
+  is_promo: boolean;
+  is_reprint: boolean;
+  released_at: string | null;
+  image_large_uri: string | null;
+  card_sets: {
+    id: string;
+    code: string;
+    name: string;
+    release_date: string | null;
+  };
+};
+
+export type CatalogPrintingFinish = {
+  finish: string;
+};
+
 export type CatalogCard = {
   id: string;
   game_id: string;
@@ -276,6 +300,22 @@ export async function getCardDetail(canonicalCardId: string, printingId: string 
   } catch (error) {
     return { status: error instanceof ApiResponseError && error.status === 404 ? "not-found" as const : "unavailable" as const };
   }
+}
+
+export async function getCatalogCardPrintings(
+  canonicalCardId: string,
+): Promise<CatalogPrinting[]> {
+  return apiGet<CatalogPrinting[]>(
+    `/catalog/cards/${encodeURIComponent(canonicalCardId)}/printings`,
+  );
+}
+
+export async function getCatalogPrintingFinishes(
+  printingId: string,
+): Promise<CatalogPrintingFinish[]> {
+  return apiGet<CatalogPrintingFinish[]>(
+    `/catalog/printings/${encodeURIComponent(printingId)}/finishes`,
+  );
 }
 
 export async function getPublicCollections(): Promise<Array<PublicCollection & { cards: CardView[] }>> {

@@ -204,6 +204,13 @@ export declare class DiscoveryController {
             card_quantity: number;
         };
         items: {
+            listing: {
+                id: string;
+                accepts_cash: boolean;
+                accepts_trade: boolean;
+                asking_price: import("@prisma/client-runtime-utils").Decimal | null;
+                currency_code: string | null;
+            } | undefined;
             id: any;
             quantity: any;
             condition: any;

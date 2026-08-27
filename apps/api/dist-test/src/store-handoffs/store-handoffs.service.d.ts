@@ -50,8 +50,8 @@ export declare class StoreHandoffsService {
             transaction_type: string;
             agreed_at: Date;
         };
-        completed_at: Date | null;
         transaction_id: string;
+        completed_at: Date | null;
         store_id: string;
         store_notes: string | null;
         cancelled_at: Date | null;
@@ -101,8 +101,8 @@ export declare class StoreHandoffsService {
             transaction_type: string;
             agreed_at: Date;
         };
-        completed_at: Date | null;
         transaction_id: string;
+        completed_at: Date | null;
         store_id: string;
         store_notes: string | null;
         cancelled_at: Date | null;
@@ -152,8 +152,8 @@ export declare class StoreHandoffsService {
             transaction_type: string;
             agreed_at: Date;
         };
-        completed_at: Date | null;
         transaction_id: string;
+        completed_at: Date | null;
         store_id: string;
         store_notes: string | null;
         cancelled_at: Date | null;
@@ -203,8 +203,8 @@ export declare class StoreHandoffsService {
             transaction_type: string;
             agreed_at: Date;
         };
-        completed_at: Date | null;
         transaction_id: string;
+        completed_at: Date | null;
         store_id: string;
         store_notes: string | null;
         cancelled_at: Date | null;

@@ -438,13 +438,30 @@ export class DiscoveryService {
     if (!collection) throw new NotFoundException("Collection was not found.");
     const where = { collection_id: id, owner_user_id: collection.user_profiles.id, ...available } as const;
     const [items, aggregate] = await Promise.all([
-      this.database.client.inventory_items.findMany({ where, select: inventorySelect, orderBy: [{ created_at: "desc" }, { id: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
+      this.database.client.inventory_items.findMany({ where, select: {
+        ...inventorySelect,
+        listings_listings_inventory_item_id_seller_user_idToinventory_items: {
+          where: activeListing,
+          select: { id: true, accepts_cash: true, accepts_trade: true,
+            asking_price: true, currency_code: true },
+          orderBy: [{ created_at: "desc" }, { id: "asc" }],
+          take: 1,
+        },
+      }, orderBy: [{ created_at: "desc" }, { id: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
       this.database.client.inventory_items.aggregate({ where, _count: { _all: true }, _sum: { quantity: true } }),
     ]); const total = aggregate._count._all;
     const { preferred_store, ...owner } = collection.user_profiles;
     return { collection: { id: collection.id, name: collection.name, description: collection.description, created_at: collection.created_at,
       updated_at: collection.updated_at, owner, preferred_store: this.mapPreferredStore(preferred_store), inventory_row_count: total, card_quantity: aggregate._sum.quantity ?? 0 },
-      items: items.map((item) => this.mapItem(item)), pagination: { page: query.page, page_size: query.pageSize,
+      items: items.map((item) => {
+        const { listings_listings_inventory_item_id_seller_user_idToinventory_items: listings, ...safeItem } = item;
+        const listing = listings[0];
+        return { ...this.mapItem(safeItem), listing: listing ? {
+          id: listing.id, accepts_cash: listing.accepts_cash,
+          accepts_trade: listing.accepts_trade, asking_price: listing.asking_price,
+          currency_code: listing.currency_code,
+        } : undefined };
+      }), pagination: { page: query.page, page_size: query.pageSize,
         total_count: total, has_more: query.page * query.pageSize < total } };
   }
 

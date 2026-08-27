@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CardTile } from "../../../../components/card-tile/card-tile";
 import { PublicUserLink } from "../../../../components/public-user-link/public-user-link";
 import { PublicStoreLink } from "../../../../components/public-store-link/public-store-link";
+import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
 import { getPublicCollectionPage } from "../../../../features/marketplace/api";
 import styles from "./page.module.css";
 
@@ -55,6 +56,7 @@ export default async function CollectionPage({
 
   return (
     <main className={styles.main}>
+      <NavigationBack fallback={`/users/${collection.owner.id}?view=collections`} label="Back to collections" />
       <header className={styles.collectionHeader}>
         <p className={styles.eyebrow}>{ownerLabel(collection.owner)}</p>
         <h1>{collection.name}</h1>

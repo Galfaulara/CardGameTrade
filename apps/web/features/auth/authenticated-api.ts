@@ -1,5 +1,6 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
+import type { MyInventoryListResult } from "../account/inventory-types";
 import type { MyProfile } from "../account/profile-types";
 
 const apiBase = process.env.DECKDEAL_API_URL ?? "http://localhost:4000/api";
@@ -56,6 +57,27 @@ export async function getAuthenticatedCurrentUser() {
 
 export async function getMyProfile() {
   return (await authenticatedApiFetch("/me/profile")).json() as Promise<MyProfile>;
+}
+
+export async function getMyInventory(
+  query: string,
+) {
+  const path = query
+    ? `/me/inventory?${query}`
+    : "/me/inventory";
+
+  return (await authenticatedApiFetch(path)).json() as Promise<MyInventoryListResult>;
+}
+
+export async function getMyCollectionOptions(userId: string) {
+  return (await authenticatedApiFetch(
+    `/inventory/users/${encodeURIComponent(userId)}/collections`,
+  )).json() as Promise<Array<{
+    id: string;
+    name: string;
+    visibility: "private" | "unlisted" | "public";
+    _count: { inventory_items: number };
+  }>>;
 }
 
 export async function tryGetAuthenticatedCurrentUser() {

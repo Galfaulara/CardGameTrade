@@ -8,3 +8,4 @@ export * from "./marketplace";
 export * from "./discovery";
 export * from "./onboarding";
 export * from "./profile";
+export * from "./inventory";

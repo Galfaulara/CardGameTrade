@@ -1,4 +1,4 @@
-import type { CreateInventoryPhotoInput, CreateUserCollectionInput, CreateUserInventoryItemInput, SetInventoryCollectionInput, UpdateUserInventoryItemInput } from "@repo/validation";
+import type { CreateInventoryPhotoInput, CreateUserCollectionInput, CreateUserInventoryItemInput, MyInventoryListQuery, SetInventoryCollectionInput, UpdateUserInventoryItemInput } from "@repo/validation";
 import { DatabaseService } from "../database/database.service";
 import { StorageService } from "../storage/storage.service";
 export interface InventoryPhotoUploadFile {
@@ -13,8 +13,35 @@ export declare class InventoryService {
     private assertInventoryItemIsMutable;
     private readonly logger;
     constructor(database: DatabaseService, storage: StorageService);
+    private myInventoryBaseWhere;
+    private myInventoryTerms;
+    private myInventorySelect;
+    private mapMyInventoryItem;
+    private myInventoryWhere;
+    private getInventoryItemNotFoundError;
+    private getOpenListingRemovalError;
+    private getProtectedRemovalStateError;
     private getValidatedImageExtension;
     private addSignedUrlToPhoto;
+    getMyInventory(userId: string, query: MyInventoryListQuery): Promise<{
+        items: any[];
+        summary: {
+            total_inventory_row_count: number;
+            total_card_quantity: number;
+            filtered_inventory_row_count: number;
+            filtered_card_quantity: number;
+        };
+        pagination: {
+            page: number;
+            page_size: number;
+            total_count: number;
+            has_more: boolean;
+        };
+    }>;
+    getMyInventoryItem(userId: string, inventoryItemId: string): Promise<any>;
+    createMyInventoryItem(userId: string, input: CreateUserInventoryItemInput): Promise<any>;
+    updateMyInventoryItem(userId: string, inventoryItemId: string, input: UpdateUserInventoryItemInput): Promise<any>;
+    removeMyInventoryItem(userId: string, inventoryItemId: string): Promise<any>;
     getUserInventory(userId: string): Promise<{
         inventory_item_photos: ({
             signed_url: string;

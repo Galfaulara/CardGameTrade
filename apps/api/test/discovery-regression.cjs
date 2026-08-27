@@ -207,7 +207,28 @@ async function main() {
     assert(!publicJson.includes(`\"${forbidden}\"`), `${forbidden} leaked publicly`);
   }
   const sample = defaultCollection.items[0];
-  assert(!sample.listing, "full collection detail falsely exposed marketplace intent");
+  const detailIds = defaultCollection.items.map((item) => item.id);
+  const detailListings = await database.listings.findMany({ where: {
+    inventory_item_id: { in: detailIds }, status: "active",
+    OR: [{ accepts_trade: true }, { accepts_cash: true }],
+  }, select: { id: true, inventory_item_id: true, accepts_cash: true, accepts_trade: true } });
+  const listingByItem = new Map(detailListings.map((listing) => [listing.inventory_item_id, listing]));
+  for (const item of defaultCollection.items) {
+    const expected = listingByItem.get(item.id);
+    if (!expected) assert(!item.listing, "unlisted collection item gained marketplace intent");
+    else assert(item.listing?.id === expected.id && item.listing.accepts_cash === expected.accepts_cash && item.listing.accepts_trade === expected.accepts_trade,
+      "full collection detail lost or changed exact active Listing intent");
+  }
+  assert(defaultCollection.items.some((item) => !item.listing), "full collection fixture lacked an unlisted verification card");
+  const fullCollectionItems = [];
+  for (let page = 1; page <= Math.ceil(defaultCollection.pagination.total_count / 24); page += 1) {
+    const detail = page === 1 ? defaultCollection : await getJson(`/discovery/collections/${selected.id}?page=${page}&pageSize=24`);
+    fullCollectionItems.push(...detail.items);
+  }
+  const listedDetailItems = fullCollectionItems.filter((item) => item.listing);
+  assert(listedDetailItems.length === 14, "full public Collection did not preserve all exact active Listing intents");
+  assert(fullCollectionItems.length - listedDetailItems.length === 86, "unlisted public Collection cards were filtered or mislabeled");
+  assert(listedDetailItems.every((item) => item.listing.accepts_trade || item.listing.accepts_cash), "Collection detail exposed an intent-free Listing");
   assert(sample.printing.id, "printing ID missing");
   assert(sample.printing.canonical_cards.name, "card name missing");
   assert(sample.printing.card_sets.id && sample.printing.card_sets.code && sample.printing.card_sets.name,

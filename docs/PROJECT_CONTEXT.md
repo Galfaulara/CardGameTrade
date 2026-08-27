@@ -586,6 +586,73 @@ authenticated destinations remain planned at `/account/inventory`,
 `/account/offers`, but the UI must not expose dead links before those pages are
 implemented.
 
+### Step 4B My Inventory
+
+`/account/inventory` is the authenticated owner-private Inventory management
+surface. Its `/api/me/inventory` backend reads and writes are self-scoped only
+by `AuthenticatedPrincipal.deckdealUserId`; caller-supplied user or Store owner
+identifiers are rejected, and ordinary users cannot create Store Inventory.
+The private model may expose supported ownership metadata such as notes and
+acquisition details, while public Discovery, Card, Collection, User, and
+Listing projections remain unchanged and exclude those fields.
+
+Manual registration preserves the three-layer card model: the user searches a
+canonical card, selects the exact physical printing/version and supported
+finish, then records supported physical-copy details. New rows belong to the
+authenticated user and start `available`. That status is operational only and
+does not express sale or trade intent; only an active Listing does so.
+
+Owners may edit only the existing safe physical/private fields. Owner, Store,
+printing, historical provenance, transaction, and custody identity remain
+immutable. Removal preserves lifecycle history by setting eligible current
+Inventory to `removed` and clearing collection placement; open Listings and
+protected lifecycle states continue to block removal. Collection management
+remains Step 4C, and user-facing bulk import remains Step 4D.
+
+#### Step 4B.1 card-centric Inventory experience
+
+My Inventory is a full-width, card-first browsing surface rather than a
+permanent CRUD sidebar. Physical card artwork keeps the `63 / 88` card ratio,
+and tiles prioritize card name, exact printing, physical condition/finish, and
+a quiet Collection location. Missing acquisition metadata and absent Listings
+are omitted. `available` remains an operational Inventory status and never
+communicates marketplace intent; only a genuine active Listing receives a
+restrained Listed indicator.
+
+One reusable Add-to-Collection dialog serves My Inventory, the universal Card
+page, and public Catalog/browse card tiles. Inventory launches at Catalog
+search; exact Card routes preserve their selected printing; canonical search
+tiles require an explicit printing choice. The dialog registers supported
+physical-copy data and optionally assigns an existing Collection without
+leaving the browsing context. Optional private acquisition metadata remains
+progressively disclosed and owner-private.
+
+Collections remain DeckDeal's flexible organizational model and may represent
+binders, storage boxes, themed groups, showcases, or a physical deck's
+organization. A Collection named after a deck does not become a decklist or
+persistent deck assignment. `Unsorted` is only the frontend view of
+`collection_id = null`, never a database Collection. True Deck entities and
+copy assignment remain future work. Multi-select and Collection CRUD remain
+Step 4C; bulk import remains Step 4D.
+
+Public collector profile tabs have distinct information architecture.
+Overview is a bounded snapshot of identity, counts, Collection highlights,
+active Listings, and public Wants; Collections is the dedicated bounded public
+Collection browsing view. Neither surface changes Collection visibility or
+exposes owner-private Inventory metadata.
+
+On every USER-owned public Collection surface, marketplace intent is derived
+only from the qualifying active Listing attached to the exact rendered
+Inventory item. The shared presentation is `TRADE`, `FOR SALE`, or
+`TRADE + SALE`; unlisted cards receive no intent. These semantic pills are
+non-interactive today but are intended to become exact-Listing entry points for
+future trade or purchase interactions.
+
+Nested and detail DeckDeal screens provide a restrained in-product Back
+affordance with a safe same-origin history target and deterministic fallback.
+Inside a multi-step dialog, Back returns to the previous workflow step while
+Close exits the workflow; neither substitutes for the other.
+
 `/stores/[storeId]` is the canonical server-rendered public LGS route. A Store
 is eligible when it is active, verified, and trade-mediation enabled; it remains
 reachable with zero Listings or zero available inventory. Unknown and
