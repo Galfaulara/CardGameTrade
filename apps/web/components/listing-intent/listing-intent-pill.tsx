@@ -1,3 +1,4 @@
+import Link from "next/link";
 import styles from "./listing-intent-pill.module.css";
 
 export type ListingIntent = {
@@ -11,5 +12,16 @@ export function ListingIntentPill({ listing }: { listing: ListingIntent }) {
   const mixed = listing.acceptsCash && listing.acceptsTrade;
   const label = mixed ? "TRADE + SALE" : listing.acceptsTrade ? "TRADE" : "FOR SALE";
   const tone = mixed ? styles.mixed : listing.acceptsTrade ? styles.trade : styles.sale;
+  if (listing.acceptsTrade) {
+    return (
+      <Link
+        className={`${styles.pill} ${tone} ${styles.interactive}`}
+        href={`/trade/${listing.id}`}
+        data-listing-id={listing.id}
+      >
+        {label}
+      </Link>
+    );
+  }
   return <span className={`${styles.pill} ${tone}`} data-listing-id={listing.id}>{label}</span>;
 }

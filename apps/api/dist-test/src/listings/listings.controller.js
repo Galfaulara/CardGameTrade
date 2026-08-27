@@ -29,6 +29,9 @@ let ListingsController = class ListingsController {
     getListing(listingId) {
         return this.listingsService.getListing(listingId);
     }
+    getUserListings(userId) {
+        return this.listingsService.getUserListings(userId);
+    }
     createUserListing(userId, input) {
         return this.listingsService.createUserListing(userId, input);
     }
@@ -57,6 +60,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ListingsController.prototype, "getListing", null);
+__decorate([
+    (0, common_1.Get)("users/:userId"),
+    __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
+        version: "4",
+    }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ListingsController.prototype, "getUserListings", null);
 __decorate([
     (0, common_1.Post)("users/:userId"),
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({

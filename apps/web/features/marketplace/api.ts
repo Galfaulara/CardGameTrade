@@ -58,6 +58,46 @@ export type Listing = {
   } | null;
 };
 
+export type PublicListing = {
+  id: string;
+  inventory_item_id: string;
+  seller_user_id: string | null;
+  seller_store_id: string | null;
+  accepts_cash: boolean;
+  accepts_trade: boolean;
+  asking_price: string | null;
+  currency_code: string | null;
+  preferred_store_id: string | null;
+  title: string | null;
+  description: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  inventory_item: {
+    id: string;
+    finish: string;
+    condition: string;
+    language_code: string;
+    quantity: number;
+    is_signed: boolean;
+    is_altered: boolean;
+    is_graded: boolean;
+    status: string;
+    user_profiles?: { id: string; display_name: string | null; username: string | null };
+    stores?: { id: string; name: string; slug: string; logo_url: string | null };
+    printing: CardPrinting & {
+      image_large_uri: string | null;
+      canonical_cards: { id: string; name: string; mana_cost: string | null; type_line: string | null };
+    };
+  } | null;
+  preferred_store: PreferredStore | null;
+};
+
+export type PublicListingResult =
+  | { status: "ready"; data: PublicListing }
+  | { status: "not-found" }
+  | { status: "unavailable" };
+
 export type CardView = {
   id: string;
   name: string;
@@ -343,6 +383,22 @@ export async function getPublicStores(): Promise<Array<PublicStore & { cards: Ca
     }));
   } catch {
     return [];
+  }
+}
+
+export async function getPublicListing(
+  listingId: string,
+): Promise<PublicListingResult> {
+  try {
+    return {
+      status: "ready",
+      data: await apiGet<PublicListing>(`/listings/${encodeURIComponent(listingId)}`),
+    };
+  } catch (error) {
+    if (error instanceof ApiResponseError && error.status === 404) {
+      return { status: "not-found" };
+    }
+    return { status: "unavailable" };
   }
 }
 

@@ -6,14 +6,13 @@ import { PublicUserLink } from "../../../../components/public-user-link/public-u
 import { PublicStoreLink } from "../../../../components/public-store-link/public-store-link";
 import { getCardDetail } from "../../../../features/marketplace/api";
 import { AddToCollectionLauncher } from "../../../../components/add-to-collection/add-to-collection-launcher";
+import { ListingIntentPill } from "../../../../components/listing-intent/listing-intent-pill";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 const value = (input: unknown) =>
   input == null || input === "" ? null : String(input);
-const availability = (cash: boolean, trade: boolean) =>
-  cash && trade ? "TRADE + SALE" : trade ? "TRADE" : "FOR SALE";
 const money = (amount: string, currency: string) => {
   try {
     return new Intl.NumberFormat(undefined, {
@@ -221,16 +220,29 @@ export default async function CardPage({
                     {item.condition.replaceAll("_", " ")} ·{" "}
                     {item.finish.replaceAll("_", " ")}
                   </p>
-                  <strong className={styles.pill}>
-                    {availability(listing.accepts_cash, listing.accepts_trade)}
-                  </strong>
-                  <strong>
-                    {listing.accepts_cash &&
-                    listing.asking_price &&
-                    listing.currency_code
-                      ? money(listing.asking_price, listing.currency_code)
-                      : "—"}
-                  </strong>
+                  <div className={styles.pillWrap}>
+                    <ListingIntentPill
+                      listing={{
+                        id: listing.id,
+                        acceptsCash:
+                          listing.accepts_cash,
+                        acceptsTrade:
+                          listing.accepts_trade,
+                      }}
+                    />
+                  </div>
+                  {listing.accepts_cash &&
+                  listing.asking_price &&
+                  listing.currency_code ? (
+                    <strong>
+                      {money(
+                        listing.asking_price,
+                        listing.currency_code,
+                      )}
+                    </strong>
+                  ) : (
+                    <span />
+                  )}
                 </article>
               );
             })}

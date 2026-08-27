@@ -307,6 +307,141 @@ function EditDialog({
   );
 }
 
+function ListForTradeDialog({
+  item,
+  onClose,
+  onChanged,
+}: {
+  item: MyInventoryItem;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    document.body.style.overflow = "hidden";
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onClose();
+    };
+    window.addEventListener("keydown", key);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", key);
+    };
+  }, [onClose, saving]);
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+    const response = await fetch("/api/me/listings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inventoryItemId: item.id,
+      }),
+    });
+
+    if (!response.ok) {
+      setError(
+        (await parseBody(response)).message ??
+          "This card could not be listed for trade.",
+      );
+      setSaving(false);
+      return;
+    }
+
+    onChanged();
+  };
+
+  return (
+    <div className={styles.backdrop}>
+      <section
+        className={styles.editDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trade-listing-title"
+      >
+        <header>
+          <div>
+            <p className={styles.kicker}>List for trade</p>
+            <h2 id="trade-listing-title">
+              {item.printing.canonical_cards.name}
+            </h2>
+            <span>
+              {item.printing.card_sets.code.toUpperCase()} #
+              {item.printing.collector_number} · {pretty(item.finish)}
+            </span>
+          </div>
+          <button
+            ref={closeRef}
+            className={styles.iconButton}
+            type="button"
+            onClick={onClose}
+            aria-label="Close listing dialog"
+          >
+            ×
+          </button>
+        </header>
+        <div className={styles.tradeDialogBody}>
+          <div className={styles.tradeDialogArt}>
+            {artwork(item) ? (
+              <Image
+                src={artwork(item)!}
+                alt={`${item.printing.canonical_cards.name} card`}
+                fill
+                sizes="(max-width: 36rem) 42vw, 220px"
+                unoptimized
+              />
+            ) : (
+              <span>Card image unavailable</span>
+            )}
+          </div>
+          <div className={styles.tradeDialogCopy}>
+            <p>
+              This card will be visible to other collectors for trade offers.
+            </p>
+            <p>
+              {pretty(item.condition)} · {pretty(item.finish)}
+              {item.quantity > 1 ? ` · ×${item.quantity}` : ""}
+            </p>
+            <p>
+              {item.collection?.name
+                ? `Collection · ${item.collection.name}`
+                : "Collection · Unsorted"}
+            </p>
+          </div>
+        </div>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+        <div className={styles.dialogActions}>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={() => void submit()}
+            disabled={saving}
+          >
+            {saving ? "Listing…" : "List for trade"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function InventoryManager({
   initialData,
   initialFilters,
@@ -320,6 +455,7 @@ export function InventoryManager({
   const { openAddToCollection } = useAddToCollection();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<MyInventoryItem | null>(null);
+  const [listingItem, setListingItem] = useState<MyInventoryItem | null>(null);
   const [q, setQ] = useState(initialFilters.q);
   const [status, setStatus] = useState(initialFilters.status);
   const [condition, setCondition] = useState(initialFilters.condition);
@@ -339,6 +475,7 @@ export function InventoryManager({
     startTransition(() => router.push(href(value)));
   const changed = () => {
     setEditing(null);
+    setListingItem(null);
     router.refresh();
   };
   const openAdd = () => openAddToCollection({ onAdded: changed });
@@ -507,13 +644,24 @@ export function InventoryManager({
                       <span className={styles.location}>
                         ▱ {item.collection?.name ?? "Unsorted"}
                       </span>
-                      <button
-                        className={styles.editButton}
-                        type="button"
-                        onClick={() => setEditing(item)}
-                      >
-                        Edit
-                      </button>
+                      <div className={styles.cardActions}>
+                        {item.status === "available" && !item.active_listing ? (
+                          <button
+                            className={styles.tradeButton}
+                            type="button"
+                            onClick={() => setListingItem(item)}
+                          >
+                            List for trade
+                          </button>
+                        ) : null}
+                        <button
+                          className={styles.editButton}
+                          type="button"
+                          onClick={() => setEditing(item)}
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -562,6 +710,13 @@ export function InventoryManager({
         <EditDialog
           item={editing}
           onClose={() => setEditing(null)}
+          onChanged={changed}
+        />
+      )}
+      {listingItem && (
+        <ListForTradeDialog
+          item={listingItem}
+          onClose={() => setListingItem(null)}
           onChanged={changed}
         />
       )}

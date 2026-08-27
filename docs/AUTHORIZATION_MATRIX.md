@@ -64,6 +64,7 @@ All `/discovery` routes are purpose-built anonymous public read models and are c
 | PATCH | `/inventory/users/:userId/items/:itemId/collection` | AUTHENTICATED_USER_WRITE | Actor-owned Inventory and actor-owned Collection | Owner predicates in Inventory service |
 | PATCH | `/inventory/users/:userId/items/:itemId` | AUTHENTICATED_USER_WRITE | Actor-owned mutable Inventory | Owner predicate; generic `404` |
 | POST | `/inventory/users/:userId/items/:itemId/photos` | AUTHENTICATED_USER_WRITE | Actor-owned mutable Inventory | Ownership before storage/database mutation; cleanup on DB failure |
+| GET | `/listings/users/:userId` | AUTHENTICATED_USER_READ | Actor reads own active user trade Listings | `seller_user_id = actor`, `seller_store_id IS NULL`, active trade-capable Listings only |
 | POST | `/listings/users/:userId` | AUTHENTICATED_USER_WRITE | Actor creates User Listing for actor-owned Inventory | Seller and inventory-owner predicates; service assigns seller actor |
 | PATCH | `/listings/users/:userId/:listingId` | AUTHENTICATED_USER_WRITE | Actor manages own User Listing | `seller_user_id = actor`, store seller excluded |
 | PATCH | `/listings/users/:userId/:listingId/status` | AUTHENTICATED_USER_WRITE | Actor changes own User Listing state | Same scoped lookup plus existing state rules |

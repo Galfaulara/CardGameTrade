@@ -5,6 +5,7 @@ export declare class ListingsController {
     constructor(listingsService: ListingsService);
     getActiveListings(): Promise<any[]>;
     getListing(listingId: string): Promise<any>;
+    getUserListings(userId: string): Promise<any[]>;
     createUserListing(userId: string, input: CreateUserListingInput): Promise<any>;
     updateUserListing(userId: string, listingId: string, input: UpdateUserListingInput): Promise<any>;
     setUserListingStatus(userId: string, listingId: string, input: SetUserListingStatusInput): Promise<any>;

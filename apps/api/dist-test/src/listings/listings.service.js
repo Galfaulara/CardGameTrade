@@ -318,6 +318,37 @@ let ListingsService = class ListingsService {
         }
         return this.mapListing(listing);
     }
+    async getUserListings(userId) {
+        const user = await this.database.client.user_profiles.findUnique({
+            where: {
+                id: userId,
+            },
+            select: {
+                id: true,
+                status: true,
+            },
+        });
+        if (!user) {
+            throw new common_1.NotFoundException("User was not found.");
+        }
+        if (user.status !==
+            "active") {
+            throw new common_1.ForbiddenException("Listings cannot be loaded for an inactive user.");
+        }
+        const listings = await this.database.client.listings.findMany({
+            where: {
+                seller_user_id: userId,
+                seller_store_id: null,
+                status: "active",
+                accepts_trade: true,
+            },
+            select: this.getListingSelect(),
+            orderBy: {
+                created_at: "desc",
+            },
+        });
+        return listings.map((listing) => this.mapListing(listing));
+    }
     async createUserListing(userId, input) {
         const user = await this.database.client.user_profiles.findUnique({
             where: {

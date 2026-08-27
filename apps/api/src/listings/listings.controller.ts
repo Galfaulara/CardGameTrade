@@ -50,6 +50,21 @@ export class ListingsController {
     );
   }
 
+  @Get("users/:userId")
+  getUserListings(
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    userId: string,
+  ) {
+    return this.listingsService.getUserListings(
+      userId,
+    );
+  }
+
   @Post("users/:userId")
   createUserListing(
     @Param(

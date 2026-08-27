@@ -1,7 +1,9 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import type { MyInventoryListResult } from "../account/inventory-types";
+import type { MySentOffer } from "../account/offer-types";
 import type { MyProfile } from "../account/profile-types";
+import type { PublicListing } from "../marketplace/api";
 
 const apiBase = process.env.DECKDEAL_API_URL ?? "http://localhost:4000/api";
 
@@ -55,6 +57,14 @@ export async function getAuthenticatedCurrentUser() {
   return (await authenticatedApiFetch("/auth/me")).json() as Promise<AuthenticatedCurrentUser>;
 }
 
+export async function requireActiveDeckDealUser() {
+  const currentUser = await getAuthenticatedCurrentUser();
+  if (!currentUser.onboarded || currentUser.account_status !== "active") {
+    throw new AuthenticatedApiError(403);
+  }
+  return currentUser.user;
+}
+
 export async function getMyProfile() {
   return (await authenticatedApiFetch("/me/profile")).json() as Promise<MyProfile>;
 }
@@ -67,6 +77,18 @@ export async function getMyInventory(
     : "/me/inventory";
 
   return (await authenticatedApiFetch(path)).json() as Promise<MyInventoryListResult>;
+}
+
+export async function getMyListings(userId: string) {
+  return (await authenticatedApiFetch(
+    `/listings/users/${encodeURIComponent(userId)}`,
+  )).json() as Promise<PublicListing[]>;
+}
+
+export async function getMySentOffers(userId: string) {
+  return (await authenticatedApiFetch(
+    `/offers/users/${encodeURIComponent(userId)}/sent`,
+  )).json() as Promise<MySentOffer[]>;
 }
 
 export async function getMyCollectionOptions(userId: string) {

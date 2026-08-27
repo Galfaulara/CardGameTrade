@@ -284,6 +284,14 @@ A validation inconsistency was found and fixed: `inventoryItemInterestTypeSchema
 Milestone:
 **CORE NON-PAYMENT BACKEND LIFECYCLES COMPLETE.**
 
+Temporary Friday staging-beta scope is trade-only: authenticated users can now
+manage **My Listings**, create trade-only Listings from owned Inventory, follow
+an actionable public **TRADE** intent into **Start Trade**, and submit
+card-for-card Listing Offers using exact owned Inventory items. Pending Offers
+remain non-reserving: no ownership transfer, custody, handoff, or Transaction
+is created until later acceptance. Cash/payment remains deferred, and
+acceptance/LGS workflow is the next phase.
+
 Do not keep expanding manual backend lifecycle testing unless frontend integration finds a regression or a new backend feature needs coverage.
 
 ## Payment
