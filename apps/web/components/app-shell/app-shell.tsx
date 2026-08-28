@@ -45,6 +45,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
           <div className={styles.auth}>{clerkConfigured ? signedIn ? <>
             {currentUser && !currentUser.onboarded && <Link className={styles.finishSetup} href="/onboarding">Finish setup</Link>}
             {currentUser?.onboarded && currentUser.account_status === "active" && <Link className={styles.accountLink} href="/account/profile">My profile</Link>}
+            {currentUser?.onboarded && currentUser.account_status === "active" && currentUser.store_workspaces.length > 0 && <Link className={styles.accountLink} href="/store">Store Workspace</Link>}
             <UserButton />
           </> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></>}</div>
           </div>

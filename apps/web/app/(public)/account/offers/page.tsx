@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
@@ -5,35 +6,40 @@ import {
   AccountShell,
   AccountState,
 } from "../../../../features/account/account-shell";
+import type {
+  MyListingOffer,
+  MyOfferEntry,
+} from "../../../../features/account/offer-types";
+import {
+  tradeInventoryImage,
+  tradeInventoryName,
+  tradeInventoryPhysical,
+  tradeInventoryPrinting,
+} from "../../../../features/account/trade-types";
 import {
   AuthenticatedApiError,
   getAuthenticatedCurrentUser,
+  getMyReceivedOffers,
   getMySentOffers,
+  getMyTransactions,
 } from "../../../../features/auth/authenticated-api";
 import {
   getPublicListing,
+  getLatestMarketPrices,
+  getTradeMediators,
   type PublicListing,
-  type PublicListingResult,
 } from "../../../../features/marketplace/api";
+import { ReceivedOffersManager } from "./received-offers-manager";
 import styles from "./page.module.css";
 
 const signInRedirectUrl =
   "/sign-in?redirect_url=%2Faccount%2Foffers%3Fview%3Dsent";
 
-const views = new Set([
-  "sent",
-  "received",
-]);
-
-const pretty = (value: string) =>
-  value.replaceAll("_", " ");
+const views = new Set(["sent", "received"]);
 
 const cardHref = (listing: PublicListing | null) => {
-  const canonicalCardId =
-    listing?.inventory_item?.printing
-      .canonical_cards.id;
-  const printingId =
-    listing?.inventory_item?.printing.id;
+  const canonicalCardId = listing?.inventory_item?.printing.canonical_cards.id;
+  const printingId = listing?.inventory_item?.printing.id;
 
   if (!canonicalCardId) {
     return "/discover";
@@ -42,23 +48,18 @@ const cardHref = (listing: PublicListing | null) => {
   return `/cards/${canonicalCardId}${printingId ? `?printing=${printingId}` : ""}`;
 };
 
-const sellerMeta = (
-  listing: PublicListing | null,
-) => {
-  const user =
-    listing?.inventory_item?.user_profiles;
+const sellerMeta = (listing: PublicListing | null) => {
+  const user = listing?.inventory_item?.user_profiles;
   if (user?.id) {
     return {
       href: `/users/${user.id}`,
       label: user.username
         ? `@${user.username}`
-        : user.display_name ??
-          "DeckDeal collector",
+        : (user.display_name ?? "DeckDeal collector"),
     };
   }
 
-  const store =
-    listing?.inventory_item?.stores;
+  const store = listing?.inventory_item?.stores;
   if (store?.id) {
     return {
       href: `/stores/${store.id}`,
@@ -69,6 +70,216 @@ const sellerMeta = (
   return null;
 };
 
+async function loadOfferEntries(
+  offers: MyListingOffer[],
+  transactionIdByOfferId: Map<string, string>,
+): Promise<MyOfferEntry[]> {
+  const listings = new Map(
+    await Promise.all(
+      [...new Set(offers.map((offer) => offer.listing_id))].map(
+        async (listingId) => {
+          const result = await getPublicListing(listingId);
+          return [
+            listingId,
+            result.status === "ready" ? result.data : null,
+          ] as const;
+        },
+      ),
+    ),
+  );
+
+  return offers.map((offer) => ({
+    offer,
+    listing: listings.get(offer.listing_id) ?? null,
+    transactionId: transactionIdByOfferId.get(offer.id) ?? null,
+  }));
+}
+
+function SentOffersSection({
+  entries,
+  createdOfferId,
+}: {
+  entries: MyOfferEntry[];
+  createdOfferId: string | undefined;
+}) {
+  const createdOffer = createdOfferId
+    ? (entries.find((entry) => entry.offer.id === createdOfferId) ?? null)
+    : null;
+
+  return (
+    <>
+      {createdOffer ? (
+        <section className={styles.success}>
+          <p className={styles.kicker}>Offer sent</p>
+          <h2>Your trade offer is saved.</h2>
+          <div className={styles.successColumns}>
+            <div>
+              <h3>You offered</h3>
+              <ul>
+                {createdOffer.offer.items.map((item) => (
+                  <li key={item.id}>
+                    {tradeInventoryName(item.inventory_item)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3>For</h3>
+              <p>
+                {tradeInventoryName(
+                  createdOffer.listing?.inventory_item ?? null,
+                )}
+              </p>
+            </div>
+          </div>
+          <div className={styles.actions}>
+            <Link
+              className={styles.primaryAction}
+              href="/account/offers?view=sent"
+            >
+              View my offers
+            </Link>
+            <Link
+              className={styles.secondaryAction}
+              href={`/trade/${createdOffer.offer.listing_id}`}
+            >
+              View listing
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {entries.length ? (
+        <ul className={styles.offerList}>
+          {entries.map((entry) => {
+            const listing = entry.listing;
+            const seller = sellerMeta(listing);
+            const target = listing?.inventory_item ?? null;
+
+            return (
+              <li key={entry.offer.id}>
+                <article className={styles.offerCard}>
+                  <div className={styles.offerHeader}>
+                    <div>
+                      <p className={styles.kicker}>Sent offer</p>
+                      <h2>{tradeInventoryName(target)}</h2>
+                    </div>
+                    <span className={styles.status}>
+                      {entry.offer.status.replaceAll("_", " ")}
+                    </span>
+                  </div>
+
+                  <div className={styles.targetLayout}>
+                    <Link className={styles.targetArt} href={cardHref(listing)}>
+                      {tradeInventoryImage(target) ? (
+                        <Image
+                          src={tradeInventoryImage(target)!}
+                          alt={`${tradeInventoryName(target)} card`}
+                          fill
+                          sizes="(max-width: 42rem) 40vw, 168px"
+                          unoptimized
+                        />
+                      ) : (
+                        <span>Card image unavailable</span>
+                      )}
+                    </Link>
+                    <div className={styles.targetCopy}>
+                      <p className={styles.sectionLabel}>Target card</p>
+                      <p>{tradeInventoryPrinting(target)}</p>
+                      <p>{tradeInventoryPhysical(target)}</p>
+                      <p>
+                        Seller{" "}
+                        {seller ? (
+                          <Link href={seller.href}>{seller.label}</Link>
+                        ) : (
+                          "unavailable"
+                        )}
+                      </p>
+                      <p>
+                        Created{" "}
+                        {new Date(entry.offer.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className={styles.offerSection}>
+                    <p className={styles.sectionLabel}>Offered cards</p>
+                    <ul className={styles.itemGrid}>
+                      {entry.offer.items.map((item) => (
+                        <li key={item.id}>
+                          <article className={styles.itemCard}>
+                            <div className={styles.itemArt}>
+                              {tradeInventoryImage(item.inventory_item) ? (
+                                <Image
+                                  src={
+                                    tradeInventoryImage(item.inventory_item)!
+                                  }
+                                  alt={`${tradeInventoryName(item.inventory_item)} card`}
+                                  fill
+                                  sizes="(max-width: 42rem) 36vw, 112px"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span>Card image unavailable</span>
+                              )}
+                            </div>
+                            <div>
+                              <strong>
+                                {tradeInventoryName(item.inventory_item)}
+                              </strong>
+                              <p>
+                                {tradeInventoryPrinting(item.inventory_item)}
+                              </p>
+                              <p>
+                                {tradeInventoryPhysical(item.inventory_item)}
+                              </p>
+                            </div>
+                          </article>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <div className={styles.actions}>
+                    <Link
+                      className={styles.secondaryAction}
+                      href={`/trade/${entry.offer.listing_id}`}
+                    >
+                      View listing
+                    </Link>
+                    <Link
+                      className={styles.secondaryAction}
+                      href={cardHref(listing)}
+                    >
+                      View card
+                    </Link>
+                    {entry.transactionId ? (
+                      <Link
+                        className={styles.primaryAction}
+                        href={`/account/trades/${entry.transactionId}`}
+                      >
+                        View trade
+                      </Link>
+                    ) : null}
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <section className={styles.empty}>
+          <h2>You haven’t sent any trade offers yet.</h2>
+          <p>
+            Find a listed card, open its TRADE action, and offer exact inventory
+            you already own.
+          </p>
+        </section>
+      )}
+    </>
+  );
+}
+
 export default async function AccountOffersPage({
   searchParams,
 }: {
@@ -77,9 +288,7 @@ export default async function AccountOffersPage({
     createdOfferId?: string | string[];
   }>;
 }) {
-  const configured = Boolean(
-    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  );
+  const configured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
   if (!configured) {
     return (
@@ -99,21 +308,16 @@ export default async function AccountOffersPage({
   }
 
   const params = await searchParams;
-  const viewRaw = Array.isArray(params.view)
-    ? params.view[0]
-    : params.view;
+  const viewRaw = Array.isArray(params.view) ? params.view[0] : params.view;
   const view = views.has(viewRaw ?? "")
     ? (viewRaw as "sent" | "received")
     : "sent";
-  const createdOfferId = Array.isArray(
-    params.createdOfferId,
-  )
+  const createdOfferId = Array.isArray(params.createdOfferId)
     ? params.createdOfferId[0]
     : params.createdOfferId;
 
   try {
-    const currentUser =
-      await getAuthenticatedCurrentUser();
+    const currentUser = await getAuthenticatedCurrentUser();
 
     if (!currentUser.onboarded) {
       redirect("/onboarding");
@@ -131,59 +335,57 @@ export default async function AccountOffersPage({
       );
     }
 
-    const sentOffers =
-      view === "sent"
-        ? await getMySentOffers(
-            currentUser.user.id,
-          )
-        : [];
+    const [transactions, offers, tradeMediators] = await Promise.all([
+      getMyTransactions(currentUser.user.id),
+      view === "received"
+        ? getMyReceivedOffers(currentUser.user.id)
+        : getMySentOffers(currentUser.user.id),
+      view === "received"
+        ? getTradeMediators().catch(() => [])
+        : Promise.resolve([]),
+    ]);
 
-    const listingResults = new Map<
-      string,
-      PublicListingResult
-    >(
-      await Promise.all(
-        [...new Set(
-          sentOffers.map(
-            (offer) =>
-              offer.listing_id,
-          ),
-        )].map(async (listingId) => [
-          listingId,
-          await getPublicListing(
-            listingId,
-          ),
-        ] as const),
+    const transactionIdByOfferId = new Map(
+      transactions.flatMap((trade) =>
+        trade.accepted_offer_id
+          ? [[trade.accepted_offer_id, trade.id] as const]
+          : [],
       ),
     );
 
-    const createdOffer =
-      createdOfferId &&
-      view === "sent"
-        ? sentOffers.find(
-            (offer) =>
-              offer.id ===
-              createdOfferId,
-          ) ?? null
-        : null;
-    const createdOfferListing =
-      createdOffer
-        ? listingResults.get(
-            createdOffer.listing_id,
+    const entries = await loadOfferEntries(offers, transactionIdByOfferId);
+    const receivedMarketPrices =
+      view === "received"
+        ? await getLatestMarketPrices(
+            entries.flatMap((entry) => {
+              const target = entry.listing?.inventory_item;
+              return [
+                ...(target
+                  ? [{ printingId: target.printing.id, finish: target.finish }]
+                  : []),
+                ...entry.offer.items.flatMap((item) =>
+                  item.inventory_item
+                    ? [
+                        {
+                          printingId: item.inventory_item.printing.id,
+                          finish: item.inventory_item.finish,
+                        },
+                      ]
+                    : [],
+                ),
+              ];
+            }),
           )
-        : null;
+        : [];
 
     return (
       <AccountShell
         section="offers"
         title="Offers"
-        intro="Track the exact inventory you’ve offered into active DeckDeal trades. Pending offers do not reserve ownership or create transactions."
+        intro="Track the exact inventory moving through DeckDeal trade offers. Pending offers do not transfer ownership; accepted trades move into Store-mediated handoff."
       >
         <div className={styles.page}>
-          <nav
-            className={styles.tabs}
-            aria-label="Offer views"
-          >
+          <nav className={styles.tabs} aria-label="Offer views">
             <Link
               href="/account/offers?view=received"
               aria-current={view === "received" ? "page" : undefined}
@@ -199,176 +401,26 @@ export default async function AccountOffersPage({
           </nav>
 
           {view === "received" ? (
-            <section className={styles.empty}>
-              <h2>Received offers are next.</h2>
-              <p>
-                This Friday MVP includes sent-offer persistence and confirmation.
-                Offer review and acceptance are the next phase.
-              </p>
-            </section>
+            <ReceivedOffersManager
+              entries={entries}
+              stores={tradeMediators}
+              marketPrices={receivedMarketPrices}
+            />
           ) : (
-            <>
-              {createdOffer && (
-                <section className={styles.success}>
-                  <p className={styles.kicker}>
-                    Offer sent
-                  </p>
-                  <h2>Your trade offer is saved.</h2>
-                  <div className={styles.successColumns}>
-                    <div>
-                      <h3>You offered</h3>
-                      <ul>
-                        {createdOffer.items.map(
-                          (item) => (
-                            <li key={item.id}>
-                              {item.inventory_item
-                                ?.printing
-                                .canonical_cards.name ?? "Unavailable card"}
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    </div>
-                    <div>
-                      <h3>For</h3>
-                      <p>
-                        {createdOfferListing?.status === "ready"
-                          ? createdOfferListing.data
-                              .inventory_item?.printing
-                              .canonical_cards.name ?? "Unavailable card"
-                          : "Unavailable card"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={styles.actions}>
-                    <Link
-                      className={styles.primaryAction}
-                      href="/account/offers?view=sent"
-                    >
-                      View my offers
-                    </Link>
-                    {createdOfferListing?.status === "ready" ? (
-                      <Link
-                        className={styles.secondaryAction}
-                        href={`/trade/${createdOffer.listing_id}`}
-                      >
-                        View listing
-                      </Link>
-                    ) : null}
-                  </div>
-                </section>
-              )}
-
-              {sentOffers.length ? (
-                <ul className={styles.list}>
-                  {sentOffers.map((offer) => {
-                    const listingResult =
-                      listingResults.get(
-                        offer.listing_id,
-                      );
-                    const listing =
-                      listingResult?.status ===
-                      "ready"
-                        ? listingResult.data
-                        : null;
-                    const seller = sellerMeta(
-                      listing,
-                    );
-
-                    return (
-                      <li key={offer.id}>
-                        <article className={styles.card}>
-                          <div className={styles.cardHeader}>
-                            <div>
-                              <p className={styles.kicker}>
-                                Sent offer
-                              </p>
-                              <h2>
-                                {listing?.inventory_item?.printing
-                                  .canonical_cards.name ?? "Unavailable card"}
-                              </h2>
-                            </div>
-                            <span className={styles.status}>
-                              {pretty(offer.status)}
-                            </span>
-                          </div>
-                          <p className={styles.meta}>
-                            {listing?.inventory_item
-                              ?.printing.card_sets.name ?? "Unknown set"}{" "}
-                            · {listing?.inventory_item?.printing.card_sets.code.toUpperCase() ?? "—"} #
-                            {listing?.inventory_item?.printing.collector_number ?? "—"}
-                          </p>
-                          <p className={styles.meta}>
-                            Seller{" "}
-                            {seller ? (
-                              <Link href={seller.href}>
-                                {seller.label}
-                              </Link>
-                            ) : (
-                              "unavailable"
-                            )}
-                          </p>
-                          <p className={styles.meta}>
-                            Offered{" "}
-                            {offer.items.length
-                              ? offer.items
-                                  .map(
-                                    (item) =>
-                                      item.inventory_item
-                                        ?.printing
-                                        .canonical_cards.name ?? "Unavailable card",
-                                  )
-                                  .join(", ")
-                              : "No cards"}
-                          </p>
-                          <p className={styles.meta}>
-                            Created {new Date(offer.created_at).toLocaleString()}
-                          </p>
-                          <div className={styles.actions}>
-                            <Link
-                              className={styles.secondaryAction}
-                              href={`/trade/${offer.listing_id}`}
-                            >
-                              View listing
-                            </Link>
-                            <Link
-                              className={styles.secondaryAction}
-                              href={cardHref(listing)}
-                            >
-                              View card
-                            </Link>
-                          </div>
-                        </article>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <section className={styles.empty}>
-                  <h2>You haven’t sent any trade offers yet.</h2>
-                  <p>
-                    Find a listed card, open its TRADE action, and offer exact
-                    inventory you already own.
-                  </p>
-                </section>
-              )}
-            </>
+            <SentOffersSection
+              entries={entries}
+              createdOfferId={createdOfferId}
+            />
           )}
         </div>
       </AccountShell>
     );
   } catch (error) {
-    if (
-      error instanceof AuthenticatedApiError &&
-      error.status === 401
-    ) {
+    if (error instanceof AuthenticatedApiError && error.status === 401) {
       redirect(signInRedirectUrl);
     }
 
-    if (
-      error instanceof AuthenticatedApiError &&
-      error.status === 403
-    ) {
+    if (error instanceof AuthenticatedApiError && error.status === 403) {
       return (
         <AccountState
           eyebrow="DeckDeal account unavailable"

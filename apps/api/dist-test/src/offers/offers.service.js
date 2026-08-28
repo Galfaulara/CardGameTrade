@@ -316,27 +316,58 @@ let OffersService = class OffersService {
         return offers.map((offer) => this.mapOffer(offer));
     }
     async getUserReceivedOffers(userId, listingId) {
-        const listing = await this.database.client.listings.findFirst({
+        const user = await this.database.client.user_profiles.findUnique({
             where: {
-                id: listingId,
-                seller_user_id: userId,
+                id: userId,
             },
             select: {
                 id: true,
             },
         });
-        if (!listing) {
-            throw new common_1.NotFoundException("Listing was not found or does not belong to this user.");
+        if (!user) {
+            throw new common_1.NotFoundException("User was not found.");
         }
-        const offers = await this.database.client.listing_offers.findMany({
-            where: {
-                listing_id: listingId,
-            },
-            select: this.getOfferSelect(),
-            orderBy: {
-                created_at: "desc",
-            },
-        });
+        if (listingId) {
+            const listing = await this.database.client.listings.findFirst({
+                where: {
+                    id: listingId,
+                    seller_user_id: userId,
+                    seller_store_id: null,
+                },
+                select: {
+                    id: true,
+                },
+            });
+            if (!listing) {
+                throw new common_1.NotFoundException("Listing was not found or does not belong to this user.");
+            }
+        }
+        const listingIds = listingId
+            ? [
+                listingId,
+            ]
+            : (await this.database.client.listings.findMany({
+                where: {
+                    seller_user_id: userId,
+                    seller_store_id: null,
+                },
+                select: {
+                    id: true,
+                },
+            })).map((listing) => listing.id);
+        const offers = listingIds.length > 0
+            ? await this.database.client.listing_offers.findMany({
+                where: {
+                    listing_id: {
+                        in: listingIds,
+                    },
+                },
+                select: this.getOfferSelect(),
+                orderBy: {
+                    created_at: "desc",
+                },
+            })
+            : [];
         return offers.map((offer) => this.mapOffer(offer));
     }
     async createUserOffer(userId, listingId, input, interestId) {

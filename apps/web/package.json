@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test:market-values": "node --experimental-strip-types test/market-value-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

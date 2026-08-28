@@ -12,6 +12,7 @@ const database_module_1 = require("../database/database.module");
 const catalog_controller_1 = require("./catalog.controller");
 const catalog_service_1 = require("./catalog.service");
 const catalog_sync_service_1 = require("./catalog-sync.service");
+const market_prices_service_1 = require("./market-prices.service");
 let CatalogModule = class CatalogModule {
 };
 exports.CatalogModule = CatalogModule;
@@ -19,7 +20,7 @@ exports.CatalogModule = CatalogModule = __decorate([
     (0, common_1.Module)({
         imports: [database_module_1.DatabaseModule],
         controllers: [catalog_controller_1.CatalogController],
-        providers: [catalog_service_1.CatalogService, catalog_sync_service_1.CatalogSyncService],
-        exports: [catalog_sync_service_1.CatalogSyncService],
+        providers: [catalog_service_1.CatalogService, catalog_sync_service_1.CatalogSyncService, market_prices_service_1.MarketPricesService],
+        exports: [catalog_sync_service_1.CatalogSyncService, market_prices_service_1.MarketPricesService],
     })
 ], CatalogModule);

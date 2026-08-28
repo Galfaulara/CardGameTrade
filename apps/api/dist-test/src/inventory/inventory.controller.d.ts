@@ -154,8 +154,8 @@ export declare class InventoryController {
         id: string;
         created_at: Date;
         updated_at: Date;
-        description: string | null;
         user_id: string;
+        description: string | null;
         visibility: string;
     }>;
     setUserInventoryCollection(userId: string, itemId: string, input: SetInventoryCollectionInput): Promise<{

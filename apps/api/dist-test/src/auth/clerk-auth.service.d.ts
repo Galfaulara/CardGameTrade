@@ -10,11 +10,13 @@ export declare class ClerkAuthService {
     private requestUrl;
     authenticate(request: ExpressRequest): Promise<AuthenticatedPrincipal | null>;
     getPrimaryEmailAddress(providerSubject: string): Promise<string | null>;
+    private loadActiveStoreWorkspaces;
     currentUser(principal: AuthenticatedPrincipal): Promise<{
         authenticated: true;
         onboarded: false;
         account_status?: undefined;
         user?: undefined;
+        store_workspaces?: undefined;
     } | {
         authenticated: true;
         onboarded: true;
@@ -24,6 +26,23 @@ export declare class ClerkAuthService {
             display_name: string | null;
             username: string | null;
         };
+        store_workspaces: {
+            id: string;
+            role: string;
+            store_id: string;
+            store: {
+                name: string;
+                status: string;
+                id: string;
+                slug: string;
+                logo_url: string | null;
+                city: string | null;
+                state_region: string | null;
+                country_code: string | null;
+                verification_status: string;
+                trade_mediation_enabled: boolean;
+            };
+        }[];
     } | {
         authenticated: true;
         onboarded: true;
@@ -33,6 +52,23 @@ export declare class ClerkAuthService {
             username: string | null;
             display_name: string | null;
         };
+        store_workspaces: {
+            id: string;
+            role: string;
+            store_id: string;
+            store: {
+                name: string;
+                status: string;
+                id: string;
+                slug: string;
+                logo_url: string | null;
+                city: string | null;
+                state_region: string | null;
+                country_code: string | null;
+                verification_status: string;
+                trade_mediation_enabled: boolean;
+            };
+        }[];
     }>;
 }
 //# sourceMappingURL=clerk-auth.service.d.ts.map

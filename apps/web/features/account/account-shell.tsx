@@ -23,6 +23,11 @@ const sections = [
     label: "Offers",
     href: "/account/offers?view=sent",
   },
+  {
+    id: "trades",
+    label: "Trades",
+    href: "/account/trades",
+  },
 ] as const;
 
 export type AccountSection =

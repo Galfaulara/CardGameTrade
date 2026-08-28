@@ -97,6 +97,8 @@ export async function runAuthenticatedAuthorizationRegression() {
     await harness.as(staffPrincipal).patch(`/api/offers/${withdrawOffer}/users/${staff.user_id}/withdraw`).expect(404);
     await harness.as(user2).patch(`/api/offers/${withdrawOffer}/users/${USER_2_ID}/withdraw`).expect(200);
     const rejectOffer = await makeOffer(inventory2.body.id);
+    await harness.as(user1).get(`/api/offers/users/${USER_1_ID}/received`).expect(200);
+    await harness.as(user2).get(`/api/offers/users/${USER_1_ID}/received`).expect(403);
     await harness.as(user2).patch(`/api/offers/${rejectOffer}/users/${USER_2_ID}/reject`).expect(404);
     await harness.as(user1).patch(`/api/offers/${rejectOffer}/users/${USER_1_ID}/reject`).expect(200);
 
@@ -130,13 +132,17 @@ export async function runAuthenticatedAuthorizationRegression() {
     await harness.as(staffPrincipal).get(`/api/transactions/${participantTransaction.id}/users/${staff.user_id}`).expect(404);
     const staffHandoff = await db.store_trade_handoffs.findFirst({ where: { store_id: staff.store_id }, select: { id: true } });
     assert(staffHandoff, "An existing DeckDeal Test LGS handoff is required.");
+    const staffHandoffList = await harness.as(staffPrincipal).get(`/api/store-handoffs/stores/${staff.store_id}`).expect(200);
+    assert(staffHandoffList.body.some((handoff: any) => handoff.id === staffHandoff.id), "Store-scoped handoff read omitted an authorized handoff.");
     await harness.as(staffPrincipal).get(`/api/store-handoffs/${staffHandoff.id}`).expect(200);
+    await harness.as(user1).get(`/api/store-handoffs/stores/${staff.store_id}`).expect(403);
     await harness.as(user1).get(`/api/store-handoffs/${staffHandoff.id}`).expect(403);
 
     const beforeDenied = await snapshot();
     await harness.as(user2).patch(`/api/inventory/users/${USER_1_ID}/items/${inventory1.body.id}`).send({ notes: "blocked" }).expect(403);
     await harness.as(user1).post(`/api/offers/listings/${listing.body.id}/users/${USER_2_ID}`).send({ cashAmount: 1, currencyCode: "USD", items: [] }).expect(403);
     await harness.as(user1).patch(`/api/store-handoffs/${staffHandoff.id}/items/${randomUUID()}/receive/users/${USER_1_ID}`).expect(403);
+    await harness.as(user1).patch(`/api/store-handoffs/${staffHandoff.id}/items/${randomUUID()}/receive`).send({ storeId: staff.store_id, staffUserId: staff.user_id }).expect(403);
     assert(await snapshot() === beforeDenied, "Denied requests changed protected domain state.");
 
     await harness.as(null).get("/api/catalog/games").expect(200);

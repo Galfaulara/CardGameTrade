@@ -90,13 +90,13 @@ export declare class CatalogService {
                     username: string | null;
                     display_name: string | null;
                 } | null;
-                language_code: string;
                 stores: {
                     name: string;
                     id: string;
                     slug: string;
                     verification_status: string;
                 } | null;
+                language_code: string;
                 printing_id: string;
                 finish: string;
                 condition: string;

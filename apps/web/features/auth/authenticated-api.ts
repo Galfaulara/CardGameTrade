@@ -1,8 +1,13 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import type { MyInventoryListResult } from "../account/inventory-types";
-import type { MySentOffer } from "../account/offer-types";
+import type {
+  MyListingOffer,
+  MySentOffer,
+} from "../account/offer-types";
 import type { MyProfile } from "../account/profile-types";
+import type { MyTrade } from "../account/trade-types";
+import type { StoreHandoff } from "../store/handoff-types";
 import type { PublicListing } from "../marketplace/api";
 
 const apiBase = process.env.DECKDEAL_API_URL ?? "http://localhost:4000/api";
@@ -23,7 +28,26 @@ export type AuthenticatedCurrentUser =
       onboarded: true;
       account_status: "active" | "disabled";
       user: DeckDealPublicIdentity;
+      store_workspaces: StoreWorkspace[];
     };
+
+export type StoreWorkspace = {
+  id: string;
+  role: string;
+  store_id: string;
+  store: {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+    city: string | null;
+    state_region: string | null;
+    country_code: string | null;
+    status: string;
+    verification_status: string;
+    trade_mediation_enabled: boolean;
+  };
+};
 
 export class AuthenticatedApiError extends Error {
   constructor(public readonly status: number) {
@@ -89,6 +113,39 @@ export async function getMySentOffers(userId: string) {
   return (await authenticatedApiFetch(
     `/offers/users/${encodeURIComponent(userId)}/sent`,
   )).json() as Promise<MySentOffer[]>;
+}
+
+export async function getMyReceivedOffers(userId: string) {
+  return (await authenticatedApiFetch(
+    `/offers/users/${encodeURIComponent(userId)}/received`,
+  )).json() as Promise<MyListingOffer[]>;
+}
+
+export async function getMyTransactions(userId: string) {
+  return (await authenticatedApiFetch(
+    `/transactions/users/${encodeURIComponent(userId)}`,
+  )).json() as Promise<MyTrade[]>;
+}
+
+export async function getMyTransaction(
+  userId: string,
+  transactionId: string,
+) {
+  return (await authenticatedApiFetch(
+    `/transactions/${encodeURIComponent(transactionId)}/users/${encodeURIComponent(userId)}`,
+  )).json() as Promise<MyTrade>;
+}
+
+export async function getStoreHandoffs(storeId: string) {
+  return (await authenticatedApiFetch(
+    `/store-handoffs/stores/${encodeURIComponent(storeId)}`,
+  )).json() as Promise<StoreHandoff[]>;
+}
+
+export async function getStoreHandoff(handoffId: string) {
+  return (await authenticatedApiFetch(
+    `/store-handoffs/${encodeURIComponent(handoffId)}`,
+  )).json() as Promise<StoreHandoff>;
 }
 
 export async function getMyCollectionOptions(userId: string) {

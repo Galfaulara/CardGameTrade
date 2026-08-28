@@ -3,11 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import type {
   MyInventoryItem,
   MyInventoryListResult,
 } from "../../../../features/account/inventory-types";
+import type { MarketPrice } from "../../../../features/marketplace/api";
+import {
+  buildMarketComparison,
+  groupMarketPrices,
+  marketPriceKey,
+  MarketPrices,
+  MarketValueSummary,
+} from "../../../../features/marketplace/market-prices";
 import styles from "./trade-offer-builder.module.css";
 
 type SelectedItem = {
@@ -18,10 +26,10 @@ type SelectedItem = {
   finish: string;
   condition: string;
   imageUrl: string | null;
+  printingId: string;
 };
 
-const pretty = (value: string) =>
-  value.replaceAll("_", " ");
+const pretty = (value: string) => value.replaceAll("_", " ");
 
 const artwork = (item: MyInventoryItem) =>
   item.printing.image_large_uri ??
@@ -29,10 +37,7 @@ const artwork = (item: MyInventoryItem) =>
   item.printing.image_small_uri ??
   null;
 
-const inventoryQuery = (
-  page: number,
-  q: string,
-) => {
+const inventoryQuery = (page: number, q: string) => {
   const query = new URLSearchParams({
     page: String(page),
     pageSize: "24",
@@ -46,9 +51,7 @@ const inventoryQuery = (
   return query.toString();
 };
 
-const parseBody = async (
-  response: Response,
-) => {
+const parseBody = async (response: Response) => {
   try {
     return (await response.json()) as {
       id?: string;
@@ -66,6 +69,10 @@ export function TradeOfferBuilder({
   initialQuery,
   initialPage,
   initialInventory,
+  targetPrintingId,
+  targetFinish,
+  targetQuantity,
+  initialMarketPrices,
 }: {
   listingId: string;
   targetCardHref: string;
@@ -73,36 +80,26 @@ export function TradeOfferBuilder({
   initialQuery: string;
   initialPage: number;
   initialInventory: MyInventoryListResult;
+  targetPrintingId: string;
+  targetFinish: string;
+  targetQuantity: number;
+  initialMarketPrices: MarketPrice[];
 }) {
   const router = useRouter();
-  const [inventory, setInventory] =
-    useState(initialInventory);
-  const [search, setSearch] =
-    useState(initialQuery);
-  const [currentQuery, setCurrentQuery] =
-    useState(initialQuery);
-  const [currentPage, setCurrentPage] =
-    useState(initialPage);
-  const [loadingInventory, setLoadingInventory] =
-    useState(false);
-  const [submitting, setSubmitting] =
-    useState(false);
-  const [error, setError] = useState<
-    string | null
-  >(null);
-  const [selected, setSelected] = useState<
-    Record<string, SelectedItem>
-  >({});
+  const [inventory, setInventory] = useState(initialInventory);
+  const [marketPrices, setMarketPrices] = useState(initialMarketPrices);
+  const [search, setSearch] = useState(initialQuery);
+  const [currentQuery, setCurrentQuery] = useState(initialQuery);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionLatch = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, SelectedItem>>({});
 
-  const selectedItems = useMemo(
-    () => Object.values(selected),
-    [selected],
-  );
+  const selectedItems = useMemo(() => Object.values(selected), [selected]);
 
-  const loadInventory = async (
-    page: number,
-    q: string,
-  ) => {
+  const loadInventory = async (page: number, q: string) => {
     setLoadingInventory(true);
     setError(null);
 
@@ -115,25 +112,36 @@ export function TradeOfferBuilder({
 
     if (!response.ok) {
       setError(
-        (await parseBody(response))
-          .message ??
+        (await parseBody(response)).message ??
           "Your inventory could not be loaded.",
       );
       setLoadingInventory(false);
       return;
     }
 
-    setInventory(
-      (await response.json()) as MyInventoryListResult,
-    );
+    const nextInventory = (await response.json()) as MyInventoryListResult;
+    setInventory(nextInventory);
+    const priceResponse = await fetch("/api/market-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: [
+          { printingId: targetPrintingId, finish: targetFinish },
+          ...nextInventory.items.map((item) => ({
+            printingId: item.printing.id,
+            finish: item.finish,
+          })),
+        ],
+      }),
+    });
+    if (priceResponse.ok)
+      setMarketPrices((await priceResponse.json()) as MarketPrice[]);
     setCurrentPage(page);
     setCurrentQuery(q);
     setLoadingInventory(false);
   };
 
-  const toggleSelection = (
-    item: MyInventoryItem,
-  ) => {
+  const toggleSelection = (item: MyInventoryItem) => {
     setSelected((current) => {
       if (current[item.id]) {
         const next = { ...current };
@@ -151,45 +159,38 @@ export function TradeOfferBuilder({
           finish: item.finish,
           condition: item.condition,
           imageUrl: artwork(item),
+          printingId: item.printing.id,
         },
       };
     });
   };
 
   const submit = async () => {
+    if (submissionLatch.current) return;
+    submissionLatch.current = true;
     setSubmitting(true);
     setError(null);
 
-    const response = await fetch(
-      "/api/me/offers",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          listingId,
-          items: selectedItems.map(
-            (item) => ({
-              inventoryItemId:
-                item.inventoryItemId,
-              quantity: item.quantity,
-            }),
-          ),
-        }),
+    const response = await fetch("/api/me/offers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        listingId,
+        items: selectedItems.map((item) => ({
+          inventoryItemId: item.inventoryItemId,
+          quantity: item.quantity,
+        })),
+      }),
+    });
 
-    const body = await parseBody(
-      response,
-    );
+    const body = await parseBody(response);
 
     if (!response.ok || !body.id) {
-      setError(
-        body.message ??
-          "This offer could not be sent.",
-      );
+      setError(body.message ?? "This offer could not be sent.");
       setSubmitting(false);
+      submissionLatch.current = false;
       return;
     }
 
@@ -199,29 +200,41 @@ export function TradeOfferBuilder({
   };
 
   const firstItem =
-    inventory.pagination.total_count &&
-    inventory.items.length
-      ? (inventory.pagination.page - 1) *
-          inventory.pagination.page_size +
-        1
+    inventory.pagination.total_count && inventory.items.length
+      ? (inventory.pagination.page - 1) * inventory.pagination.page_size + 1
       : 0;
-  const lastItem = firstItem
-    ? firstItem + inventory.items.length - 1
-    : 0;
+  const lastItem = firstItem ? firstItem + inventory.items.length - 1 : 0;
+  const priceMap = groupMarketPrices(marketPrices);
+  const targetPrices =
+    priceMap.get(marketPriceKey(targetPrintingId, targetFinish)) ?? [];
+  const comparison = buildMarketComparison(
+    selectedItems.map((item) => ({
+      prices: priceMap.get(marketPriceKey(item.printingId, item.finish)) ?? [],
+      quantity: item.quantity,
+    })),
+    [{ prices: targetPrices, quantity: targetQuantity }],
+  );
+
+  const sendButton = () => (
+    <button
+      className={styles.primaryAction}
+      type="button"
+      onClick={() => void submit()}
+      disabled={submitting || loadingInventory || selectedItems.length === 0}
+    >
+      {submitting ? "Sending…" : "Send offer"}
+    </button>
+  );
 
   return (
     <section className={styles.panel}>
       <div className={styles.header}>
         <div>
-          <p className={styles.kicker}>
-            Your offer
-          </p>
-          <h2>Choose exact inventory you own</h2>
+          <p className={styles.kicker}>Your offer</p>
+          <h2>Choose exact copies or printings you own</h2>
         </div>
         <div className={styles.selectionSummary}>
-          <strong>
-            {selectedItems.length} selected
-          </strong>
+          <strong>{selectedItems.length} selected</strong>
           {selectedItems.length ? (
             <button
               className={styles.clearAction}
@@ -232,38 +245,29 @@ export function TradeOfferBuilder({
               Clear selection
             </button>
           ) : null}
+          {sendButton()}
         </div>
       </div>
+
+      <MarketValueSummary rows={comparison} />
 
       <form
         className={styles.searchForm}
         onSubmit={(event: FormEvent) => {
           event.preventDefault();
-          void loadInventory(
-            1,
-            search.trim(),
-          );
+          void loadInventory(1, search.trim());
         }}
       >
         <label className={styles.searchField}>
-          <span className={styles.srOnly}>
-            Search your inventory
-          </span>
+          <span className={styles.srOnly}>Search your inventory</span>
           <input
             value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
+            onChange={(event) => setSearch(event.target.value)}
             placeholder="Search your inventory…"
           />
         </label>
-        <button
-          className={styles.secondaryAction}
-          disabled={loadingInventory}
-        >
-          {loadingInventory
-            ? "Searching…"
-            : "Search"}
+        <button className={styles.secondaryAction} disabled={loadingInventory}>
+          {loadingInventory ? "Searching…" : "Search"}
         </button>
       </form>
 
@@ -287,9 +291,7 @@ export function TradeOfferBuilder({
                       const next = {
                         ...current,
                       };
-                      delete next[
-                        item.inventoryItemId
-                      ];
+                      delete next[item.inventoryItemId];
                       return next;
                     })
                   }
@@ -310,14 +312,10 @@ export function TradeOfferBuilder({
                   </div>
                   <div>
                     <strong>{item.name}</strong>
-                    <p>
-                      {item.printing}
-                    </p>
+                    <p>{item.printing}</p>
                     <p>
                       {pretty(item.condition)} · {pretty(item.finish)}
-                      {item.quantity > 1
-                        ? ` · ×${item.quantity}`
-                        : ""}
+                      {item.quantity > 1 ? ` · ×${item.quantity}` : ""}
                     </p>
                   </div>
                 </button>
@@ -331,18 +329,14 @@ export function TradeOfferBuilder({
         <>
           <ul className={styles.grid}>
             {inventory.items.map((item) => {
-              const isSelected = Boolean(
-                selected[item.id],
-              );
+              const isSelected = Boolean(selected[item.id]);
               const image = artwork(item);
               return (
                 <li key={item.id}>
                   <button
                     className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
                     type="button"
-                    onClick={() =>
-                      toggleSelection(item)
-                    }
+                    onClick={() => toggleSelection(item)}
                     disabled={submitting}
                     aria-pressed={isSelected}
                   >
@@ -356,46 +350,41 @@ export function TradeOfferBuilder({
                           unoptimized
                         />
                       ) : (
-                        <span>
-                          Card image unavailable
-                        </span>
+                        <span>Card image unavailable</span>
                       )}
                     </div>
                     <div className={styles.info}>
                       <div className={styles.titleRow}>
-                        <strong>
-                          {item.printing
-                            .canonical_cards.name}
-                        </strong>
+                        <strong>{item.printing.canonical_cards.name}</strong>
                         <span className={styles.toggleState}>
-                          {isSelected
-                            ? "Selected"
-                            : "Select"}
+                          {isSelected ? "Selected" : "Select"}
                         </span>
                       </div>
                       <p>
-                        {item.printing.card_sets.name} · {item.printing.card_sets.code.toUpperCase()} #
+                        {item.printing.card_sets.name} ·{" "}
+                        {item.printing.card_sets.code.toUpperCase()} #
                         {item.printing.collector_number}
                       </p>
                       <p>
                         {pretty(item.condition)} · {pretty(item.finish)}
-                        {item.quantity > 1
-                          ? ` · ×${item.quantity}`
-                          : ""}
+                        {item.quantity > 1 ? ` · ×${item.quantity}` : ""}
                       </p>
-                      <p>
-                        Collection · {item.collection?.name ?? "Unsorted"}
-                      </p>
+                      <p>Collection · {item.collection?.name ?? "Unsorted"}</p>
+                      <MarketPrices
+                        prices={
+                          priceMap.get(
+                            marketPriceKey(item.printing.id, item.finish),
+                          ) ?? []
+                        }
+                        compact
+                      />
                     </div>
                   </button>
                 </li>
               );
             })}
           </ul>
-          <nav
-            className={styles.pagination}
-            aria-label="Offer inventory pages"
-          >
+          <nav className={styles.pagination} aria-label="Offer inventory pages">
             <p>
               {firstItem
                 ? `Showing ${firstItem}–${lastItem} of ${inventory.pagination.total_count}`
@@ -406,15 +395,9 @@ export function TradeOfferBuilder({
                 className={styles.paginationButton}
                 type="button"
                 onClick={() =>
-                  void loadInventory(
-                    currentPage - 1,
-                    currentQuery,
-                  )
+                  void loadInventory(currentPage - 1, currentQuery)
                 }
-                disabled={
-                  loadingInventory ||
-                  currentPage <= 1
-                }
+                disabled={loadingInventory || currentPage <= 1}
               >
                 ← Previous
               </button>
@@ -422,15 +405,9 @@ export function TradeOfferBuilder({
                 className={styles.paginationButton}
                 type="button"
                 onClick={() =>
-                  void loadInventory(
-                    currentPage + 1,
-                    currentQuery,
-                  )
+                  void loadInventory(currentPage + 1, currentQuery)
                 }
-                disabled={
-                  loadingInventory ||
-                  !inventory.pagination.has_more
-                }
+                disabled={loadingInventory || !inventory.pagination.has_more}
               >
                 Next →
               </button>
@@ -448,26 +425,10 @@ export function TradeOfferBuilder({
       )}
 
       <div className={styles.actions}>
-        <Link
-          className={styles.secondaryAction}
-          href={targetCardHref}
-        >
+        <Link className={styles.secondaryAction} href={targetCardHref}>
           Cancel
         </Link>
-        <button
-          className={styles.primaryAction}
-          type="button"
-          onClick={() => void submit()}
-          disabled={
-            submitting ||
-            loadingInventory ||
-            selectedItems.length === 0
-          }
-        >
-          {submitting
-            ? "Sending…"
-            : "Send offer"}
-        </button>
+        {sendButton()}
       </div>
     </section>
   );

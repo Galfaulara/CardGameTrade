@@ -3,16 +3,27 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
+  Body,
   Query,
 } from "@nestjs/common";
 
 import { CatalogService } from "./catalog.service";
 import { Public } from "../auth/public.decorator";
+import { MarketPricesService } from "./market-prices.service";
 
 @Public()
 @Controller("catalog")
 export class CatalogController {
-  constructor(private readonly catalogService: CatalogService) {}
+  constructor(private readonly catalogService: CatalogService, private readonly marketPrices: MarketPricesService) {}
+
+  @Post("prices/latest")
+  latestPrices(@Body() body: { items?: Array<{ printingId?: unknown; finish?: unknown }> }) {
+    const items = Array.isArray(body?.items) ? body.items.slice(0, 100).flatMap((item) =>
+      typeof item.printingId === "string" && /^[0-9a-f-]{36}$/i.test(item.printingId) && typeof item.finish === "string" && ["nonfoil", "foil", "etched"].includes(item.finish)
+        ? [{ printingId: item.printingId, finish: item.finish }] : []) : [];
+    return this.marketPrices.latest(items);
+  }
 
   @Get("games")
   getGames() {

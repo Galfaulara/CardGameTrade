@@ -11,18 +11,20 @@ import {
 } from "../../../../features/auth/authenticated-api";
 import {
   getPublicListing,
+  getLatestMarketPrices,
   type PublicListing,
 } from "../../../../features/marketplace/api";
+import {
+  MarketPrices,
+  groupMarketPrices,
+  marketPriceKey,
+} from "../../../../features/marketplace/market-prices";
 import { TradeOfferBuilder } from "./trade-offer-builder";
 import styles from "./page.module.css";
 
-const pretty = (value: string) =>
-  value.replaceAll("_", " ");
+const pretty = (value: string) => value.replaceAll("_", " ");
 
-const inventoryQuery = (
-  page: number,
-  q: string,
-) => {
+const inventoryQuery = (page: number, q: string) => {
   const query = new URLSearchParams({
     page: String(page),
     pageSize: "24",
@@ -36,62 +38,41 @@ const inventoryQuery = (
   return query.toString();
 };
 
-const normalizePage = (
-  value: string | string[] | undefined,
-) => {
-  const raw = Array.isArray(value)
-    ? value[0]
-    : value;
+const normalizePage = (value: string | string[] | undefined) => {
+  const raw = Array.isArray(value) ? value[0] : value;
   if (!raw || !/^\d+$/.test(raw)) {
     return 1;
   }
   const page = Number(raw);
-  return Number.isSafeInteger(page) &&
-    page > 0
-    ? page
-    : 1;
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
 };
 
-const normalizeQuery = (
-  value: string | string[] | undefined,
-) => {
-  const raw = Array.isArray(value)
-    ? value[0]
-    : value;
+const normalizeQuery = (value: string | string[] | undefined) => {
+  const raw = Array.isArray(value) ? value[0] : value;
   return raw?.trim().replace(/\s+/g, " ") ?? "";
 };
 
-const listingAvailable = (
-  listing: PublicListing,
-) =>
+const listingAvailable = (listing: PublicListing) =>
   listing.status === "active" &&
   listing.accepts_trade &&
   Boolean(listing.inventory_item) &&
-  listing.inventory_item?.status ===
-    "available";
+  listing.inventory_item?.status === "available";
 
-const sellerLabel = (
-  listing: PublicListing,
-) => {
-  const user =
-    listing.inventory_item?.user_profiles;
+const sellerLabel = (listing: PublicListing) => {
+  const user = listing.inventory_item?.user_profiles;
   if (user?.username) {
     return `@${user.username}`;
   }
   if (user?.display_name) {
     return user.display_name;
   }
-  const store =
-    listing.inventory_item?.stores;
+  const store = listing.inventory_item?.stores;
   return store?.name ?? "DeckDeal seller";
 };
 
 const cardHref = (listing: PublicListing) => {
-  const canonicalCardId =
-    listing.inventory_item?.printing
-      .canonical_cards.id;
-  const printingId =
-    listing.inventory_item?.printing.id;
+  const canonicalCardId = listing.inventory_item?.printing.canonical_cards.id;
+  const printingId = listing.inventory_item?.printing.id;
 
   if (!canonicalCardId) {
     return "/discover";
@@ -112,37 +93,25 @@ export default async function TradePage({
     q?: string | string[];
   }>;
 }) {
-  const [{ listingId }, query] =
-    await Promise.all([
-      params,
-      searchParams,
-    ]);
+  const [{ listingId }, query] = await Promise.all([params, searchParams]);
   const signInRedirectUrl = `/sign-in?redirect_url=${encodeURIComponent(`/trade/${listingId}`)}`;
-  const page = normalizePage(
-    query.page,
-  );
+  const page = normalizePage(query.page);
   const q = normalizeQuery(query.q);
 
-  const listingResult =
-    await getPublicListing(listingId);
+  const listingResult = await getPublicListing(listingId);
 
   if (listingResult.status !== "ready") {
     return (
       <main className={styles.main}>
         <NavigationBack fallback="/discover" />
         <section className={styles.state}>
-          <p className={styles.kicker}>
-            Trade unavailable
-          </p>
+          <p className={styles.kicker}>Trade unavailable</p>
           <h1>This listing isn’t available for trade.</h1>
           <p>
             The exact listing may have been removed, changed, or is no longer
             active.
           </p>
-          <Link
-            className={styles.primaryAction}
-            href="/discover"
-          >
+          <Link className={styles.primaryAction} href="/discover">
             Return to discovery
           </Link>
         </section>
@@ -158,18 +127,13 @@ export default async function TradePage({
       <main className={styles.main}>
         <NavigationBack fallback={fallback} />
         <section className={styles.state}>
-          <p className={styles.kicker}>
-            Trade unavailable
-          </p>
+          <p className={styles.kicker}>Trade unavailable</p>
           <h1>This listing isn’t accepting trade offers right now.</h1>
           <p>
             Only active trade-capable listings backed by available inventory can
             accept new offers.
           </p>
-          <Link
-            className={styles.primaryAction}
-            href={fallback}
-          >
+          <Link className={styles.primaryAction} href={fallback}>
             View card
           </Link>
         </section>
@@ -177,18 +141,14 @@ export default async function TradePage({
     );
   }
 
-  const configured = Boolean(
-    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  );
+  const configured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
   if (!configured) {
     return (
       <main className={styles.main}>
         <NavigationBack fallback={fallback} />
         <section className={styles.state}>
-          <p className={styles.kicker}>
-            Trade unavailable
-          </p>
+          <p className={styles.kicker}>Trade unavailable</p>
           <h1>Trade sign-in is not configured locally.</h1>
           <p>
             Add the Clerk development environment values described in
@@ -205,8 +165,7 @@ export default async function TradePage({
   }
 
   try {
-    const currentUser =
-      await getAuthenticatedCurrentUser();
+    const currentUser = await getAuthenticatedCurrentUser();
 
     if (!currentUser.onboarded) {
       redirect("/onboarding");
@@ -217,9 +176,7 @@ export default async function TradePage({
         <main className={styles.main}>
           <NavigationBack fallback={fallback} />
           <section className={styles.state}>
-            <p className={styles.kicker}>
-              DeckDeal account unavailable
-            </p>
+            <p className={styles.kicker}>DeckDeal account unavailable</p>
             <h1>This DeckDeal account can’t start a trade.</h1>
             <p>
               Your authenticated Clerk identity does not currently have access
@@ -235,18 +192,13 @@ export default async function TradePage({
         <main className={styles.main}>
           <NavigationBack fallback={fallback} />
           <section className={styles.state}>
-            <p className={styles.kicker}>
-              Own listing
-            </p>
+            <p className={styles.kicker}>Own listing</p>
             <h1>You can’t make an offer on your own listing.</h1>
             <p>
               Open this card from public discovery or My Listings if you want to
               manage the listing instead.
             </p>
-            <Link
-              className={styles.primaryAction}
-              href="/account/listings"
-            >
+            <Link className={styles.primaryAction} href="/account/listings">
               Go to My Listings
             </Link>
           </section>
@@ -254,83 +206,91 @@ export default async function TradePage({
       );
     }
 
-    const inventory =
-      (await getMyInventory(
-        inventoryQuery(page, q),
-      )) as MyInventoryListResult;
+    const inventory = (await getMyInventory(
+      inventoryQuery(page, q),
+    )) as MyInventoryListResult;
+    const target = listing.inventory_item!;
+    const marketPrices = await getLatestMarketPrices([
+      { printingId: target.printing.id, finish: target.finish },
+      ...inventory.items.map((item) => ({
+        printingId: item.printing.id,
+        finish: item.finish,
+      })),
+    ]);
 
     return (
       <main className={styles.main}>
         <NavigationBack fallback={fallback} />
         <section className={styles.layout}>
           <header className={styles.hero}>
-            <p className={styles.kicker}>
-              Trade for
-            </p>
+            <p className={styles.kicker}>Trade for</p>
             <div className={styles.targetCard}>
               <div className={styles.art}>
-                {listing.inventory_item?.printing
-                  .image_large_uri ||
-                listing.inventory_item?.printing
-                  .image_normal_uri ? (
+                {listing.inventory_item?.printing.image_large_uri ||
+                listing.inventory_item?.printing.image_normal_uri ? (
                   <Image
-                    src={listing.inventory_item.printing.image_large_uri ?? listing.inventory_item.printing.image_normal_uri ?? listing.inventory_item.printing.image_small_uri ?? ""}
+                    src={
+                      listing.inventory_item.printing.image_large_uri ??
+                      listing.inventory_item.printing.image_normal_uri ??
+                      listing.inventory_item.printing.image_small_uri ??
+                      ""
+                    }
                     alt={`${listing.inventory_item.printing.canonical_cards.name} card`}
                     fill
                     sizes="(max-width: 48rem) 70vw, 280px"
                     unoptimized
                   />
                 ) : (
-                  <span>
-                    Card image unavailable
-                  </span>
+                  <span>Card image unavailable</span>
                 )}
               </div>
               <div className={styles.targetInfo}>
-                <h1>
-                  {listing.inventory_item?.printing
-                    .canonical_cards.name}
-                </h1>
+                <h1>{listing.inventory_item?.printing.canonical_cards.name}</h1>
                 <p>
-                  {listing.inventory_item?.printing
-                    .card_sets.name} · {listing.inventory_item?.printing.card_sets.code.toUpperCase()} #
-                  {listing.inventory_item?.printing
-                    .collector_number}
+                  {listing.inventory_item?.printing.card_sets.name} ·{" "}
+                  {listing.inventory_item?.printing.card_sets.code.toUpperCase()}{" "}
+                  #{listing.inventory_item?.printing.collector_number}
                 </p>
                 <p>
-                  {pretty(
-                    listing.inventory_item
-                      ?.condition ?? "unknown",
-                  )} · {pretty(
-                    listing.inventory_item
-                      ?.finish ?? "unknown",
-                  )}
+                  {pretty(listing.inventory_item?.condition ?? "unknown")} ·{" "}
+                  {pretty(listing.inventory_item?.finish ?? "unknown")}
                 </p>
-                <p>
-                  Offered by {sellerLabel(listing)}
-                </p>
-                <span className={styles.intent}>
-                  TRADE
-                </span>
+                <p>Offered by {sellerLabel(listing)}</p>
+                <span className={styles.intent}>TRADE</span>
+                <div className={styles.targetMarket}>
+                  <MarketPrices
+                    prices={
+                      groupMarketPrices(marketPrices).get(
+                        marketPriceKey(target.printing.id, target.finish),
+                      ) ?? []
+                    }
+                    title="Target market value"
+                    compact
+                  />
+                </div>
               </div>
             </div>
           </header>
           <TradeOfferBuilder
             listingId={listing.id}
             targetCardHref={fallback}
-            targetCardName={listing.inventory_item?.printing.canonical_cards.name ?? "Unavailable card"}
+            targetCardName={
+              listing.inventory_item?.printing.canonical_cards.name ??
+              "Unavailable card"
+            }
             initialQuery={q}
             initialPage={page}
             initialInventory={inventory}
+            targetPrintingId={target.printing.id}
+            targetFinish={target.finish}
+            targetQuantity={target.quantity}
+            initialMarketPrices={marketPrices}
           />
         </section>
       </main>
     );
   } catch (error) {
-    if (
-      error instanceof AuthenticatedApiError &&
-      error.status === 401
-    ) {
+    if (error instanceof AuthenticatedApiError && error.status === 401) {
       redirect(signInRedirectUrl);
     }
 
@@ -338,17 +298,10 @@ export default async function TradePage({
       <main className={styles.main}>
         <NavigationBack fallback={fallback} />
         <section className={styles.state}>
-          <p className={styles.kicker}>
-            Trade unavailable
-          </p>
+          <p className={styles.kicker}>Trade unavailable</p>
           <h1>We couldn’t load this trade right now.</h1>
-          <p>
-            Please try again shortly.
-          </p>
-          <Link
-            className={styles.primaryAction}
-            href={fallback}
-          >
+          <p>Please try again shortly.</p>
+          <Link className={styles.primaryAction} href={fallback}>
             View card
           </Link>
         </section>

@@ -8,6 +8,7 @@ import { getCardDetail } from "../../../../features/marketplace/api";
 import { AddToCollectionLauncher } from "../../../../components/add-to-collection/add-to-collection-launcher";
 import { ListingIntentPill } from "../../../../components/listing-intent/listing-intent-pill";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
+import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -158,6 +159,9 @@ export default async function CardPage({
                   </>
                 )}
               </dl>
+              {result.market_finishes.map(({ finish }: { finish: string }) => (
+                <MarketPrices key={finish} prices={result.market_prices.filter((price: { finish: string }) => price.finish === finish)} title={`Market prices · ${finish.replaceAll("_", " ")}`} />
+              ))}
               {selected.scryfall_uri && (
                 <a
                   href={selected.scryfall_uri}

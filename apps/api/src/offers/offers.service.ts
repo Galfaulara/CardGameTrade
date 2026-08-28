@@ -403,35 +403,77 @@ export class OffersService {
 
   async getUserReceivedOffers(
     userId: string,
-    listingId: string,
+    listingId?: string,
   ) {
-    const listing =
-      await this.database.client.listings.findFirst({
+    const user =
+      await this.database.client.user_profiles.findUnique({
         where: {
-          id: listingId,
-          seller_user_id: userId,
+          id: userId,
         },
         select: {
           id: true,
         },
       });
 
-    if (!listing) {
+    if (!user) {
       throw new NotFoundException(
-        "Listing was not found or does not belong to this user.",
+        "User was not found.",
       );
     }
 
+    if (listingId) {
+      const listing =
+        await this.database.client.listings.findFirst({
+          where: {
+            id: listingId,
+            seller_user_id: userId,
+            seller_store_id: null,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (!listing) {
+        throw new NotFoundException(
+          "Listing was not found or does not belong to this user.",
+        );
+      }
+    }
+
+    const listingIds = listingId
+      ? [
+          listingId,
+        ]
+      : (
+          await this.database.client.listings.findMany({
+            where: {
+              seller_user_id: userId,
+              seller_store_id: null,
+            },
+            select: {
+              id: true,
+            },
+          })
+        ).map(
+          (listing) =>
+            listing.id,
+        );
+
     const offers =
-      await this.database.client.listing_offers.findMany({
-        where: {
-          listing_id: listingId,
-        },
-        select: this.getOfferSelect(),
-        orderBy: {
-          created_at: "desc",
-        },
-      });
+      listingIds.length > 0
+        ? await this.database.client.listing_offers.findMany({
+            where: {
+              listing_id: {
+                in: listingIds,
+              },
+            },
+            select: this.getOfferSelect(),
+            orderBy: {
+              created_at: "desc",
+            },
+          })
+        : [];
 
     return offers.map(
       (offer) =>

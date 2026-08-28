@@ -70,14 +70,55 @@ export class ClerkAuthService {
     }
   }
 
+  private async loadActiveStoreWorkspaces(
+    userId: string,
+  ) {
+    return this.database.client.store_staff.findMany({
+      where: {
+        user_id: userId,
+        status: "active",
+      },
+      select: {
+        id: true,
+        role: true,
+        store_id: true,
+        stores: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo_url: true,
+            city: true,
+            state_region: true,
+            country_code: true,
+            status: true,
+            verification_status: true,
+            trade_mediation_enabled: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: "asc",
+      },
+    }).then((memberships) =>
+      memberships.map((membership) => ({
+        id: membership.id,
+        role: membership.role,
+        store_id: membership.store_id,
+        store: membership.stores,
+      })),
+    );
+  }
+
   async currentUser(principal: AuthenticatedPrincipal) {
     if (!principal.deckdealUserId) return { authenticated: true as const, onboarded: false as const };
     const user = await this.database.client.user_profiles.findUnique({ where: { id: principal.deckdealUserId },
       select: { id: true, display_name: true, username: true, status: true } });
     if (!user) return { authenticated: true as const, onboarded: false as const };
+    const store_workspaces = await this.loadActiveStoreWorkspaces(user.id);
     if (user.status !== "active") return { authenticated: true as const, onboarded: true as const,
-      account_status: "disabled" as const, user: { id: user.id, display_name: user.display_name, username: user.username } };
+      account_status: "disabled" as const, user: { id: user.id, display_name: user.display_name, username: user.username }, store_workspaces };
     const { status: _status, ...identity } = user;
-    return { authenticated: true as const, onboarded: true as const, account_status: "active" as const, user: identity };
+    return { authenticated: true as const, onboarded: true as const, account_status: "active" as const, user: identity, store_workspaces };
   }
 }

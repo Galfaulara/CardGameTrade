@@ -1,9 +1,11 @@
 # DeckDeal Project Context
 
 ## Product
+
 DeckDeal is a store-centered marketplace for trading card games, initially Magic: The Gathering. Users register real owned cards, manage collections, list cards, create Wishlists, express Interests, negotiate Offers, and complete store-mediated exchanges through participating LGS locations.
 
 ## Architecture
+
 - `apps/api`: NestJS 10 / Express backend.
 - `apps/web`: Next.js web app.
 - `apps/admin`: Next.js admin app.
@@ -22,7 +24,9 @@ Schema: `packages/db/prisma/schema.prisma`.
 Package management: npm workspaces with `package-lock.json`.
 
 ## Card model
+
 Three layers:
+
 - `canonical_cards`: card/gameplay identity.
 - `card_printings`: exact set/printing/version.
 - `inventory_items`: actual registered owned physical inventory.
@@ -32,12 +36,14 @@ Three layers:
 An isolated development/admin bulk-inventory utility now supports normalized, dry-run-first imports that resolve exact local printings and finishes before atomic writes. Bulk inventory import is an important planned product feature: its eventual frontend should provide preview, validation, and explicit confirmation, with Moxfield-style text and CSV feeding the same normalized importer. A durable import-batch/audit model may be added when that user-facing feature is built.
 
 ## Major domains/tables
+
 Includes:
 `games`, `card_sets`, `canonical_cards`, `card_printings`, `printing_finishes`, `user_profiles`, `stores`, `store_staff`, `collections`, `inventory_items`, `inventory_item_photos`, `price_snapshots`, `listings`, `listing_offers`, `offer_items`, `transactions`, `transaction_items`, `wishlists`, `wishlist_items`, `wishlist_offers`, `wishlist_offer_items`, `wishlist_offer_requested_items`, `inventory_item_interests`, `store_trade_handoffs`, `transaction_item_custody`.
 
 Verify exact columns in Prisma/source before coding.
 
 ## Listings
+
 - Only `available` inventory may be listed.
 - One inventory row cannot have multiple simultaneous open (`active`/`paused`) listings.
 - Pending offers do not reserve the listed card.
@@ -45,11 +51,13 @@ Verify exact columns in Prisma/source before coding.
 - Completed card-trade listings end as `traded`.
 
 ## Wishlists
+
 A Wishlist belongs to the user who wants a card. A Wishlist item can target a canonical card or an exact printing.
 
 A different user who owns a matching inventory item creates a Wishlist Offer.
 
 Direction:
+
 - Wishlist owner wants the offered card.
 - Card owner is the Wishlist Offer creator.
 - Requested return terms belong to `wishlist_offer_requested_items`.
@@ -58,9 +66,11 @@ Direction:
 Current Wishlist acceptance is pure-card only until payment exists.
 
 ## Interests
+
 Interests are soft signals, not Offers.
 
 Types:
+
 - `buy`
 - `trade`
 - `buy_or_trade`
@@ -71,41 +81,52 @@ They do not reserve inventory, transfer ownership, or create Transactions.
 `watch` is valid but non-convertible.
 
 Conversion history is persisted with exactly one of:
+
 - `converted_listing_offer_id`
 - `converted_wishlist_offer_id`
-plus `converted_at`.
+  plus `converted_at`.
 
 Listing-origin: interested user converts into a Listing Offer.
 Wishlist-origin: Wishlist owner created the Interest, but the target card owner creates the Wishlist Offer.
 
 ## Offers
+
 - Offered physical cards must belong to the offerer.
 - Offered inventory must be `available`.
 - Full registered quantity is required unless inventory is split first.
 - Pending Offers do not reserve cards.
+- Seller-scoped received Listing Offers are private reads across actor-owned Listings.
 - Wrong-user terminal operations are rejected.
 - Only pending Offers can be withdrawn/rejected.
+- Only the authenticated Listing seller may reject or accept a pending Offer.
 - Terminal Offers cannot transition again.
 - Withdrawal/rejection must not erase Interest-to-Offer provenance.
 
 ## Acceptance and transactions
+
 Current non-payment acceptance is user-to-user and store-mediated.
 
 On valid pure-card acceptance:
+
 - transaction is created;
 - participating inventory becomes `in_trade`;
 - transaction items represent each physical movement;
 - a store handoff and custody rows are created;
-- mediation store must be active, verified, and trade-mediation enabled.
+- mediation store is chosen and validated at acceptance;
+- mediation store must be active, verified, and trade-mediation enabled;
+- ownership remains unchanged until Store release completes the transfer.
 
 ## Store handoff and custody
+
 Custody:
+
 1. `awaiting_delivery_to_store`
 2. `in_store`
 3. `verified_by_store`
 4. `released_to_recipient`
 
 Handoff:
+
 1. `awaiting_items`
 2. `partially_received`
 3. `all_items_received`
@@ -115,7 +136,9 @@ Handoff:
 Only active staff at the mediation store may act. Cards cannot be verified before receipt or released before full handoff validation.
 
 ## Ownership transfer
+
 On release:
+
 - the source ownership row remains tied historically to the former owner;
 - source status becomes `removed`;
 - source collection is cleared;
@@ -127,7 +150,40 @@ Physical characteristics carry forward. Prior-owner private metadata does not.
 
 Repeated ownership chains have been tested successfully across multiple generations.
 
+## Daily market pricing
+
+External market references are historical `price_snapshots`, never seller
+asking prices. TCGplayer reference values are synchronized through Scryfall's
+provider-wide bulk printing dataset and mapped by exact printing and finish
+(`usd`, `usd_foil`, `usd_etched`). Card Kingdom retail references synchronize
+separately from MTGJSON's daily `AllPricesToday` and `AllIdentifiers` bulk files;
+MTGJSON UUIDs resolve through `scryfallId` to DeckDeal's exact printing. DeckDeal
+does not use Card Kingdom buylist values, scrape storefront HTML, or fabricate
+missing values.
+
+Run `npm.cmd run sync:prices --workspace=api` once daily from the production
+scheduler. Page renders make zero provider requests: API/UI reads batch the
+latest successful snapshot for exact `printing_id + finish + source` from
+DeckDeal's database. Daily retries update the same effective observation,
+prior dates remain historical, provider failure never erases the latest valid
+snapshot, and `captured_at` is the user-facing freshness authority. Pricing is
+informational and missing/stale prices never block Listings, Offers, Trades, or
+Store custody.
+
+Offer comparisons keep providers independent and define Difference as Offered
+market value minus Target market value. A difference from -10% through +10%,
+inclusive, is `Close value`; greater than +10% is `Above value`; less than -10%
+is `Below value`. Missing provider coverage makes that provider's total,
+difference, and classification unavailable rather than treating the card as
+zero. These are current/latest references, not offer-time locked settlement
+values.
+
+My Listings keeps two healthy-width horizontal cards on normal desktop and
+falls back to one column before either card's content becomes unreadable. Card
+names wrap only at normal word boundaries and art remains bounded at 63:88.
+
 ## Backend status
+
 The core non-payment backend has been extensively tested through API and DB assertions.
 
 An isolated, read-only public Discovery layer now provides bounded collection
@@ -258,6 +314,7 @@ Planned backoffice phases:
   visibility, refunds/disputes, and payout/split visibility.
 
 Covered:
+
 - inventory/collections;
 - listings;
 - Wishlists/public browse;
@@ -286,18 +343,33 @@ Milestone:
 
 Temporary Friday staging-beta scope is trade-only: authenticated users can now
 manage **My Listings**, create trade-only Listings from owned Inventory, follow
-an actionable public **TRADE** intent into **Start Trade**, and submit
-card-for-card Listing Offers using exact owned Inventory items. Pending Offers
-remain non-reserving: no ownership transfer, custody, handoff, or Transaction
-is created until later acceptance. Cash/payment remains deferred, and
-acceptance/LGS workflow is the next phase.
+an actionable public **TRADE** intent into **Start Trade**, submit
+card-for-card Listing Offers using exact owned Inventory items, review private
+**Received Offers**, seller-accept or reject pending Offers, and open
+participant-scoped **My Trades** plus trade detail after acceptance. Pending
+Offers remain non-reserving: no ownership transfer, custody, handoff, or
+Transaction is created until valid seller acceptance. Acceptance now chooses and
+validates the mediation Store, creates the Transaction immediately, and still
+keeps ownership unchanged until Store release. Active Store staff now enter the
+minimal **Store Workspace**, review exact mediated handoffs, receive and verify
+each custody item, then release a fully validated trade through the certified
+ownership-transfer lifecycle. Completed Trades update for both participants and
+new recipient Inventory becomes available without copying former-owner private
+metadata. Cash/payment remains deferred.
+
+Store operational authority remains `human Clerk authentication -> DeckDeal
+user_profile -> active store_staff -> Store business workspace/resources`.
+Deferred beyond the Friday closed beta: Store staff management, fine-grained
+roles, full Backoffice, general Store marketplace administration, and payment.
 
 Do not keep expanding manual backend lifecycle testing unless frontend integration finds a regression or a new backend feature needs coverage.
 
 ## Payment
+
 Payment is intentionally deferred until after the core frontend.
 
 Planned vertical slice:
+
 1. frontend payment initiation;
 2. DeckDeal backend creates provider intent/order;
 3. provider sandbox/test flow;
@@ -311,6 +383,7 @@ Planned vertical slice:
 Do not trust browser claims of payment success. Payment and custody remain separate concerns.
 
 ## Authentication/authorization
+
 Development routes often include `/users/:userId/...`.
 
 Before public Staging, authorization must be bound to authenticated identity from the selected auth system. A supplied user UUID cannot be treated as sufficient authority.
@@ -518,6 +591,7 @@ remains only as a legacy authenticated trade-default preference pending final
 Listing-creation-phase reconciliation.
 
 ## Frontend phase
+
 Next primary phase: `apps/web`.
 
 ### Public identity navigation convention
@@ -689,6 +763,7 @@ future concepts.
 Start by inspecting the current web workspace and shared UI/design packages. Build against the existing backend contracts rather than redesigning working backend behavior.
 
 Main frontend domains:
+
 - catalog/search;
 - inventory/collections;
 - listings;
@@ -699,14 +774,17 @@ Main frontend domains:
 - store-mediated workflow.
 
 ## Environments
+
 Use: **Local -> Staging -> Production**.
 
 Local:
+
 - developer machines;
 - local/Docker PostgreSQL;
 - test/disposable data.
 
 Staging:
+
 - internet-accessible pre-production;
 - separate DB, storage, auth config, secrets;
 - external testers allowed;
@@ -714,6 +792,7 @@ Staging:
 - production-like deployment.
 
 Production:
+
 - real users/data;
 - production DB/storage/auth;
 - live payment credentials only after sandbox/E2E completion.

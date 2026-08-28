@@ -1,7 +1,22 @@
 import { CatalogService } from "./catalog.service";
+import { MarketPricesService } from "./market-prices.service";
 export declare class CatalogController {
     private readonly catalogService;
-    constructor(catalogService: CatalogService);
+    private readonly marketPrices;
+    constructor(catalogService: CatalogService, marketPrices: MarketPricesService);
+    latestPrices(body: {
+        items?: Array<{
+            printingId?: unknown;
+            finish?: unknown;
+        }>;
+    }): Promise<{
+        printing_id: string;
+        finish: string;
+        source: string;
+        currency_code: string;
+        market_price: import("@repo/db/dist/generated/prisma/internal/prismaNamespace").Decimal | null;
+        captured_at: Date;
+    }[]>;
     getGames(): Promise<{
         name: string;
         id: string;
@@ -82,13 +97,13 @@ export declare class CatalogController {
                     username: string | null;
                     display_name: string | null;
                 } | null;
-                language_code: string;
                 stores: {
                     name: string;
                     id: string;
                     slug: string;
                     verification_status: string;
                 } | null;
+                language_code: string;
                 printing_id: string;
                 finish: string;
                 condition: string;

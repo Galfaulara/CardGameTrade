@@ -8,6 +8,7 @@ export declare class AuthController {
         onboarded: false;
         account_status?: undefined;
         user?: undefined;
+        store_workspaces?: undefined;
     } | {
         authenticated: true;
         onboarded: true;
@@ -17,6 +18,23 @@ export declare class AuthController {
             display_name: string | null;
             username: string | null;
         };
+        store_workspaces: {
+            id: string;
+            role: string;
+            store_id: string;
+            store: {
+                name: string;
+                status: string;
+                id: string;
+                slug: string;
+                logo_url: string | null;
+                city: string | null;
+                state_region: string | null;
+                country_code: string | null;
+                verification_status: string;
+                trade_mediation_enabled: boolean;
+            };
+        }[];
     } | {
         authenticated: true;
         onboarded: true;
@@ -26,6 +44,23 @@ export declare class AuthController {
             username: string | null;
             display_name: string | null;
         };
+        store_workspaces: {
+            id: string;
+            role: string;
+            store_id: string;
+            store: {
+                name: string;
+                status: string;
+                id: string;
+                slug: string;
+                logo_url: string | null;
+                city: string | null;
+                state_region: string | null;
+                country_code: string | null;
+                verification_status: string;
+                trade_mediation_enabled: boolean;
+            };
+        }[];
     }>;
 }
 //# sourceMappingURL=auth.controller.d.ts.map

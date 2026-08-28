@@ -1,211 +1,256 @@
-import { StoreHandoffsService } from "./store-handoffs.service";
 import type { AuthenticatedPrincipal } from "../auth/auth.types";
+import { StoreHandoffsService } from "./store-handoffs.service";
 export declare class StoreHandoffsController {
     private readonly storeHandoffsService;
     constructor(storeHandoffsService: StoreHandoffsService);
+    private requireCurrentStaff;
+    getStoreHandoffs(storeId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
+            name: string;
+            status: string;
+            id: string;
+            slug: string;
+            logo_url: string | null;
+            city: string | null;
+            state_region: string | null;
+            country_code: string | null;
+            verification_status: string;
+            trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
+        };
+    }[]>;
     getHandoff(handoffId: string, principal: AuthenticatedPrincipal): Promise<{
-        custody: {
-            id: string;
-            created_at: Date;
-            updated_at: Date;
-            released_at: Date | null;
-            transaction_item_id: string;
-            custody_status: string;
-            received_by_staff_id: string | null;
-            received_at: Date | null;
-            verified_by_staff_id: string | null;
-            verified_at: Date | null;
-            released_by_staff_id: string | null;
-            issue_notes: string | null;
-        }[];
-        status: string;
-        id: string;
-        created_at: Date;
-        updated_at: Date;
-        stores: {
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
             name: string;
             status: string;
             id: string;
             slug: string;
+            logo_url: string | null;
             city: string | null;
             state_region: string | null;
             country_code: string | null;
             verification_status: string;
             trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
         };
-        transactions: {
-            status: string;
-            id: string;
-            seller_user_id: string | null;
-            seller_store_id: string | null;
-            currency_code: string;
-            listing_id: string | null;
-            cash_amount: import("@prisma/client-runtime-utils").Decimal;
-            accepted_offer_id: string | null;
-            accepted_wishlist_offer_id: string | null;
-            counterparty_user_id: string | null;
-            counterparty_store_id: string | null;
-            transaction_type: string;
-            agreed_at: Date;
-        };
-        transaction_id: string;
-        completed_at: Date | null;
-        store_id: string;
-        store_notes: string | null;
-        cancelled_at: Date | null;
-    }>;
-    receiveItem(handoffId: string, transactionItemId: string, staffUserId: string): Promise<{
-        custody: {
-            id: string;
-            created_at: Date;
-            updated_at: Date;
-            released_at: Date | null;
-            transaction_item_id: string;
-            custody_status: string;
-            received_by_staff_id: string | null;
-            received_at: Date | null;
-            verified_by_staff_id: string | null;
-            verified_at: Date | null;
-            released_by_staff_id: string | null;
-            issue_notes: string | null;
-        }[];
-        status: string;
-        id: string;
-        created_at: Date;
-        updated_at: Date;
-        stores: {
+    } | undefined>;
+    receiveItemForCurrentStaff(handoffId: string, transactionItemId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
             name: string;
             status: string;
             id: string;
             slug: string;
+            logo_url: string | null;
             city: string | null;
             state_region: string | null;
             country_code: string | null;
             verification_status: string;
             trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
         };
-        transactions: {
-            status: string;
-            id: string;
-            seller_user_id: string | null;
-            seller_store_id: string | null;
-            currency_code: string;
-            listing_id: string | null;
-            cash_amount: import("@prisma/client-runtime-utils").Decimal;
-            accepted_offer_id: string | null;
-            accepted_wishlist_offer_id: string | null;
-            counterparty_user_id: string | null;
-            counterparty_store_id: string | null;
-            transaction_type: string;
-            agreed_at: Date;
-        };
-        transaction_id: string;
-        completed_at: Date | null;
-        store_id: string;
-        store_notes: string | null;
-        cancelled_at: Date | null;
-    }>;
-    verifyItem(handoffId: string, transactionItemId: string, staffUserId: string): Promise<{
-        custody: {
-            id: string;
-            created_at: Date;
-            updated_at: Date;
-            released_at: Date | null;
-            transaction_item_id: string;
-            custody_status: string;
-            received_by_staff_id: string | null;
-            received_at: Date | null;
-            verified_by_staff_id: string | null;
-            verified_at: Date | null;
-            released_by_staff_id: string | null;
-            issue_notes: string | null;
-        }[];
-        status: string;
-        id: string;
-        created_at: Date;
-        updated_at: Date;
-        stores: {
+    } | undefined>;
+    receiveItem(handoffId: string, transactionItemId: string, staffUserId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
             name: string;
             status: string;
             id: string;
             slug: string;
+            logo_url: string | null;
             city: string | null;
             state_region: string | null;
             country_code: string | null;
             verification_status: string;
             trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
         };
-        transactions: {
-            status: string;
-            id: string;
-            seller_user_id: string | null;
-            seller_store_id: string | null;
-            currency_code: string;
-            listing_id: string | null;
-            cash_amount: import("@prisma/client-runtime-utils").Decimal;
-            accepted_offer_id: string | null;
-            accepted_wishlist_offer_id: string | null;
-            counterparty_user_id: string | null;
-            counterparty_store_id: string | null;
-            transaction_type: string;
-            agreed_at: Date;
-        };
-        transaction_id: string;
-        completed_at: Date | null;
-        store_id: string;
-        store_notes: string | null;
-        cancelled_at: Date | null;
-    }>;
-    releaseItem(handoffId: string, transactionItemId: string, staffUserId: string): Promise<{
-        custody: {
-            id: string;
-            created_at: Date;
-            updated_at: Date;
-            released_at: Date | null;
-            transaction_item_id: string;
-            custody_status: string;
-            received_by_staff_id: string | null;
-            received_at: Date | null;
-            verified_by_staff_id: string | null;
-            verified_at: Date | null;
-            released_by_staff_id: string | null;
-            issue_notes: string | null;
-        }[];
-        status: string;
-        id: string;
-        created_at: Date;
-        updated_at: Date;
-        stores: {
+    } | undefined>;
+    verifyItemForCurrentStaff(handoffId: string, transactionItemId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
             name: string;
             status: string;
             id: string;
             slug: string;
+            logo_url: string | null;
             city: string | null;
             state_region: string | null;
             country_code: string | null;
             verification_status: string;
             trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
         };
-        transactions: {
+    } | undefined>;
+    verifyItem(handoffId: string, transactionItemId: string, staffUserId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
+            name: string;
             status: string;
             id: string;
-            seller_user_id: string | null;
-            seller_store_id: string | null;
-            currency_code: string;
-            listing_id: string | null;
-            cash_amount: import("@prisma/client-runtime-utils").Decimal;
-            accepted_offer_id: string | null;
-            accepted_wishlist_offer_id: string | null;
-            counterparty_user_id: string | null;
-            counterparty_store_id: string | null;
-            transaction_type: string;
-            agreed_at: Date;
+            slug: string;
+            logo_url: string | null;
+            city: string | null;
+            state_region: string | null;
+            country_code: string | null;
+            verification_status: string;
+            trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
         };
-        transaction_id: string;
-        completed_at: Date | null;
-        store_id: string;
-        store_notes: string | null;
-        cancelled_at: Date | null;
-    }>;
+    } | undefined>;
+    releaseItemForCurrentStaff(handoffId: string, transactionItemId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
+            name: string;
+            status: string;
+            id: string;
+            slug: string;
+            logo_url: string | null;
+            city: string | null;
+            state_region: string | null;
+            country_code: string | null;
+            verification_status: string;
+            trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
+        };
+    } | undefined>;
+    releaseItem(handoffId: string, transactionItemId: string, staffUserId: string, principal: AuthenticatedPrincipal): Promise<{
+        id: any;
+        transaction_id: any;
+        store_id: any;
+        status: any;
+        store_notes: any;
+        created_at: any;
+        updated_at: any;
+        completed_at: any;
+        cancelled_at: any;
+        store: {
+            name: string;
+            status: string;
+            id: string;
+            slug: string;
+            logo_url: string | null;
+            city: string | null;
+            state_region: string | null;
+            country_code: string | null;
+            verification_status: string;
+            trade_mediation_enabled: boolean;
+        } | null;
+        transaction: any;
+        items: any[];
+        progress: {
+            total_items: number;
+            received_items: number;
+            verified_items: number;
+            released_items: number;
+        };
+    } | undefined>;
 }
 //# sourceMappingURL=store-handoffs.controller.d.ts.map

@@ -125,9 +125,26 @@ export class OffersController {
   }
 
   @Get(
-    "listings/:listingId/users/:userId/received",
+    "users/:userId/received",
   )
   getUserReceivedOffers(
+    @Param(
+      "userId",
+      new ParseUUIDPipe({
+        version: "4",
+      }),
+    )
+    userId: string,
+  ) {
+    return this.offersService.getUserReceivedOffers(
+      userId,
+    );
+  }
+
+  @Get(
+    "listings/:listingId/users/:userId/received",
+  )
+  getUserReceivedOffersForListing(
     @Param(
       "listingId",
       new ParseUUIDPipe({

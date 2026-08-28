@@ -381,6 +381,10 @@ export class CatalogSyncService {
     }
   }
 
+  readPricingCards() {
+    return this.readBulkDataCards("all_cards");
+  }
+
   private getCardImageUris(
     card: ScryfallCard,
   ) {

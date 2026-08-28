@@ -192,6 +192,9 @@ let CatalogSyncService = CatalogSyncService_1 = class CatalogSyncService {
             };
         }
     }
+    readPricingCards() {
+        return this.readBulkDataCards("all_cards");
+    }
     getCardImageUris(card) {
         if (card.image_uris) {
             return card.image_uris;

@@ -13,10 +13,14 @@
     "test:authorization": "tsc -p tsconfig.test.json && node dist-test/test/authenticated-authorization-regression.js",
     "test:inventory": "tsc -p tsconfig.test.json && node dist-test/test/my-inventory-regression.js",
     "test:trade-mvp": "tsc -p tsconfig.test.json && node dist-test/test/friday-trade-mvp-regression.js",
+    "test:pricing": "tsc -p tsconfig.test.json && node dist-test/test/pricing-regression.js",
     "test:lifecycle": "tsc -p tsconfig.test.json && node dist-test/test/non-payment-lifecycle-regression.js",
     "sync:scryfall:sets": "npm run build && node dist/scripts/sync-scryfall-sets.js",
     "sync:scryfall:canonical": "npm run build && node dist/scripts/sync-scryfall-canonical-cards.js",
     "sync:scryfall:printings": "npm run build && node dist/scripts/sync-scryfall-printings.js",
+    "sync:prices": "npm run build && node dist/scripts/sync-market-prices.js",
+    "sync:prices:tcgplayer": "npm run build && node dist/scripts/sync-market-prices.js tcgplayer",
+    "sync:prices:cardkingdom": "npm run build && node dist/scripts/sync-market-prices.js cardkingdom",
     "bootstrap:user": "npm run build && node dist/scripts/bootstrap-user.js"
   },
   "dependencies": {
@@ -31,7 +35,8 @@
     "@repo/validation": "*",
     "@supabase/supabase-js": "^2.112.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "stream-json": "^3.5.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

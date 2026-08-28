@@ -1,4 +1,6 @@
-export type MySentOfferItem = {
+import type { PublicListing } from "../marketplace/api";
+
+export type MyListingOfferItem = {
   id: string;
   inventory_item_id: string;
   quantity: number;
@@ -40,7 +42,7 @@ export type MySentOfferItem = {
   } | null;
 };
 
-export type MySentOffer = {
+export type MyListingOffer = {
   id: string;
   listing_id: string;
   offerer_user_id: string | null;
@@ -54,6 +56,17 @@ export type MySentOffer = {
   responded_at: string | null;
   created_at: string;
   updated_at: string;
+  user_profiles: {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+  } | null;
+  stores: {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+  } | null;
   listings: {
     id: string;
     inventory_item_id: string;
@@ -68,5 +81,15 @@ export type MySentOffer = {
     description: string | null;
     status: string;
   };
-  items: MySentOfferItem[];
+  items: MyListingOfferItem[];
 };
+
+export type MyOfferEntry = {
+  offer: MyListingOffer;
+  listing: PublicListing | null;
+  transactionId: string | null;
+};
+
+export type MySentOfferItem = MyListingOfferItem;
+export type MySentOffer = MyListingOffer;
+export type MyReceivedOffer = MyListingOffer;

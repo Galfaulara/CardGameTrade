@@ -45,9 +45,9 @@ export declare class WishlistsService {
             id: string;
             created_at: Date;
             updated_at: Date;
+            store_id: string;
             transaction_id: string;
             completed_at: Date | null;
-            store_id: string;
             store_notes: string | null;
             cancelled_at: Date | null;
         };

@@ -80,6 +80,41 @@ let ClerkAuthService = class ClerkAuthService {
             return null;
         }
     }
+    async loadActiveStoreWorkspaces(userId) {
+        return this.database.client.store_staff.findMany({
+            where: {
+                user_id: userId,
+                status: "active",
+            },
+            select: {
+                id: true,
+                role: true,
+                store_id: true,
+                stores: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        logo_url: true,
+                        city: true,
+                        state_region: true,
+                        country_code: true,
+                        status: true,
+                        verification_status: true,
+                        trade_mediation_enabled: true,
+                    },
+                },
+            },
+            orderBy: {
+                created_at: "asc",
+            },
+        }).then((memberships) => memberships.map((membership) => ({
+            id: membership.id,
+            role: membership.role,
+            store_id: membership.store_id,
+            store: membership.stores,
+        })));
+    }
     async currentUser(principal) {
         if (!principal.deckdealUserId)
             return { authenticated: true, onboarded: false };
@@ -87,11 +122,12 @@ let ClerkAuthService = class ClerkAuthService {
             select: { id: true, display_name: true, username: true, status: true } });
         if (!user)
             return { authenticated: true, onboarded: false };
+        const store_workspaces = await this.loadActiveStoreWorkspaces(user.id);
         if (user.status !== "active")
             return { authenticated: true, onboarded: true,
-                account_status: "disabled", user: { id: user.id, display_name: user.display_name, username: user.username } };
+                account_status: "disabled", user: { id: user.id, display_name: user.display_name, username: user.username }, store_workspaces };
         const { status: _status, ...identity } = user;
-        return { authenticated: true, onboarded: true, account_status: "active", user: identity };
+        return { authenticated: true, onboarded: true, account_status: "active", user: identity, store_workspaces };
     }
 };
 exports.ClerkAuthService = ClerkAuthService;

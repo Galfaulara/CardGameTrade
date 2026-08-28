@@ -31,7 +31,10 @@ let OffersController = class OffersController {
     getUserSentOffers(userId) {
         return this.offersService.getUserSentOffers(userId);
     }
-    getUserReceivedOffers(listingId, userId) {
+    getUserReceivedOffers(userId) {
+        return this.offersService.getUserReceivedOffers(userId);
+    }
+    getUserReceivedOffersForListing(listingId, userId) {
         return this.offersService.getUserReceivedOffers(userId, listingId);
     }
     withdrawUserOffer(offerId, userId) {
@@ -84,6 +87,15 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], OffersController.prototype, "getUserSentOffers", null);
 __decorate([
+    (0, common_1.Get)("users/:userId/received"),
+    __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
+        version: "4",
+    }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], OffersController.prototype, "getUserReceivedOffers", null);
+__decorate([
     (0, common_1.Get)("listings/:listingId/users/:userId/received"),
     __param(0, (0, common_1.Param)("listingId", new common_1.ParseUUIDPipe({
         version: "4",
@@ -94,7 +106,7 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
-], OffersController.prototype, "getUserReceivedOffers", null);
+], OffersController.prototype, "getUserReceivedOffersForListing", null);
 __decorate([
     (0, common_1.Patch)(":offerId/users/:userId/withdraw"),
     __param(0, (0, common_1.Param)("offerId", new common_1.ParseUUIDPipe({

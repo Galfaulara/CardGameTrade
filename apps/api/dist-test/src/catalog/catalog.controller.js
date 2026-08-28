@@ -16,10 +16,18 @@ exports.CatalogController = void 0;
 const common_1 = require("@nestjs/common");
 const catalog_service_1 = require("./catalog.service");
 const public_decorator_1 = require("../auth/public.decorator");
+const market_prices_service_1 = require("./market-prices.service");
 let CatalogController = class CatalogController {
     catalogService;
-    constructor(catalogService) {
+    marketPrices;
+    constructor(catalogService, marketPrices) {
         this.catalogService = catalogService;
+        this.marketPrices = marketPrices;
+    }
+    latestPrices(body) {
+        const items = Array.isArray(body?.items) ? body.items.slice(0, 100).flatMap((item) => typeof item.printingId === "string" && /^[0-9a-f-]{36}$/i.test(item.printingId) && typeof item.finish === "string" && ["nonfoil", "foil", "etched"].includes(item.finish)
+            ? [{ printingId: item.printingId, finish: item.finish }] : []) : [];
+        return this.marketPrices.latest(items);
     }
     getGames() {
         return this.catalogService.getGames();
@@ -47,6 +55,13 @@ let CatalogController = class CatalogController {
     }
 };
 exports.CatalogController = CatalogController;
+__decorate([
+    (0, common_1.Post)("prices/latest"),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], CatalogController.prototype, "latestPrices", null);
 __decorate([
     (0, common_1.Get)("games"),
     __metadata("design:type", Function),
@@ -113,5 +128,5 @@ __decorate([
 exports.CatalogController = CatalogController = __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Controller)("catalog"),
-    __metadata("design:paramtypes", [catalog_service_1.CatalogService])
+    __metadata("design:paramtypes", [catalog_service_1.CatalogService, market_prices_service_1.MarketPricesService])
 ], CatalogController);

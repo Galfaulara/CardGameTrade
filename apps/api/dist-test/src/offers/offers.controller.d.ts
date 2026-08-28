@@ -6,14 +6,15 @@ export declare class OffersController {
     createUserOffer(listingId: string, userId: string, input: CreateListingOfferInput): Promise<any>;
     createUserOfferFromInterest(listingId: string, userId: string, interestId: string, input: CreateListingOfferInput): Promise<any>;
     getUserSentOffers(userId: string): Promise<any[]>;
-    getUserReceivedOffers(listingId: string, userId: string): Promise<any[]>;
+    getUserReceivedOffers(userId: string): Promise<any[]>;
+    getUserReceivedOffersForListing(listingId: string, userId: string): Promise<any[]>;
     withdrawUserOffer(offerId: string, userId: string): Promise<any>;
     rejectUserOffer(offerId: string, userId: string): Promise<any>;
     acceptUserOffer(offerId: string, userId: string, input: AcceptListingOfferInput): Promise<{
         custody: {
             id: string;
-            released_at: Date | null;
             store_id: string;
+            released_at: Date | null;
             transaction_item_id: string;
             custody_status: string;
             received_at: Date | null;
@@ -24,6 +25,21 @@ export declare class OffersController {
         id: string;
         created_at: Date;
         updated_at: Date;
+        store_trade_handoffs: {
+            status: string;
+            id: string;
+            created_at: Date;
+            store_id: string;
+            stores: {
+                name: string;
+                id: string;
+                slug: string;
+                city: string | null;
+                state_region: string | null;
+                country_code: string | null;
+                trade_mediation_enabled: boolean;
+            };
+        } | null;
         seller_user_id: string | null;
         seller_store_id: string | null;
         currency_code: string;
@@ -37,21 +53,6 @@ export declare class OffersController {
             to_user_id: string | null;
             to_store_id: string | null;
         }[];
-        store_trade_handoffs: {
-            status: string;
-            id: string;
-            created_at: Date;
-            stores: {
-                name: string;
-                id: string;
-                slug: string;
-                city: string | null;
-                state_region: string | null;
-                country_code: string | null;
-                trade_mediation_enabled: boolean;
-            };
-            store_id: string;
-        } | null;
         listing_id: string | null;
         cash_amount: import("@prisma/client-runtime-utils").Decimal;
         accepted_offer_id: string | null;

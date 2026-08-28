@@ -23,8 +23,10 @@ export function CardTile({ card, layout = "rail", canonicalAdd = false }: { card
   const artwork = <div className={styles.art}>{card.imageUrl ? <Image src={card.imageUrl} alt={`${card.name} card artwork`} fill sizes="(max-width: 640px) 58vw, (max-width: 832px) 188px, 216px" unoptimized /> : <span>Card image unavailable</span>}</div>;
   return (
     <article className={`${styles.tile} ${layout === "grid" ? styles.gridTile : ""}`}>
-      {href ? <Link href={href} aria-label={`View ${card.name}`}>{artwork}</Link> : artwork}
-      {card.canonicalCardId ? <AddToCollectionLauncher className={styles.addButton} compact canonicalCardId={card.canonicalCardId} cardName={card.name} printingId={canonicalAdd ? undefined : card.printingId} /> : null}
+      <div className={styles.imageArea}>
+        {href ? <Link className={styles.artLink} href={href} aria-label={`View ${card.name}`}>{artwork}</Link> : artwork}
+        {card.canonicalCardId ? <AddToCollectionLauncher className={styles.addButton} compact canonicalCardId={card.canonicalCardId} cardName={card.name} printingId={canonicalAdd ? undefined : card.printingId} /> : null}
+      </div>
       <div className={styles.details}>
         <h3>{href ? <Link href={href}>{card.name}</Link> : card.name}</h3>
         <p className={styles.printing}>{card.setName} · {card.setCode.toUpperCase()} #{card.collectorNumber}</p>

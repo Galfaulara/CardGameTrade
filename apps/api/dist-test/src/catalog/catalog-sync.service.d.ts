@@ -1,4 +1,5 @@
 import { DatabaseService } from "../database/database.service";
+import type { ScryfallCard } from "./scryfall.types";
 export declare class CatalogSyncService {
     private readonly database;
     private readonly logger;
@@ -8,6 +9,10 @@ export declare class CatalogSyncService {
     private sleep;
     private ensureBulkDataFile;
     private readBulkDataCards;
+    readPricingCards(): AsyncGenerator<{
+        rawData: any;
+        card: ScryfallCard;
+    }, void, unknown>;
     private getCardImageUris;
     syncSets(): Promise<{
         received: number;

@@ -143,6 +143,8 @@
 }
 
 .card {
+  display: grid;
+  grid-template-rows: auto 1fr;
   height: 100%;
   min-width: 0;
   overflow: hidden;
@@ -179,6 +181,7 @@
 
 .cardInfo {
   display: grid;
+  grid-template-rows: minmax(2.6rem, auto) auto auto minmax(3.6rem, auto);
   gap: var(--space-1);
   padding: var(--space-3);
   min-width: 0;
@@ -197,6 +200,10 @@
   font-size: var(--font-size-base);
   line-height: var(--line-height-snug);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .nameRow h3 a {
@@ -208,6 +215,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
+  min-height: 2rem;
 }
 
 .printing,
@@ -216,6 +224,12 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   text-transform: capitalize;
+}
+
+.locationRow {
+  display: grid;
+  grid-template-rows: 1.25rem 2rem;
+  align-content: end;
 }
 
 .location {

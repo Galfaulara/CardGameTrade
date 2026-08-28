@@ -8,6 +8,8 @@ import type {
   MyInventoryItem,
   MyInventoryListResult,
 } from "../../../../features/account/inventory-types";
+import type { MarketPrice } from "../../../../features/marketplace/api";
+import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import styles from "./page.module.css";
 
 type Status = "all" | "available" | "not_for_trade" | "reserved" | "in_trade";
@@ -319,6 +321,7 @@ function ListForTradeDialog({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [marketPrices, setMarketPrices] = useState<MarketPrice[]>([]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -332,6 +335,12 @@ function ListForTradeDialog({
       window.removeEventListener("keydown", key);
     };
   }, [onClose, saving]);
+
+  useEffect(() => {
+    void fetch("/api/market-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ printingId: item.printing.id, finish: item.finish }] }) })
+      .then((response) => response.ok ? response.json() as Promise<MarketPrice[]> : [])
+      .then(setMarketPrices);
+  }, [item.finish, item.printing.id]);
 
   const submit = async () => {
     setSaving(true);
@@ -400,6 +409,7 @@ function ListForTradeDialog({
             )}
           </div>
           <div className={styles.tradeDialogCopy}>
+            <MarketPrices prices={marketPrices} title="Market reference" compact />
             <p>
               This card will be visible to other collectors for trade offers.
             </p>

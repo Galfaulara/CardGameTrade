@@ -86,10 +86,11 @@ All `/discovery` routes are purpose-built anonymous public read models and are c
 | POST | `/offers/listings/:listingId/users/:userId` | AUTHENTICATED_USER_WRITE | Actor creates own Listing Offer | Offerer assigned actor; inventory ownership/business rules |
 | POST | `/offers/listings/:listingId/users/:userId/from-interest/:interestId` | AUTHENTICATED_USER_WRITE | Actor converts own eligible Interest | Creator, provenance, and lifecycle predicates |
 | GET | `/offers/users/:userId/sent` | AUTHENTICATED_USER_READ | Actor's outgoing Offers | `offerer_user_id = actor` |
+| GET | `/offers/users/:userId/received` | AUTHENTICATED_USER_READ | Actor reads incoming Offers across actor-owned Listings | Listing seller predicate via authenticated actor |
 | GET | `/offers/listings/:listingId/users/:userId/received` | AUTHENTICATED_USER_READ | Actor owns Listing and reads incoming Offers | `listing.seller_user_id = actor` |
 | PATCH | `/offers/:offerId/users/:userId/withdraw` | AUTHENTICATED_USER_WRITE | Offer creator withdraws pending Offer | Offerer/status predicates |
-| PATCH | `/offers/:offerId/users/:userId/reject` | AUTHENTICATED_USER_WRITE | Listing seller rejects pending Offer | Listing seller/status predicates |
-| POST | `/offers/:offerId/users/:userId/accept` | AUTHENTICATED_USER_WRITE | Listing seller accepts valid Offer | Seller authorization plus certified acceptance transaction rules |
+| PATCH | `/offers/:offerId/users/:userId/reject` | AUTHENTICATED_USER_WRITE | Listing seller rejects pending Offer | Listing seller/status predicates; wrong-user caller gets no seller authority |
+| POST | `/offers/:offerId/users/:userId/accept` | AUTHENTICATED_USER_WRITE | Listing seller accepts valid Offer | Seller authorization plus certified acceptance transaction rules; selected Store is validated at acceptance |
 
 ### Wishlists and Wishlist Offers
 
@@ -113,7 +114,11 @@ All `/discovery` routes are purpose-built anonymous public read models and are c
 
 | Method | Route | Classification | Store relationship | Denial and enforcement |
 |---|---|---|---|---|
+| GET | `/store-handoffs/stores/:storeId` | STORE_STAFF_READ | Actor has active `store_staff` at the requested Store | Authenticated principal supplies actor; service scopes rows to the exact Store membership |
 | GET | `/store-handoffs/:handoffId` | STORE_STAFF_READ | Actor must have active `store_staff` at handoff's `store_id` | Guard requires active user; service resolves handoff Store then active membership; nonstaff `403`, missing `404` |
+| PATCH | `/store-handoffs/:handoffId/items/:transactionItemId/receive` | STORE_STAFF_WRITE | Actor is active staff of mediation Store | Actor comes only from authenticated principal; transactional membership and custody predicates precede mutation |
+| PATCH | `/store-handoffs/:handoffId/items/:transactionItemId/verify` | STORE_STAFF_WRITE | Same | Authenticated actor, receipt ordering, and exact Store custody enforced transactionally |
+| PATCH | `/store-handoffs/:handoffId/items/:transactionItemId/release` | STORE_STAFF_WRITE | Same | Authenticated actor plus full-handoff validation and certified ownership transfer |
 | PATCH | `/store-handoffs/:handoffId/items/:transactionItemId/receive/users/:staffUserId` | STORE_STAFF_WRITE | Actor is active staff of mediation Store | Legacy staff ID bound by guard; transactional membership and custody predicates before mutation |
 | PATCH | `/store-handoffs/:handoffId/items/:transactionItemId/verify/users/:staffUserId` | STORE_STAFF_WRITE | Same | Transactional membership plus existing receive/verify lifecycle |
 | PATCH | `/store-handoffs/:handoffId/items/:transactionItemId/release/users/:staffUserId` | STORE_STAFF_WRITE | Same | Transactional membership plus full-handoff validation and certified ownership transfer |
@@ -121,6 +126,8 @@ All `/discovery` routes are purpose-built anonymous public read models and are c
 Current `store_staff` has `role` and free-form `status`, but no finer permission model is implemented. Step 3B therefore uses the narrowest proven eligibility: an `active` membership at the exact mediation Store. There are no current Store Listing mutation routes; Store Listing service capabilities must not be exposed without this same membership chain.
 
 Active Store staff membership grants the currently implemented operational Store authority. Role-level permission refinement remains future work.
+
+The Friday Store Workspace follows `Clerk identity -> human user_profile -> active store_staff -> Store business workspace`. Store IDs select a workspace resource; they never grant authority. Staff management, fine-grained roles, Backoffice, Store marketplace administration, and payment remain deferred.
 
 ## Step 3B/3C HTTP certification
 
