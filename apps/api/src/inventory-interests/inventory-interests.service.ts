@@ -278,6 +278,8 @@ export class InventoryInterestsService {
         select: {
           id: true,
 
+          game_id: true,
+
           owner_user_id:
             true,
 
@@ -397,6 +399,9 @@ export class InventoryInterestsService {
       const interest =
         await this.database.client.inventory_item_interests.create({
           data: {
+            game_id:
+              inventoryItem.game_id,
+
             inventory_item_id:
               inventoryItemId,
 

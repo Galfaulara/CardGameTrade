@@ -35,20 +35,22 @@ async function main() {
   const db = createDbClient(url);
   await db.$connect();
   try {
+    const game = await db.games.findUnique({ where: { slug: "mtg" }, select: { id: true } });
+    if (!game) throw new Error("The MTG game is not configured.");
     const rarityValues = await db.card_printings.groupBy({ by: ["rarity"], _count: { _all: true }, orderBy: { rarity: "asc" } });
     const created = await db.$transaction(async (tx) => {
       const report: Record<string, number> = {};
       for (const target of targets) {
         const owner: any = target.kind === "collection"
-          ? await tx.collections.findFirst({ where: { name: target.name, visibility: "public", user_profiles: { status: "active" } }, select: { id: true, user_id: true } })
-          : await tx.stores.findFirst({ where: { name: target.name, status: "active", verification_status: "verified", trade_mediation_enabled: true }, select: { id: true } });
+          ? await tx.collections.findFirst({ where: { game_id: game.id, name: target.name, visibility: "public", user_profiles: { status: "active" } }, select: { id: true, user_id: true } })
+          : await tx.stores.findFirst({ where: { name: target.name, status: "active", verification_status: "verified", trade_mediation_enabled: true, store_games: { some: { game_id: game.id } } }, select: { id: true } });
         if (!owner) throw new Error(`Eligible fixture owner not found: ${target.name}`);
         const ownerWhere: any = target.kind === "collection"
           ? { collection_id: owner.id, owner_user_id: "user_id" in owner ? owner.user_id : undefined, owner_store_id: null }
           : { owner_store_id: owner.id, owner_user_id: null, collection_id: null };
         const inventory: any[] = await tx.inventory_items.findMany({
-          where: { ...ownerWhere, status: "available" },
-          select: { id: true, owner_user_id: true, owner_store_id: true,
+          where: { ...ownerWhere, game_id: game.id, status: "available" },
+          select: { id: true, game_id: true, owner_user_id: true, owner_store_id: true,
             printing_finishes: { select: { card_printings: { select: { rarity: true } } } },
             listings_listings_inventory_item_id_seller_user_idToinventory_items: { where: { status: { in: ["active", "paused"] } }, select: { id: true } },
             listings_listings_inventory_item_id_seller_store_idToinventory_items: { where: { status: { in: ["active", "paused"] } }, select: { id: true } } },
@@ -58,7 +60,7 @@ async function main() {
         const needed = Math.max(0, target.count - open.length);
         const candidates = selectDiverseRarities(inventory.filter((item) => !item.listings_listings_inventory_item_id_seller_user_idToinventory_items.length && !item.listings_listings_inventory_item_id_seller_store_idToinventory_items.length), needed);
         if (candidates.length !== needed) throw new Error(`${target.name} lacks enough eligible inventory for ${target.count} open listings.`);
-        if (candidates.length) await tx.listings.createMany({ data: candidates.map((item) => ({ inventory_item_id: item.id,
+        if (candidates.length) await tx.listings.createMany({ data: candidates.map((item) => ({ game_id: item.game_id, inventory_item_id: item.id,
           seller_user_id: target.kind === "collection" ? item.owner_user_id : null,
           seller_store_id: target.kind === "store" ? item.owner_store_id : null,
           accepts_trade: true, accepts_cash: false, asking_price: null, currency_code: null, status: "active" })) });

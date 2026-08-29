@@ -250,6 +250,12 @@ export const updateUserInventoryItemSchema =
 export const createUserCollectionSchema =
   z
     .object({
+      gameSlug: z
+        .string()
+        .trim()
+        .min(1)
+        .toLowerCase(),
+
       name: z
         .string()
         .trim()
@@ -883,6 +889,13 @@ const validateWishlistAcquisitionRules = (
 
 export const createUserWishlistSchema =
   z.object({
+    gameSlug:
+      z
+        .string()
+        .trim()
+        .min(1)
+        .toLowerCase(),
+
     name:
       z
         .string()

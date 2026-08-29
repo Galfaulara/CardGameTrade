@@ -315,15 +315,19 @@ export class OffersService {
               status: true,
               created_at: true,
 
-              stores: {
+              store_games: {
                 select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                  city: true,
-                  state_region: true,
-                  country_code: true,
-                  trade_mediation_enabled: true,
+                  stores: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                      city: true,
+                      state_region: true,
+                      country_code: true,
+                      trade_mediation_enabled: true,
+                    },
+                  },
                 },
               },
             },
@@ -336,6 +340,37 @@ export class OffersService {
         "Transaction was not found after offer acceptance.",
       );
     }
+
+    const selectedHandoffs =
+      transaction.store_trade_handoffs;
+
+    const handoffs =
+      selectedHandoffs;
+
+    if (handoffs.length > 1) {
+      throw new ConflictException(
+        "A transaction cannot have more than one store handoff.",
+      );
+    }
+
+    const normalizedHandoff =
+      handoffs[0]
+        ? (() => {
+            const handoff =
+              handoffs[0];
+
+            const {
+              store_games,
+              ...handoffData
+            } = handoff;
+
+            return {
+              ...handoffData,
+              stores:
+                store_games.stores,
+            };
+          })()
+        : null;
 
     const custody =
       await this.database.client.transaction_item_custody.findMany({
@@ -361,6 +396,8 @@ export class OffersService {
 
     return {
       ...transaction,
+      store_trade_handoffs:
+        normalizedHandoff,
       custody,
     };
   }
@@ -517,6 +554,7 @@ export class OffersService {
         },
         select: {
           id: true,
+          game_id: true,
           inventory_item_id: true,
           seller_user_id: true,
           seller_store_id: true,
@@ -598,6 +636,7 @@ export class OffersService {
           },
           select: {
             id: true,
+            game_id: true,
             status: true,
             quantity: true,
           },
@@ -643,6 +682,15 @@ export class OffersService {
         ) {
           throw new BadRequestException(
             "Only available inventory items can be offered.",
+          );
+        }
+
+        if (
+          inventoryItem.game_id !==
+          listing.game_id
+        ) {
+          throw new BadRequestException(
+            "Every offered card must belong to the same game as the listing.",
           );
         }
 
@@ -762,6 +810,9 @@ export class OffersService {
           const offer =
             await transaction.listing_offers.create({
               data: {
+                game_id:
+                  listing.game_id,
+
                 listing_id: listingId,
                 offerer_user_id: userId,
                 offerer_store_id: null,
@@ -786,6 +837,9 @@ export class OffersService {
               data:
                 input.items.map(
                   (item) => ({
+                    game_id:
+                      listing.game_id,
+
                     offer_id: offer.id,
                     offerer_user_id:
                       userId,
@@ -978,6 +1032,7 @@ export class OffersService {
               select: {
                 id: true,
                 listing_id: true,
+                game_id: true,
                 offerer_user_id: true,
                 offerer_store_id: true,
                 cash_amount: true,
@@ -1030,6 +1085,7 @@ export class OffersService {
               select: {
                 id: true,
                 inventory_item_id: true,
+                game_id: true,
                 seller_user_id: true,
                 seller_store_id: true,
                 status: true,
@@ -1039,6 +1095,18 @@ export class OffersService {
           if (!listing) {
             throw new NotFoundException(
               "Listing was not found.",
+            );
+          }
+
+          const listingGameId =
+            listing.game_id;
+
+          if (
+            offer.game_id !==
+            listingGameId
+          ) {
+            throw new ConflictException(
+              "The accepted offer no longer matches the listing game.",
             );
           }
 
@@ -1071,6 +1139,14 @@ export class OffersService {
                   "verified",
                 trade_mediation_enabled:
                   true,
+                store_games: {
+                  some: {
+                    game_id:
+                      listingGameId,
+                    trade_mediation_enabled:
+                      true,
+                  },
+                },
               },
               select: {
                 id: true,
@@ -1093,6 +1169,7 @@ export class OffersService {
               },
               select: {
                 id: true,
+                game_id: true,
                 quantity: true,
                 status: true,
               },
@@ -1110,6 +1187,15 @@ export class OffersService {
           ) {
             throw new ConflictException(
               "The listed inventory item is no longer available.",
+            );
+          }
+
+          if (
+            listedInventory.game_id !==
+            listingGameId
+          ) {
+            throw new ConflictException(
+              "The listed inventory item no longer matches the listing game.",
             );
           }
 
@@ -1145,6 +1231,7 @@ export class OffersService {
                   },
                   select: {
                     id: true,
+                    game_id: true,
                     quantity: true,
                     status: true,
                   },
@@ -1191,6 +1278,15 @@ export class OffersService {
             ) {
               throw new ConflictException(
                 "One or more offered cards are no longer available.",
+              );
+            }
+
+            if (
+              inventoryItem.game_id !==
+              listingGameId
+            ) {
+              throw new ConflictException(
+                "One or more offered inventory items no longer match the listing game.",
               );
             }
 
@@ -1288,6 +1384,8 @@ const transactionType =
           const createdTransaction =
             await transaction.transactions.create({
               data: {
+                game_id:
+                  listingGameId,
                 listing_id: listing.id,
                 accepted_offer_id:
                   offer.id,
@@ -1329,6 +1427,8 @@ const transactionType =
           const listedTransactionItem =
             await transaction.transaction_items.create({
               data: {
+                game_id:
+                  listingGameId,
                 transaction_id:
                   createdTransaction.id,
                 inventory_item_id:
@@ -1369,6 +1469,8 @@ const transactionType =
             const transactionItem =
               await transaction.transaction_items.create({
                 data: {
+                  game_id:
+                    listingGameId,
                   transaction_id:
                     createdTransaction.id,
                   inventory_item_id:
@@ -1464,6 +1566,8 @@ const transactionType =
           const handoff =
             await transaction.store_trade_handoffs.create({
               data: {
+                game_id:
+                  listingGameId,
                 transaction_id:
                   createdTransaction.id,
                 store_id:

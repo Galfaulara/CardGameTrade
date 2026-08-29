@@ -14,6 +14,26 @@ import type {
 
 import { DatabaseService } from "../database/database.service";
 
+type ListingPreferredStore = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  city: string;
+  state_region: string | null;
+  country_code: string;
+  verification_status: string;
+  status: string;
+  trade_mediation_enabled: boolean;
+};
+
+type ListingPreferredStoreRelations = {
+  store_games: {
+    stores:
+      ListingPreferredStore;
+  } | null;
+};
+
 @Injectable()
 export class ListingsService {
   constructor(
@@ -23,6 +43,7 @@ export class ListingsService {
 
   private async findEligibleTradeStore(
     storeId: string,
+    gameId: string,
   ) {
     return this.database.client.stores.findFirst({
       where: {
@@ -36,6 +57,16 @@ export class ListingsService {
 
         trade_mediation_enabled:
           true,
+
+        store_games: {
+          some: {
+            game_id:
+              gameId,
+
+            trade_mediation_enabled:
+              true,
+          },
+        },
       },
 
       select: {
@@ -46,10 +77,12 @@ export class ListingsService {
 
   private async requireEligibleTradeStore(
     storeId: string,
+    gameId: string,
   ) {
     const store =
       await this.findEligibleTradeStore(
         storeId,
+        gameId,
       );
 
     if (!store) {
@@ -63,6 +96,7 @@ export class ListingsService {
 
   private async resolvePreferredStoreForNewListing(
     userId: string,
+    gameId: string,
     requestedStoreId:
       | string
       | null
@@ -90,6 +124,7 @@ export class ListingsService {
     ) {
       await this.requireEligibleTradeStore(
         requestedStoreId,
+        gameId,
       );
 
       return requestedStoreId;
@@ -135,6 +170,7 @@ export class ListingsService {
     const eligibleStore =
       await this.findEligibleTradeStore(
         preferredStoreId,
+        gameId,
       );
 
     return (
@@ -152,6 +188,14 @@ export class ListingsService {
       listing
         .inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
 
+    const preferredStoreRelations =
+      listing as ListingPreferredStoreRelations;
+
+    const preferredStore =
+      preferredStoreRelations
+        .store_games
+        ?.stores ?? null;
+
     const {
       inventory_items_listings_inventory_item_id_seller_user_idToinventory_items:
         _userInventoryRelation,
@@ -159,8 +203,8 @@ export class ListingsService {
       inventory_items_listings_inventory_item_id_seller_store_idToinventory_items:
         _storeInventoryRelation,
 
-      stores:
-        preferredStore,
+      store_games:
+        _preferredStoreRelation,
 
       ...listingData
     } = listing;
@@ -228,27 +272,31 @@ export class ListingsService {
       created_at: true,
       updated_at: true,
 
-      stores: {
+      store_games: {
         select: {
-          id: true,
-          name: true,
-          slug: true,
-          logo_url: true,
+          stores: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo_url: true,
 
-          city: true,
-          state_region:
-            true,
-          country_code:
-            true,
+              city: true,
+              state_region:
+                true,
+              country_code:
+                true,
 
-          verification_status:
-            true,
+              verification_status:
+                true,
 
-          status:
-            true,
+              status:
+                true,
 
-          trade_mediation_enabled:
-            true,
+              trade_mediation_enabled:
+                true,
+            },
+          },
         },
       },
 
@@ -629,6 +677,7 @@ export class ListingsService {
 
         select: {
           id: true,
+          game_id: true,
           status: true,
         },
       });
@@ -678,12 +727,16 @@ export class ListingsService {
     const preferredStoreId =
       await this.resolvePreferredStoreForNewListing(
         userId,
+        inventoryItem.game_id,
         input.preferredStoreId,
       );
 
     const listing =
       await this.database.client.listings.create({
         data: {
+          game_id:
+            inventoryItem.game_id,
+
           inventory_item_id:
             inventoryItem.id,
 
@@ -753,6 +806,8 @@ export class ListingsService {
         select: {
           id: true,
 
+          game_id: true,
+
           inventory_item_id:
             true,
 
@@ -782,6 +837,9 @@ export class ListingsService {
         "Listing was not found or does not belong to this user.",
       );
     }
+
+    const listingGameId =
+      existing.game_id;
 
     if (
       existing.status !==
@@ -871,6 +929,7 @@ export class ListingsService {
          */
         await this.requireEligibleTradeStore(
           input.preferredStoreId,
+          listingGameId,
         );
 
         finalPreferredStoreId =

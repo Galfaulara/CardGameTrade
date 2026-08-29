@@ -1023,10 +1023,28 @@ export class InventoryService {
       );
     }
 
+    const game =
+      await this.database.client.games.findUnique({
+        where: {
+          slug: input.gameSlug,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    if (!game) {
+      throw new BadRequestException(
+        "The selected game does not exist.",
+      );
+    }
+
     const existing =
       await this.database.client.collections.findFirst({
         where: {
           user_id: userId,
+          game_id: game.id,
           name: input.name,
         },
 
@@ -1044,6 +1062,7 @@ export class InventoryService {
     return this.database.client.collections.create({
       data: {
         user_id: userId,
+        game_id: game.id,
         name: input.name,
 
         description:
@@ -1069,6 +1088,7 @@ export class InventoryService {
 
         select: {
           id: true,
+          game_id: true,
           status: true,
         },
       });
@@ -1093,12 +1113,22 @@ export class InventoryService {
 
           select: {
             id: true,
+            game_id: true,
           },
         });
 
       if (!collection) {
         throw new BadRequestException(
           "The selected collection does not exist or does not belong to this user.",
+        );
+      }
+
+      if (
+        collection.game_id !==
+        inventoryItem.game_id
+      ) {
+        throw new BadRequestException(
+          "The selected collection belongs to a different game than the inventory item.",
         );
       }
     }
@@ -1167,6 +1197,7 @@ export class InventoryService {
           card_printings: {
             select: {
               id: true,
+              game_id: true,
               language_code: true,
               is_digital: true,
             },
@@ -1200,6 +1231,7 @@ export class InventoryService {
 
           select: {
             id: true,
+            game_id: true,
           },
         });
 
@@ -1208,11 +1240,26 @@ export class InventoryService {
           "The selected collection does not exist or does not belong to this user.",
         );
       }
+
+      if (
+        collection.game_id !==
+        printingFinish.card_printings.game_id
+      ) {
+        throw new BadRequestException(
+          "The selected collection belongs to a different game than the printing.",
+        );
+      }
+
     }
 
     const created =
       await this.database.client.inventory_items.create({
         data: {
+          game_id:
+            printingFinish
+              .card_printings
+              .game_id,
+
           printing_id:
             input.printingId,
 

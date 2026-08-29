@@ -119,6 +119,12 @@ export async function runMyInventoryRegression() {
           status: "active",
           verification_status: "verified",
           trade_mediation_enabled: true,
+          store_games: {
+            some: {
+              games: { slug: "mtg" },
+              trade_mediation_enabled: true,
+            },
+          },
         },
       },
       select: {
@@ -132,6 +138,7 @@ export async function runMyInventoryRegression() {
       where: {
         card_printings: {
           is_digital: false,
+          games: { slug: "mtg" },
         },
       },
       select: {
@@ -169,6 +176,7 @@ export async function runMyInventoryRegression() {
     await harness.as({ ...user1, accountStatus: "disabled" }).get("/api/me/inventory").expect(403);
 
     const publicCollection = await harness.as(user1).post(`/api/inventory/users/${USER_1_ID}/collections`).send({
+      gameSlug: "mtg",
       name: `My Inventory ${seed.slice(0, 8)}`,
       visibility: "public",
     }).expect(201);

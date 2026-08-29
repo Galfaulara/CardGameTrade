@@ -121,6 +121,7 @@ async function physicalFixture() {
     where: {
       card_printings: {
         is_digital: false,
+        games: { slug: "mtg" },
       },
     },
     select: {
@@ -234,6 +235,12 @@ export async function runFridayTradeMvpRegression() {
           status: "active",
           verification_status: "verified",
           trade_mediation_enabled: true,
+          store_games: {
+            some: {
+              games: { slug: "mtg" },
+              trade_mediation_enabled: true,
+            },
+          },
         },
       },
       select: {
@@ -245,7 +252,13 @@ export async function runFridayTradeMvpRegression() {
     const staffPrincipal = activePrincipal(staff.user_id);
 
     let otherStore = await db.stores.findFirst({
-      where: { id: { not: staff.store_id } },
+      where: {
+        id: { not: staff.store_id },
+        status: "active",
+        verification_status: "verified",
+        trade_mediation_enabled: true,
+        store_games: { none: { games: { slug: "mtg" } } },
+      },
       select: { id: true },
     });
     if (!otherStore) {
@@ -254,8 +267,8 @@ export async function runFridayTradeMvpRegression() {
           name: `Friday authorization Store ${seed}`,
           slug: `friday-authorization-${randomUUID()}`,
           status: "active",
-          verification_status: "unverified",
-          trade_mediation_enabled: false,
+          verification_status: "verified",
+          trade_mediation_enabled: true,
         },
         select: { id: true },
       });
@@ -326,7 +339,7 @@ export async function runFridayTradeMvpRegression() {
       [user2, USER_2_ID, acceptOffererInventory.inventoryId, "offerer"],
     ] as const) {
       const collection = await harness.as(actor).post(`/api/inventory/users/${ownerId}/collections`)
-        .send({ name: `${seed}-${suffix}`, visibility: "private" }).expect(201);
+        .send({ gameSlug: "mtg", name: `${seed}-${suffix}`, visibility: "private" }).expect(201);
       created.collections.push(collection.body.id);
       await harness.as(actor).patch(`/api/inventory/users/${ownerId}/items/${inventoryId}/collection`)
         .send({ collectionId: collection.body.id }).expect(200);
@@ -384,6 +397,10 @@ export async function runFridayTradeMvpRegression() {
 
     const acceptSellerBefore = await inventorySnapshot(acceptSellerInventory.inventoryId);
     const acceptOffererBefore = await inventorySnapshot(acceptOffererInventory.inventoryId);
+    const beforeUnsupportedStoreAccept = await tableCounts();
+    await harness.as(user1).post(`/api/offers/${acceptOfferId}/users/${USER_1_ID}/accept`).send({ storeId: otherStore.id }).expect(400);
+    await sameCounts(beforeUnsupportedStoreAccept, "Game-unsupported mediation Store created partial acceptance state");
+    assert((await db.listing_offers.findUnique({ where: { id: acceptOfferId }, select: { status: true } }))?.status === "pending", "Game-unsupported mediation changed offer status.");
     const beforeAcceptCounts = await tableCounts();
     const accepted = await harness.as(user1).post(`/api/offers/${acceptOfferId}/users/${USER_1_ID}/accept`).send({ storeId: staff.store_id }).expect(201);
     const transactionId = accepted.body.id as string;
@@ -423,6 +440,7 @@ export async function runFridayTradeMvpRegression() {
       where: { id: transactionId },
       select: {
         id: true,
+        game_id: true,
         accepted_offer_id: true,
         seller_user_id: true,
         counterparty_user_id: true,
@@ -438,8 +456,10 @@ export async function runFridayTradeMvpRegression() {
       orderBy: { created_at: "asc" },
       select: {
         id: true,
+        game_id: true,
         inventory_item_id: true,
         result_inventory_item_id: true,
+        market_snapshot_id: true,
         item_role: true,
         quantity: true,
         from_user_id: true,
@@ -454,18 +474,24 @@ export async function runFridayTradeMvpRegression() {
     assert(offeredItem?.inventory_item_id === acceptOffererInventory.inventoryId, "Offered transaction item must reference the exact offerer inventory item.");
     assert(offeredItem.from_user_id === USER_2_ID && offeredItem.to_user_id === USER_1_ID, "Offered transaction item participants are incorrect.");
     assert(transactionItems.every((item) => item.result_inventory_item_id === null), "Ownership result inventory must not exist before Store release.");
+    assert(transactionItems.every((item) => item.game_id === acceptedTransaction?.game_id), "Every transaction item must inherit the transaction game.");
+    assert(transactionItems.every((item) => item.market_snapshot_id === null), "Current transaction creation must leave market_snapshot_id null.");
 
     const handoff = await db.store_trade_handoffs.findUnique({
       where: { transaction_id: transactionId },
-      select: { id: true, store_id: true, status: true },
+      select: { id: true, game_id: true, store_id: true, status: true },
     });
     assert(handoff?.store_id === staff.store_id, "Accepted trade chose the wrong mediator store.");
     assert(handoff.status === "awaiting_items", "Accepted trade must prepare an awaiting_items handoff.");
+    assert(handoff.game_id === acceptedTransaction?.game_id, "Handoff must inherit the transaction game.");
+    assert(await db.store_games.count({ where: { store_id: handoff.store_id, game_id: handoff.game_id, trade_mediation_enabled: true } }) === 1, "Mediation Store must have enabled store_games membership.");
 
     const custody = await db.transaction_item_custody.findMany({
       where: { transaction_id: transactionId },
       orderBy: { created_at: "asc" },
       select: {
+        handoff_id: true,
+        transaction_id: true,
         transaction_item_id: true,
         store_id: true,
         custody_status: true,
@@ -474,6 +500,7 @@ export async function runFridayTradeMvpRegression() {
     assert(custody.length === 2, "Accepted trade must prepare custody rows for both cards.");
     assert(custody.every((row) => row.store_id === staff.store_id), "Custody rows must point at the selected mediator store.");
     assert(custody.every((row) => row.custody_status === "awaiting_delivery_to_store"), "Custody rows must begin awaiting_delivery_to_store.");
+    assert(custody.every((row) => row.handoff_id === handoff.id && row.transaction_id === transactionId), "Custody rows must reference the correct handoff and transaction.");
 
     const acceptSellerAfter = await inventorySnapshot(acceptSellerInventory.inventoryId);
     const acceptOffererAfter = await inventorySnapshot(acceptOffererInventory.inventoryId);
@@ -572,7 +599,7 @@ export async function runFridayTradeMvpRegression() {
 
     const sourceBeforeRelease = await db.inventory_items.findMany({
       where: { id: { in: [acceptSellerInventory.inventoryId, acceptOffererInventory.inventoryId] } },
-      select: { id: true, printing_id: true, finish: true, owner_user_id: true, owner_store_id: true, collection_id: true, condition: true, language_code: true, quantity: true, is_signed: true, is_altered: true, is_graded: true, grading_company: true, grade: true, certification_number: true, acquired_price: true, notes: true },
+      select: { id: true, game_id: true, printing_id: true, finish: true, owner_user_id: true, owner_store_id: true, collection_id: true, condition: true, language_code: true, quantity: true, is_signed: true, is_altered: true, is_graded: true, grading_company: true, grade: true, certification_number: true, acquired_price: true, notes: true },
     });
     assert(sourceBeforeRelease.every((row) => row.collection_id && row.acquired_price !== null && row.notes), "Release fixture must contain owner-private metadata before transfer.");
     assert(await db.inventory_item_photos.count({ where: { inventory_item_id: { in: sourceBeforeRelease.map((row) => row.id) } } }) === 2, "Release fixture must contain former-owner private photos.");
@@ -595,6 +622,9 @@ export async function runFridayTradeMvpRegression() {
     assert(sourcesAfterRelease.every((row) => sourceBeforeRelease.find((before) => before.id === row.id)?.owner_user_id === row.owner_user_id), "Historical source owners must be preserved.");
     const results = await db.inventory_items.findMany({ where: { id: { in: resultIds } } });
     assert(results.every((row) => row.status === "available" && row.collection_id === null && row.acquired_price === null && row.notes === null), "Recipient inventory must be available and exclude former private metadata.");
+    assert(sourceBeforeRelease.every((row) => row.game_id === acceptedTransaction?.game_id), "Every source inventory item must match the transaction game.");
+    assert(releasedItems.every((row) => row.game_id === acceptedTransaction?.game_id), "Released transaction items must retain the transaction game.");
+    assert(results.every((row) => row.game_id === acceptedTransaction?.game_id), "Result inventory must inherit the transaction game.");
     for (const result of results) {
       const item = releasedItems.find((row) => row.result_inventory_item_id === result.id);
       const source = sourceBeforeRelease.find((row) => row.id === item?.inventory_item_id);

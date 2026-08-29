@@ -1230,6 +1230,7 @@ private async synchronizeHandoffStatus(
             transaction_id:
               true,
             store_id: true,
+            game_id: true,
             status: true,
           },
         });
@@ -1274,6 +1275,8 @@ private async synchronizeHandoffStatus(
             id: true,
             listing_id: true,
 
+            game_id: true,
+
             accepted_wishlist_offer_id:
               true,
 
@@ -1286,6 +1289,18 @@ private async synchronizeHandoffStatus(
       if (!transactionHeader) {
         throw new NotFoundException(
           "The transaction for this handoff was not found.",
+        );
+      }
+
+      const transactionGameId =
+        transactionHeader.game_id;
+
+      if (
+        handoff.game_id !==
+        transactionGameId
+      ) {
+        throw new ConflictException(
+          "The store handoff no longer matches the transaction game.",
         );
       }
 
@@ -1409,6 +1424,8 @@ private async synchronizeHandoffStatus(
           select: {
             id: true,
 
+            game_id: true,
+
             inventory_item_id:
               true,
 
@@ -1435,6 +1452,19 @@ private async synchronizeHandoffStatus(
       if (!transactionItem) {
         throw new NotFoundException(
           "Transaction item was not found.",
+        );
+      }
+
+
+      const transactionItemGameId =
+        transactionItem.game_id;
+
+      if (
+        transactionItemGameId !==
+        transactionGameId
+      ) {
+        throw new ConflictException(
+          "The transaction item no longer matches the transaction game.",
         );
       }
 
@@ -1476,6 +1506,8 @@ private async synchronizeHandoffStatus(
 
           select: {
             id: true,
+
+            game_id: true,
 
             printing_id:
               true,
@@ -1524,6 +1556,15 @@ private async synchronizeHandoffStatus(
       if (!sourceInventory) {
         throw new ConflictException(
           "The source inventory record no longer exists.",
+        );
+      }
+
+      if (
+        sourceInventory.game_id !==
+        transactionItemGameId
+      ) {
+        throw new ConflictException(
+          "The source inventory item no longer matches the transaction game.",
         );
       }
 
@@ -1639,6 +1680,8 @@ private async synchronizeHandoffStatus(
       const resultInventory =
         await transaction.inventory_items.create({
           data: {
+            game_id:
+              transactionItemGameId,
             printing_id:
               sourceInventory.printing_id,
 
@@ -1706,7 +1749,7 @@ private async synchronizeHandoffStatus(
        * 8. Provenance link:
        *
        * transaction item
-       *      ↓
+       *      â†“
        * new recipient inventory row
        */
       const linkedResult =

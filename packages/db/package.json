@@ -16,6 +16,14 @@
     "bulk-import:inventory": "npm run build && node dist/scripts/bulk-inventory-import.js",
     "fixtures:marketplace-preview": "npm run build && node dist/scripts/seed-marketplace-preview-listings.js",
     "fixtures:user-preferred-stores": "npm run build && node dist/scripts/seed-user-preferred-stores.js",
+    "fixtures:multigame:catalog": "npm run build && node dist/scripts/seed-multigame-catalog-fixtures.js",
+    "fixtures:multigame:catalog:apply": "npm run build && node dist/scripts/seed-multigame-catalog-fixtures.js --apply",
+    "fixtures:multigame:catalog:cleanup": "npm run build && node dist/scripts/seed-multigame-catalog-fixtures.js --cleanup",
+    "fixtures:multigame:verify": "npm run build && node dist/scripts/verify-multigame-fixtures.js",
+    "fixtures:multigame:marketplace": "npm run build && node dist/scripts/seed-multigame-marketplace-fixtures.js",
+    "fixtures:multigame:marketplace:apply": "npm run build && node dist/scripts/seed-multigame-marketplace-fixtures.js --apply",
+    "fixtures:multigame:marketplace:cleanup": "npm run build && node dist/scripts/seed-multigame-marketplace-fixtures.js --cleanup",
+    "fixtures:multigame:marketplace:verify": "npm run build && node dist/scripts/verify-multigame-marketplace-fixtures.js",
     "auth:link-clerk": "npm run build && node dist/scripts/link-clerk-identity.js"
   },
   "dependencies": {

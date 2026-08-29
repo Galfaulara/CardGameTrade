@@ -60,6 +60,7 @@ export class WishlistsService {
 
   private async findEligibleTradeStore(
     storeId: string,
+    gameId: string,
   ) {
     return this.database.client.stores.findFirst({
       where: {
@@ -74,6 +75,16 @@ export class WishlistsService {
 
         trade_mediation_enabled:
           true,
+
+        store_games: {
+          some: {
+            game_id:
+              gameId,
+
+            trade_mediation_enabled:
+              true,
+          },
+        },
       },
 
       select: {
@@ -84,10 +95,12 @@ export class WishlistsService {
 
   private async requireEligibleTradeStore(
     storeId: string,
+    gameId: string,
   ) {
     const store =
       await this.findEligibleTradeStore(
         storeId,
+        gameId,
       );
 
     if (!store) {
@@ -101,6 +114,7 @@ export class WishlistsService {
 
   private async resolvePreferredStoreForNewWishlist(
     userId: string,
+    gameId: string,
     requestedStoreId:
       | string
       | null
@@ -119,6 +133,7 @@ export class WishlistsService {
     ) {
       await this.requireEligibleTradeStore(
         requestedStoreId,
+        gameId,
       );
 
       return requestedStoreId;
@@ -149,6 +164,7 @@ export class WishlistsService {
     const eligibleStore =
       await this.findEligibleTradeStore(
         preferredStoreId,
+        gameId,
       );
 
     return (
@@ -675,6 +691,7 @@ export class WishlistsService {
     desiredFinish:
       | string
       | null,
+    gameId: string,
   ) {
     if (
       canonicalCardId
@@ -688,12 +705,21 @@ export class WishlistsService {
 
           select: {
             id: true,
+            game_id: true,
           },
         });
 
       if (!card) {
         throw new BadRequestException(
           "The requested canonical card does not exist.",
+        );
+      }
+
+      if (
+        card.game_id !== gameId
+      ) {
+        throw new BadRequestException(
+          "The requested canonical card belongs to a different game than the wishlist.",
         );
       }
 
@@ -717,12 +743,21 @@ export class WishlistsService {
 
         select: {
           id: true,
+          game_id: true,
         },
       });
 
     if (!printing) {
       throw new BadRequestException(
         "The requested printing does not exist.",
+      );
+    }
+
+    if (
+      printing.game_id !== gameId
+    ) {
+      throw new BadRequestException(
+        "The requested printing belongs to a different game than the wishlist.",
       );
     }
 
@@ -907,11 +942,32 @@ export class WishlistsService {
       userId,
     );
 
+    const game =
+      await this.database.client.games.findUnique({
+        where: {
+          slug:
+            input.gameSlug,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    if (!game) {
+      throw new BadRequestException(
+        "The selected game does not exist.",
+      );
+    }
+
     const duplicate =
       await this.database.client.wishlists.findFirst({
         where: {
           user_id:
             userId,
+
+          game_id:
+            game.id,
 
           name:
             input.name,
@@ -931,12 +987,16 @@ export class WishlistsService {
     const preferredStoreId =
       await this.resolvePreferredStoreForNewWishlist(
         userId,
+        game.id,
         input.preferredStoreId,
       );
 
     const wishlist =
       await this.database.client.wishlists.create({
         data: {
+          game_id:
+            game.id,
+
           user_id:
             userId,
 
@@ -989,8 +1049,13 @@ export class WishlistsService {
           },
         },
 
-        select:
-          this.getWishlistSelect(),
+        select: {
+          id: true,
+          game_id: true,
+          name: true,
+          preferred_store_id:
+            true,
+        },
       });
 
     if (!wishlist) {
@@ -1010,6 +1075,9 @@ export class WishlistsService {
           where: {
             user_id:
               userId,
+
+            game_id:
+              wishlist.game_id,
 
             name:
               input.name,
@@ -1078,6 +1146,7 @@ export class WishlistsService {
       } else {
         await this.requireEligibleTradeStore(
           input.preferredStoreId,
+          wishlist.game_id,
         );
 
         preferredStoreId =
@@ -1171,6 +1240,7 @@ export class WishlistsService {
 
         select: {
           id: true,
+          game_id: true,
         },
       });
 
@@ -1187,6 +1257,7 @@ export class WishlistsService {
         null,
       input.desiredFinish ??
         null,
+      wishlist.game_id,
     );
 
     const duplicate =
@@ -1213,6 +1284,7 @@ export class WishlistsService {
 
         select: {
           id: true,
+          game_id: true,
         },
       });
 
@@ -1225,6 +1297,9 @@ export class WishlistsService {
     const item =
       await this.database.client.wishlist_items.create({
         data: {
+          game_id:
+            wishlist.game_id,
+
           wishlist_id:
             wishlistId,
 
@@ -1322,6 +1397,7 @@ export class WishlistsService {
 
         select: {
           id: true,
+          game_id: true,
         },
       });
 
@@ -1330,6 +1406,9 @@ export class WishlistsService {
         "Wishlist was not found or does not belong to this user.",
       );
     }
+
+    const wishlistGameId =
+      wishlist.game_id;
 
     const item =
       await this.database.client.wishlist_items.findFirst({
@@ -1433,6 +1512,7 @@ export class WishlistsService {
       canonicalCardId,
       printingId,
       desiredFinish,
+      wishlistGameId,
     );
 
     await this.database.client.wishlist_items.update({
@@ -2323,6 +2403,7 @@ export class WishlistsService {
 
         select: {
           id: true,
+          game_id: true,
           printing_id: true,
           finish: true,
           condition: true,
@@ -2415,6 +2496,15 @@ export class WishlistsService {
       }
 
       if (
+        inventory.game_id !==
+        wishlistItem.game_id
+      ) {
+        throw new BadRequestException(
+          "Every offered inventory item must belong to the same game as the wishlist item.",
+        );
+      }
+
+      if (
         requestedItem.quantity !==
         inventory.quantity
       ) {
@@ -2495,6 +2585,7 @@ export class WishlistsService {
     wishlistOwnerUserId: string,
     requestedItems:
       CreateWishlistOfferInput["requestedItems"],
+    gameId: string,
   ) {
     const exactInventoryRequests =
       requestedItems.filter(
@@ -2539,6 +2630,7 @@ export class WishlistsService {
 
           select: {
             id: true,
+            game_id: true,
             quantity: true,
             status: true,
           },
@@ -2588,6 +2680,15 @@ export class WishlistsService {
         }
 
         if (
+          inventoryItem.game_id !==
+          gameId
+        ) {
+          throw new BadRequestException(
+            "Every exact requested inventory item must belong to the same game as the wishlist item.",
+          );
+        }
+
+        if (
           requested.quantity !==
           inventoryItem.quantity
         ) {
@@ -2629,6 +2730,7 @@ export class WishlistsService {
 
           select: {
             id: true,
+            game_id: true,
           },
         });
 
@@ -2638,6 +2740,18 @@ export class WishlistsService {
       ) {
         throw new BadRequestException(
           "One or more requested canonical cards do not exist.",
+        );
+      }
+
+      if (
+        cards.some(
+          (card) =>
+            card.game_id !==
+            gameId,
+        )
+      ) {
+        throw new BadRequestException(
+          "Every requested canonical card must belong to the same game as the wishlist item.",
         );
       }
     }
@@ -2673,6 +2787,7 @@ export class WishlistsService {
 
           select: {
             id: true,
+            game_id: true,
           },
         });
 
@@ -2682,6 +2797,18 @@ export class WishlistsService {
       ) {
         throw new BadRequestException(
           "One or more requested printings do not exist.",
+        );
+      }
+
+      if (
+        printings.some(
+          (printing) =>
+            printing.game_id !==
+            gameId,
+        )
+      ) {
+        throw new BadRequestException(
+          "Every requested printing must belong to the same game as the wishlist item.",
         );
       }
     }
@@ -2705,8 +2832,10 @@ export class WishlistsService {
             wishlistItemId,
         },
 
-        select:
-          this.getWishlistItemSelect(),
+        select: {
+          ...this.getWishlistItemSelect(),
+          game_id: true,
+        },
       });
 
     if (
@@ -2718,6 +2847,9 @@ export class WishlistsService {
         "Active wishlist item was not found.",
       );
     }
+
+    const wishlistItemGameId =
+      wishlistItem.game_id;
 
     const wishlist =
       await this.database.client.wishlists.findUnique({
@@ -2819,6 +2951,7 @@ export class WishlistsService {
       await this.validateRequestedTradeItems(
         wishlist.user_id,
         input.requestedItems,
+        wishlistItemGameId,
       );
     }
 
@@ -2942,6 +3075,9 @@ export class WishlistsService {
           const offer =
             await transaction.wishlist_offers.create({
               data: {
+                game_id:
+                  wishlistItemGameId,
+
                 wishlist_item_id:
                   wishlistItemId,
 
@@ -2997,6 +3133,9 @@ export class WishlistsService {
             data:
               input.items.map(
                 (item) => ({
+                  game_id:
+                    wishlistItemGameId,
+
                   wishlist_offer_id:
                     offer.id,
 
@@ -3027,6 +3166,9 @@ export class WishlistsService {
               data:
                 input.requestedItems.map(
                   (item) => ({
+                    game_id:
+                      wishlistItemGameId,
+
                     wishlist_offer_id:
                       offer.id,
 
@@ -3314,6 +3456,7 @@ export class WishlistsService {
               id: true,
               wishlist_item_id:
                 true,
+              game_id: true,
 
               offerer_user_id:
                 true,
@@ -3397,6 +3540,7 @@ export class WishlistsService {
             select: {
               id: true,
               wishlist_id: true,
+              game_id: true,
 
               canonical_card_id:
                 true,
@@ -3444,6 +3588,7 @@ export class WishlistsService {
             select: {
               id: true,
               user_id: true,
+              game_id: true,
               status: true,
             },
           });
@@ -3451,6 +3596,48 @@ export class WishlistsService {
         if (!wishlist) {
           throw new NotFoundException(
             "The wishlist for this offer was not found.",
+          );
+        }
+
+        const transactionGameId =
+          offer.game_id;
+
+        if (
+          wishlistItem.game_id !==
+            transactionGameId ||
+          wishlist.game_id !==
+            transactionGameId
+        ) {
+          throw new ConflictException(
+            "The accepted offer no longer matches the wishlist game.",
+          );
+        }
+
+        const gameEligibleStore =
+          await transaction.stores.findFirst({
+            where: {
+              id:
+                store.id,
+
+              store_games: {
+                some: {
+                  game_id:
+                    transactionGameId,
+
+                  trade_mediation_enabled:
+                    true,
+                },
+              },
+            },
+
+            select: {
+              id: true,
+            },
+          });
+
+        if (!gameEligibleStore) {
+          throw new BadRequestException(
+            "The selected store is not enabled to mediate trades for this wishlist game.",
           );
         }
 
@@ -3666,6 +3853,7 @@ export class WishlistsService {
 
             select: {
               id: true,
+              game_id: true,
               printing_id: true,
               finish: true,
               condition: true,
@@ -3769,6 +3957,15 @@ export class WishlistsService {
           ) {
             throw new ConflictException(
               "An offered inventory item is no longer available.",
+            );
+          }
+
+          if (
+            inventory.game_id !==
+            transactionGameId
+          ) {
+            throw new ConflictException(
+              "An offered inventory item no longer matches the wishlist offer game.",
             );
           }
 
@@ -3972,6 +4169,7 @@ export class WishlistsService {
 
             select: {
               id: true,
+              game_id: true,
               printing_id: true,
               finish: true,
               condition: true,
@@ -4079,6 +4277,15 @@ export class WishlistsService {
           ) {
             throw new ConflictException(
               "A requested return card is no longer available.",
+            );
+          }
+
+          if (
+            inventory.game_id !==
+            transactionGameId
+          ) {
+            throw new ConflictException(
+              "A requested return card no longer matches the wishlist offer game.",
             );
           }
 
@@ -4317,6 +4524,8 @@ export class WishlistsService {
         const transactionHeader =
           await transaction.transactions.create({
             data: {
+              game_id:
+                transactionGameId,
               listing_id:
                 null,
 
@@ -4411,6 +4620,8 @@ export class WishlistsService {
           const created =
             await transaction.transaction_items.create({
               data: {
+                game_id:
+                  transactionGameId,
                 transaction_id:
                   transactionHeader.id,
 
@@ -4489,6 +4700,8 @@ export class WishlistsService {
           const created =
             await transaction.transaction_items.create({
               data: {
+                game_id:
+                  transactionGameId,
                 transaction_id:
                   transactionHeader.id,
 
@@ -4563,6 +4776,8 @@ export class WishlistsService {
         const handoff =
           await transaction.store_trade_handoffs.create({
             data: {
+              game_id:
+                transactionGameId,
               transaction_id:
                 transactionHeader.id,
 

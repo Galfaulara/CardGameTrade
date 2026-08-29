@@ -765,12 +765,15 @@ export class CatalogSyncService {
         await this.database.client.card_printings.upsert(
           {
             where: {
-              source_source_key: {
-                source:
-                  "scryfall",
-                source_key:
-                  card.id,
-              },
+              game_id_source_source_key:
+                {
+                  game_id:
+                    game.id,
+                  source:
+                    "scryfall",
+                  source_key:
+                    card.id,
+                },
             },
             create: {
               game_id: game.id,

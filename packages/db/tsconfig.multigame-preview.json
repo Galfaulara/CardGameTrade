@@ -1,0 +1,21 @@
+﻿{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist-multigame-preview",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": false
+  },
+  "include": [
+    "src/index.multigame-preview.ts",
+    "src/client.multigame-preview.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-test",
+    "dist-multigame-preview"
+  ]
+}
