@@ -23,14 +23,14 @@ let ListingsController = class ListingsController {
     constructor(listingsService) {
         this.listingsService = listingsService;
     }
-    getActiveListings() {
-        return this.listingsService.getActiveListings();
+    getActiveListings(query) {
+        return this.listingsService.getActiveListings(query.gameSlug);
     }
     getListing(listingId) {
         return this.listingsService.getListing(listingId);
     }
-    getUserListings(userId) {
-        return this.listingsService.getUserListings(userId);
+    getUserListings(userId, query) {
+        return this.listingsService.getUserListings(userId, query.gameSlug);
     }
     createUserListing(userId, input) {
         return this.listingsService.createUserListing(userId, input);
@@ -46,8 +46,9 @@ exports.ListingsController = ListingsController;
 __decorate([
     (0, common_1.Get)(),
     (0, public_decorator_1.Public)(),
+    __param(0, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.listingListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], ListingsController.prototype, "getActiveListings", null);
 __decorate([
@@ -65,8 +66,9 @@ __decorate([
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
         version: "4",
     }))),
+    __param(1, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.listingListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ListingsController.prototype, "getUserListings", null);
 __decorate([

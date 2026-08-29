@@ -109,21 +109,24 @@ export async function getMyListings(userId: string) {
   )).json() as Promise<PublicListing[]>;
 }
 
-export async function getMySentOffers(userId: string) {
+export async function getMySentOffers(userId: string, gameSlug?: string) {
+  const query = gameSlug ? `?gameSlug=${encodeURIComponent(gameSlug)}` : "";
   return (await authenticatedApiFetch(
-    `/offers/users/${encodeURIComponent(userId)}/sent`,
+    `/offers/users/${encodeURIComponent(userId)}/sent${query}`,
   )).json() as Promise<MySentOffer[]>;
 }
 
-export async function getMyReceivedOffers(userId: string) {
+export async function getMyReceivedOffers(userId: string, gameSlug?: string) {
+  const query = gameSlug ? `?gameSlug=${encodeURIComponent(gameSlug)}` : "";
   return (await authenticatedApiFetch(
-    `/offers/users/${encodeURIComponent(userId)}/received`,
+    `/offers/users/${encodeURIComponent(userId)}/received${query}`,
   )).json() as Promise<MyListingOffer[]>;
 }
 
-export async function getMyTransactions(userId: string) {
+export async function getMyTransactions(userId: string, gameSlug?: string) {
+  const query = gameSlug ? `?gameSlug=${encodeURIComponent(gameSlug)}` : "";
   return (await authenticatedApiFetch(
-    `/transactions/users/${encodeURIComponent(userId)}`,
+    `/transactions/users/${encodeURIComponent(userId)}${query}`,
   )).json() as Promise<MyTrade[]>;
 }
 
@@ -148,11 +151,13 @@ export async function getStoreHandoff(handoffId: string) {
   )).json() as Promise<StoreHandoff>;
 }
 
-export async function getMyCollectionOptions(userId: string) {
+export async function getMyCollectionOptions(userId: string, gameSlug?: string) {
+  const query = gameSlug ? `?gameSlug=${encodeURIComponent(gameSlug)}` : "";
   return (await authenticatedApiFetch(
-    `/inventory/users/${encodeURIComponent(userId)}/collections`,
+    `/inventory/users/${encodeURIComponent(userId)}/collections${query}`,
   )).json() as Promise<Array<{
     id: string;
+    game_id: string;
     name: string;
     visibility: "private" | "unlisted" | "public";
     _count: { inventory_items: number };

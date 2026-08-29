@@ -2,7 +2,7 @@ import { StoresService } from "./stores.service";
 export declare class StoresController {
     private readonly storesService;
     constructor(storesService: StoresService);
-    getTradeMediators(): Promise<{
+    getTradeMediators(gameSlug?: string): Promise<{
         name: string;
         status: string;
         id: string;

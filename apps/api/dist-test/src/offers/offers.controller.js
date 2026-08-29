@@ -28,11 +28,11 @@ let OffersController = class OffersController {
     createUserOfferFromInterest(listingId, userId, interestId, input) {
         return this.offersService.createUserOffer(userId, listingId, input, interestId);
     }
-    getUserSentOffers(userId) {
-        return this.offersService.getUserSentOffers(userId);
+    getUserSentOffers(userId, query) {
+        return this.offersService.getUserSentOffers(userId, query);
     }
-    getUserReceivedOffers(userId) {
-        return this.offersService.getUserReceivedOffers(userId);
+    getUserReceivedOffers(userId, query) {
+        return this.offersService.getUserReceivedOffers(userId, undefined, query);
     }
     getUserReceivedOffersForListing(listingId, userId) {
         return this.offersService.getUserReceivedOffers(userId, listingId);
@@ -82,8 +82,9 @@ __decorate([
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
         version: "4",
     }))),
+    __param(1, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.gameScopedListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], OffersController.prototype, "getUserSentOffers", null);
 __decorate([
@@ -91,8 +92,9 @@ __decorate([
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
         version: "4",
     }))),
+    __param(1, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.gameScopedListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], OffersController.prototype, "getUserReceivedOffers", null);
 __decorate([

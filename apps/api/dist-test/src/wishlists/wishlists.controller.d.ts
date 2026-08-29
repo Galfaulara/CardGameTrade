@@ -1,10 +1,10 @@
-import type { AcceptWishlistOfferInput, CreateUserWishlistInput, CreateWishlistItemInput, CreateWishlistOfferInput, UpdateUserWishlistInput, UpdateWishlistItemInput } from "@repo/validation";
+import type { AcceptWishlistOfferInput, CreateUserWishlistInput, CreateWishlistItemInput, CreateWishlistOfferInput, GameScopedListQuery, UpdateUserWishlistInput, UpdateWishlistItemInput } from "@repo/validation";
 import { WishlistsService } from "./wishlists.service";
 export declare class WishlistsController {
     private readonly wishlistsService;
     constructor(wishlistsService: WishlistsService);
-    getPublicWishlistItems(): Promise<any[]>;
-    getUserWishlists(userId: string): Promise<any[]>;
+    getPublicWishlistItems(query: GameScopedListQuery): Promise<any[]>;
+    getUserWishlists(userId: string, query: GameScopedListQuery): Promise<any[]>;
     getUserWishlist(wishlistId: string, userId: string): Promise<any>;
     createUserWishlist(userId: string, input: CreateUserWishlistInput): Promise<any>;
     updateUserWishlist(wishlistId: string, userId: string, input: UpdateUserWishlistInput): Promise<any>;
@@ -12,7 +12,7 @@ export declare class WishlistsController {
     updateWishlistItem(wishlistId: string, itemId: string, userId: string, input: UpdateWishlistItemInput): Promise<any>;
     createUserWishlistOffer(wishlistItemId: string, userId: string, input: CreateWishlistOfferInput): Promise<any>;
     createUserWishlistOfferFromInterest(wishlistItemId: string, userId: string, interestId: string, input: CreateWishlistOfferInput): Promise<any>;
-    getUserSentWishlistOffers(userId: string): Promise<any[]>;
+    getUserSentWishlistOffers(userId: string, query: GameScopedListQuery): Promise<any[]>;
     getUserReceivedWishlistOffers(wishlistItemId: string, userId: string): Promise<any[]>;
     withdrawUserWishlistOffer(offerId: string, userId: string): Promise<any>;
     acceptUserWishlistOffer(offerId: string, userId: string, input: AcceptWishlistOfferInput): Promise<{
@@ -30,8 +30,8 @@ export declare class WishlistsController {
             created_at: Date;
             updated_at: Date;
             store_id: string;
-            transaction_id: string;
             completed_at: Date | null;
+            transaction_id: string;
             store_notes: string | null;
             cancelled_at: Date | null;
         };

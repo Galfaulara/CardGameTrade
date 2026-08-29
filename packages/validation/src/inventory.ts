@@ -27,6 +27,7 @@ export const myInventoryConditionFilterSchema = z.union([
 
 export const myInventoryListQuerySchema = z
   .object({
+    gameSlug: z.string().trim().min(1).max(64).toLowerCase().optional(),
     page: boundedInteger(1, 1000000),
     pageSize: boundedInteger(24, 48),
     q: z.preprocess(
@@ -54,6 +55,12 @@ export const myInventoryListQuerySchema = z
   })
   .strict();
 
+export const gameScopedListQuerySchema = z
+  .object({
+    gameSlug: z.string().trim().min(1).max(64).toLowerCase().optional(),
+  })
+  .strict();
+
 export type MyInventoryStatusFilter = z.infer<
   typeof myInventoryStatusFilterSchema
 >;
@@ -65,3 +72,5 @@ export type MyInventoryConditionFilter = z.infer<
 export type MyInventoryListQuery = z.infer<
   typeof myInventoryListQuerySchema
 >;
+
+export type GameScopedListQuery = z.infer<typeof gameScopedListQuerySchema>;

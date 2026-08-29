@@ -17,9 +17,21 @@ let OffersService = class OffersService {
     constructor(database) {
         this.database = database;
     }
+    async resolveGameId(gameSlug) {
+        if (!gameSlug)
+            return undefined;
+        const game = await this.database.client.games.findUnique({
+            where: { slug: gameSlug },
+            select: { id: true },
+        });
+        if (!game)
+            throw new common_1.BadRequestException("Unknown gameSlug.");
+        return game.id;
+    }
     getOfferSelect() {
         return {
             id: true,
+            game_id: true,
             listing_id: true,
             offerer_user_id: true,
             offerer_store_id: true,
@@ -251,15 +263,19 @@ let OffersService = class OffersService {
                         store_id: true,
                         status: true,
                         created_at: true,
-                        stores: {
+                        store_games: {
                             select: {
-                                id: true,
-                                name: true,
-                                slug: true,
-                                city: true,
-                                state_region: true,
-                                country_code: true,
-                                trade_mediation_enabled: true,
+                                stores: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        slug: true,
+                                        city: true,
+                                        state_region: true,
+                                        country_code: true,
+                                        trade_mediation_enabled: true,
+                                    },
+                                },
                             },
                         },
                     },
@@ -269,6 +285,21 @@ let OffersService = class OffersService {
         if (!transaction) {
             throw new common_1.NotFoundException("Transaction was not found after offer acceptance.");
         }
+        const selectedHandoffs = transaction.store_trade_handoffs;
+        const handoffs = selectedHandoffs;
+        if (handoffs.length > 1) {
+            throw new common_1.ConflictException("A transaction cannot have more than one store handoff.");
+        }
+        const normalizedHandoff = handoffs[0]
+            ? (() => {
+                const handoff = handoffs[0];
+                const { store_games, ...handoffData } = handoff;
+                return {
+                    ...handoffData,
+                    stores: store_games.stores,
+                };
+            })()
+            : null;
         const custody = await this.database.client.transaction_item_custody.findMany({
             where: {
                 transaction_id: transactionId,
@@ -289,10 +320,11 @@ let OffersService = class OffersService {
         });
         return {
             ...transaction,
+            store_trade_handoffs: normalizedHandoff,
             custody,
         };
     }
-    async getUserSentOffers(userId) {
+    async getUserSentOffers(userId, query = {}) {
         const user = await this.database.client.user_profiles.findUnique({
             where: {
                 id: userId,
@@ -304,9 +336,11 @@ let OffersService = class OffersService {
         if (!user) {
             throw new common_1.NotFoundException("User was not found.");
         }
+        const gameId = await this.resolveGameId(query.gameSlug);
         const offers = await this.database.client.listing_offers.findMany({
             where: {
                 offerer_user_id: userId,
+                ...(gameId ? { game_id: gameId } : {}),
             },
             select: this.getOfferSelect(),
             orderBy: {
@@ -315,7 +349,7 @@ let OffersService = class OffersService {
         });
         return offers.map((offer) => this.mapOffer(offer));
     }
-    async getUserReceivedOffers(userId, listingId) {
+    async getUserReceivedOffers(userId, listingId, query = {}) {
         const user = await this.database.client.user_profiles.findUnique({
             where: {
                 id: userId,
@@ -327,6 +361,7 @@ let OffersService = class OffersService {
         if (!user) {
             throw new common_1.NotFoundException("User was not found.");
         }
+        const gameId = await this.resolveGameId(query.gameSlug);
         if (listingId) {
             const listing = await this.database.client.listings.findFirst({
                 where: {
@@ -361,6 +396,7 @@ let OffersService = class OffersService {
                     listing_id: {
                         in: listingIds,
                     },
+                    ...(gameId ? { game_id: gameId } : {}),
                 },
                 select: this.getOfferSelect(),
                 orderBy: {
@@ -392,6 +428,7 @@ let OffersService = class OffersService {
             },
             select: {
                 id: true,
+                game_id: true,
                 inventory_item_id: true,
                 seller_user_id: true,
                 seller_store_id: true,
@@ -436,6 +473,7 @@ let OffersService = class OffersService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     status: true,
                     quantity: true,
                 },
@@ -456,6 +494,10 @@ let OffersService = class OffersService {
                 if (inventoryItem.status !==
                     "available") {
                     throw new common_1.BadRequestException("Only available inventory items can be offered.");
+                }
+                if (inventoryItem.game_id !==
+                    listing.game_id) {
+                    throw new common_1.BadRequestException("Every offered card must belong to the same game as the listing.");
                 }
                 if (requestedItem.quantity !==
                     inventoryItem.quantity) {
@@ -521,6 +563,7 @@ let OffersService = class OffersService {
             }
             const offer = await transaction.listing_offers.create({
                 data: {
+                    game_id: listing.game_id,
                     listing_id: listingId,
                     offerer_user_id: userId,
                     offerer_store_id: null,
@@ -539,6 +582,7 @@ let OffersService = class OffersService {
             if (input.items.length > 0) {
                 await transaction.offer_items.createMany({
                     data: input.items.map((item) => ({
+                        game_id: listing.game_id,
                         offer_id: offer.id,
                         offerer_user_id: userId,
                         offerer_store_id: null,
@@ -658,6 +702,7 @@ let OffersService = class OffersService {
                 select: {
                     id: true,
                     listing_id: true,
+                    game_id: true,
                     offerer_user_id: true,
                     offerer_store_id: true,
                     cash_amount: true,
@@ -689,6 +734,7 @@ let OffersService = class OffersService {
                 select: {
                     id: true,
                     inventory_item_id: true,
+                    game_id: true,
                     seller_user_id: true,
                     seller_store_id: true,
                     status: true,
@@ -696,6 +742,11 @@ let OffersService = class OffersService {
             });
             if (!listing) {
                 throw new common_1.NotFoundException("Listing was not found.");
+            }
+            const listingGameId = listing.game_id;
+            if (offer.game_id !==
+                listingGameId) {
+                throw new common_1.ConflictException("The accepted offer no longer matches the listing game.");
             }
             if (listing.seller_user_id !==
                 sellerUserId ||
@@ -713,6 +764,12 @@ let OffersService = class OffersService {
                     status: "active",
                     verification_status: "verified",
                     trade_mediation_enabled: true,
+                    store_games: {
+                        some: {
+                            game_id: listingGameId,
+                            trade_mediation_enabled: true,
+                        },
+                    },
                 },
                 select: {
                     id: true,
@@ -728,6 +785,7 @@ let OffersService = class OffersService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     quantity: true,
                     status: true,
                 },
@@ -738,6 +796,10 @@ let OffersService = class OffersService {
             if (listedInventory.status !==
                 "available") {
                 throw new common_1.ConflictException("The listed inventory item is no longer available.");
+            }
+            if (listedInventory.game_id !==
+                listingGameId) {
+                throw new common_1.ConflictException("The listed inventory item no longer matches the listing game.");
             }
             const offerItems = await transaction.offer_items.findMany({
                 where: {
@@ -761,6 +823,7 @@ let OffersService = class OffersService {
                     },
                     select: {
                         id: true,
+                        game_id: true,
                         quantity: true,
                         status: true,
                     },
@@ -782,6 +845,10 @@ let OffersService = class OffersService {
                 if (inventoryItem.status !==
                     "available") {
                     throw new common_1.ConflictException("One or more offered cards are no longer available.");
+                }
+                if (inventoryItem.game_id !==
+                    listingGameId) {
+                    throw new common_1.ConflictException("One or more offered inventory items no longer match the listing game.");
                 }
                 if (offerItem.quantity !==
                     inventoryItem.quantity) {
@@ -848,6 +915,7 @@ let OffersService = class OffersService {
                     : "cash_sale";
             const createdTransaction = await transaction.transactions.create({
                 data: {
+                    game_id: listingGameId,
                     listing_id: listing.id,
                     accepted_offer_id: offer.id,
                     accepted_wishlist_offer_id: null,
@@ -869,6 +937,7 @@ let OffersService = class OffersService {
             });
             const listedTransactionItem = await transaction.transaction_items.create({
                 data: {
+                    game_id: listingGameId,
                     transaction_id: createdTransaction.id,
                     inventory_item_id: listedInventory.id,
                     item_role: "listed_item",
@@ -889,6 +958,7 @@ let OffersService = class OffersService {
             for (const offerItem of offerItems) {
                 const transactionItem = await transaction.transaction_items.create({
                     data: {
+                        game_id: listingGameId,
                         transaction_id: createdTransaction.id,
                         inventory_item_id: offerItem.inventory_item_id,
                         item_role: "offered_item",
@@ -941,6 +1011,7 @@ let OffersService = class OffersService {
             }
             const handoff = await transaction.store_trade_handoffs.create({
                 data: {
+                    game_id: listingGameId,
                     transaction_id: createdTransaction.id,
                     store_id: store.id,
                     status: "awaiting_items",

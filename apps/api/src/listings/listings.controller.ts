@@ -6,16 +6,19 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import {
   createUserListingSchema,
   setUserListingStatusSchema,
   updateUserListingSchema,
+  listingListQuerySchema,
 } from "@repo/validation";
 import type {
   CreateUserListingInput,
   SetUserListingStatusInput,
   UpdateUserListingInput,
+  ListingListQuery,
 } from "@repo/validation";
 
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
@@ -30,8 +33,8 @@ export class ListingsController {
 
   @Get()
   @Public()
-  getActiveListings() {
-    return this.listingsService.getActiveListings();
+  getActiveListings(@Query(new ZodValidationPipe(listingListQuerySchema)) query: ListingListQuery) {
+    return this.listingsService.getActiveListings(query.gameSlug);
   }
 
   @Get(":listingId")
@@ -59,9 +62,11 @@ export class ListingsController {
       }),
     )
     userId: string,
+    @Query(new ZodValidationPipe(listingListQuerySchema)) query: ListingListQuery,
   ) {
     return this.listingsService.getUserListings(
       userId,
+      query.gameSlug,
     );
   }
 

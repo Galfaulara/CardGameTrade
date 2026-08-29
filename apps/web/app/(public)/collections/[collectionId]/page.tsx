@@ -6,6 +6,7 @@ import { PublicUserLink } from "../../../../components/public-user-link/public-u
 import { PublicStoreLink } from "../../../../components/public-store-link/public-store-link";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
 import { getPublicCollectionPage } from "../../../../features/marketplace/api";
+import { ResourceGameSync } from "../../../../features/games/resource-game-sync";
 import styles from "./page.module.css";
 
 const normalizePage = (value: string | string[] | undefined) => {
@@ -56,6 +57,7 @@ export default async function CollectionPage({
 
   return (
     <main className={styles.main}>
+      <ResourceGameSync gameId={collection.game_id} />
       <NavigationBack fallback={`/users/${collection.owner.id}?view=collections`} label="Back to collections" />
       <header className={styles.collectionHeader}>
         <p className={styles.eyebrow}>{ownerLabel(collection.owner)}</p>

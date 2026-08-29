@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
 } from "@nestjs/common";
 
@@ -11,17 +12,40 @@ export class StoresService {
       DatabaseService,
   ) {}
 
-  async getTradeMediators() {
+  async getTradeMediators(gameSlug?: string) {
+    const baseWhere = {
+      status: "active",
+
+      verification_status:
+        "verified",
+
+      trade_mediation_enabled:
+        true,
+    };
+
+    let where: typeof baseWhere & {
+      store_games?: { some: { game_id: string; trade_mediation_enabled: true } };
+    } = baseWhere;
+
+    if (gameSlug) {
+      const game = await this.database.client.games.findUnique({
+        where: { slug: gameSlug },
+        select: { id: true },
+      });
+      if (!game) throw new BadRequestException("Unknown gameSlug.");
+      where = {
+        ...baseWhere,
+        store_games: {
+          some: {
+            game_id: game.id,
+            trade_mediation_enabled: true,
+          },
+        },
+      };
+    }
+
     return this.database.client.stores.findMany({
-      where: {
-        status: "active",
-
-        verification_status:
-          "verified",
-
-        trade_mediation_enabled:
-          true,
-      },
+      where,
 
       select: {
         id: true,

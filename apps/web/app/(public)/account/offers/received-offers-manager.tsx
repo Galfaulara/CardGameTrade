@@ -294,11 +294,11 @@ function AcceptTradeDialog({
 
 export function ReceivedOffersManager({
   entries,
-  stores,
+  mediatorsByOfferId,
   marketPrices,
 }: {
   entries: MyOfferEntry[];
-  stores: TradeMediatorStore[];
+  mediatorsByOfferId: Record<string, TradeMediatorStore[]>;
   marketPrices: MarketPrice[];
 }) {
   const router = useRouter();
@@ -535,7 +535,7 @@ export function ReceivedOffersManager({
       {accepting ? (
         <AcceptTradeDialog
           entry={accepting}
-          stores={stores}
+          stores={mediatorsByOfferId[accepting.offer.id] ?? []}
           onClose={() => setAccepting(null)}
         />
       ) : null}

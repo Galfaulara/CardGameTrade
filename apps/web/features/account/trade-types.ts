@@ -133,6 +133,7 @@ export type TradeItem = {
 
 export type MyTrade = {
   id: string;
+  game_id: string;
   listing_id: string | null;
   accepted_offer_id: string | null;
   accepted_wishlist_offer_id: string | null;

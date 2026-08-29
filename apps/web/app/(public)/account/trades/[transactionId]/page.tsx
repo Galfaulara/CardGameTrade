@@ -24,6 +24,7 @@ import {
   getAuthenticatedCurrentUser,
   getMyTransaction,
 } from "../../../../../features/auth/authenticated-api";
+import { ResourceGameSync } from "../../../../../features/games/resource-game-sync";
 import styles from "./page.module.css";
 
 const signInRedirect = (
@@ -152,6 +153,7 @@ export default async function TradeDetailPage({
           intro="Accepted DeckDeal trades stay in mediated handoff until authorized Store release completes the ownership transfer."
         >
           <div className={styles.page}>
+            <ResourceGameSync gameId={trade.game_id} />
             <NavigationBack fallback="/account/trades" />
             <section className={styles.hero}>
               <p className={styles.kicker}>

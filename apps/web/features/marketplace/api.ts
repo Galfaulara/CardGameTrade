@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- External read DTOs are runtime-owned by the API. */
+import { shouldRequestMtgMarketPrices } from "../cards/presentation.ts";
+
 export type CardPrinting = {
   id: string;
   collector_number: string;
@@ -73,6 +75,7 @@ export type Listing = {
 
 export type PublicListing = {
   id: string;
+  game_id: string;
   inventory_item_id: string;
   seller_user_id: string | null;
   seller_store_id: string | null;
@@ -156,6 +159,7 @@ export type CardView = {
   };
   canonicalCardId?: string;
   printingId?: string;
+  gameId?: string;
 };
 
 export type CatalogSearchResult = {
@@ -170,6 +174,7 @@ export type CatalogSearchResult = {
 
 export type DiscoveryInventoryItem = {
   id: string;
+  game_id: string;
   quantity: number;
   condition: string;
   finish: string;
@@ -189,6 +194,7 @@ export type DiscoveryInventoryItem = {
   };
   listing?: {
     id: string;
+    game_id: string;
     accepts_cash: boolean;
     accepts_trade: boolean;
     asking_price: string | null;
@@ -271,6 +277,7 @@ export type PublicStoreProfile = {
 
 export type PublicCollectionPage = {
   collection: Omit<PublicCollection, "preview_items"> & {
+    game_id: string;
     created_at: string;
     updated_at: string;
   };
@@ -344,8 +351,11 @@ export type PublicUserResult<T> =
 const apiBase = process.env.DECKDEAL_API_URL ?? "http://localhost:4000/api";
 
 class ApiResponseError extends Error {
-  constructor(public readonly status: number) {
+  public readonly status: number;
+
+  constructor(status: number) {
     super("DeckDeal API request failed");
+    this.status = status;
   }
 }
 
@@ -382,10 +392,27 @@ export async function getLatestMarketPrices(
   return results.flat();
 }
 
-export async function searchCatalog(
-  query: string,
+export function catalogSearchApiPath({
+  query,
+  page,
+  gameId,
+}: {
+  query: string;
+  page: number;
+  gameId: string;
+}) {
+  return `/catalog/games/${encodeURIComponent(gameId)}/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=60`;
+}
+
+export async function searchCatalog({
+  query,
   page = 1,
-): Promise<CatalogSearchResult> {
+  gameId,
+}: {
+  query: string;
+  page?: number;
+  gameId: string;
+}): Promise<CatalogSearchResult> {
   const empty = {
     query: query.trim(),
     items: [],
@@ -397,12 +424,8 @@ export async function searchCatalog(
   };
   if (!query.trim()) return empty;
   try {
-    const games =
-      await apiGet<Array<{ id: string; slug: string }>>("/catalog/games");
-    const game = games.find((item) => item.slug === "mtg") ?? games[0];
-    if (!game) return empty;
     const result = await apiGet<Omit<CatalogSearchResult, "cards">>(
-      `/catalog/games/${game.id}/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=60`,
+      catalogSearchApiPath({ query, page, gameId }),
     );
     return {
       ...result,
@@ -412,6 +435,7 @@ export async function searchCatalog(
           id: printing?.id ?? card.id,
           canonicalCardId: card.id,
           printingId: printing?.id,
+          gameId: card.game_id,
           name: card.name,
           imageUrl:
             printing?.image_normal_uri ?? printing?.image_small_uri ?? null,
@@ -427,10 +451,12 @@ export async function searchCatalog(
   }
 }
 
-export async function getRecentListings(): Promise<CardView[]> {
+export async function getRecentListings(gameSlug?: string): Promise<CardView[]> {
   try {
+    const query = new URLSearchParams({ limit: "14", intent: "all" });
+    if (gameSlug) query.set("gameSlug", gameSlug);
     const feed = await apiGet<DiscoveryFeed<DiscoverListing>>(
-      "/discovery/feed/listings?limit=14&intent=all",
+      `/discovery/feed/listings?${query}`,
     );
     return feed.items.map((item) => {
       const seller = item.seller;
@@ -500,6 +526,7 @@ export async function getDiscoveryFeed(
   view: "collections" | "stores" | "listings",
   filter: string,
   cursor?: string,
+  gameSlug?: string,
 ) {
   const limit = view === "listings" ? 24 : 12;
   const filterName = view === "listings" ? "intent" : "availability";
@@ -509,6 +536,7 @@ export async function getDiscoveryFeed(
   });
   if (view !== "listings") query.set("previewLimit", "5");
   if (cursor) query.set("cursor", cursor);
+  if ((view === "listings" || view === "collections") && gameSlug) query.set("gameSlug", gameSlug);
   if (view === "collections") {
     const feed = await apiGet<DiscoveryFeed<PublicCollection>>(
       `/discovery/feed/collections?${query}`,
@@ -564,6 +592,7 @@ export async function getCardDetail(
   canonicalCardId: string,
   printingId: string | undefined,
   offersPage: number,
+  mtgGameId?: string | null,
 ) {
   try {
     const suffix = printingId
@@ -579,9 +608,11 @@ export async function getCardDetail(
       ),
       selected ? getCatalogPrintingFinishes(selected) : Promise.resolve([]),
     ]);
-    const market_prices = await getLatestMarketPrices(
-      finishes.map((item) => ({ printingId: selected, finish: item.finish })),
-    );
+    const market_prices = shouldRequestMtgMarketPrices(detail.card?.game_id, mtgGameId)
+      ? await getLatestMarketPrices(
+          finishes.map((item) => ({ printingId: selected, finish: item.finish })),
+        )
+      : [];
     return {
       status: "ready" as const,
       detail,
@@ -665,8 +696,14 @@ export async function getPublicListing(
   }
 }
 
-export async function getTradeMediators() {
-  return apiGet<TradeMediatorStore[]>("/stores/trade-mediators");
+export function tradeMediatorsApiPath(gameSlug?: string) {
+  return gameSlug
+    ? `/stores/trade-mediators?gameSlug=${encodeURIComponent(gameSlug)}`
+    : "/stores/trade-mediators";
+}
+
+export async function getTradeMediators(gameSlug?: string) {
+  return apiGet<TradeMediatorStore[]>(tradeMediatorsApiPath(gameSlug));
 }
 
 export async function getPublicCollectionPage(

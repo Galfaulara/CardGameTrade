@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   AccountShell,
@@ -28,7 +29,22 @@ import {
   getLatestMarketPrices,
   getTradeMediators,
   type PublicListing,
+  type TradeMediatorStore,
 } from "../../../../features/marketplace/api";
+import { loadGames } from "../../../../features/games/games.server";
+import {
+  ACTIVE_GAME_COOKIE,
+  orderGames,
+  type DeckDealGame,
+} from "../../../../features/games/active-game";
+import {
+  ALL_GAMES_VALUE,
+  resolveOptionalGameFilter,
+} from "../../../../features/games/optional-game-filter";
+import {
+  resolveMediatorGameSlug,
+  selectMediatorsForSlug,
+} from "../../../../features/games/resource-mediators";
 import { ReceivedOffersManager } from "./received-offers-manager";
 import styles from "./page.module.css";
 
@@ -36,6 +52,9 @@ const signInRedirectUrl =
   "/sign-in?redirect_url=%2Faccount%2Foffers%3Fview%3Dsent";
 
 const views = new Set(["sent", "received"]);
+
+const offersGameHref = (view: "sent" | "received", gameSlug: string) =>
+  `/account/offers?${new URLSearchParams({ view, game: gameSlug }).toString()}`;
 
 const cardHref = (listing: PublicListing | null) => {
   const canonicalCardId = listing?.inventory_item?.printing.canonical_cards.id;
@@ -93,6 +112,41 @@ async function loadOfferEntries(
     listing: listings.get(offer.listing_id) ?? null,
     transactionId: transactionIdByOfferId.get(offer.id) ?? null,
   }));
+}
+
+// Each received offer targets a listing with its own authoritative game_id, which can
+// differ per offer on this account-wide page. Mediators must therefore be resolved from
+// that resource's game rather than the account's active-game cookie/selector. A listing
+// whose game can't be resolved against the loaded games fails closed to no mediators
+// instead of falling back to the unfiltered/global mediator list.
+async function loadMediatorsByOfferId(
+  entries: MyOfferEntry[],
+  games: DeckDealGame[],
+): Promise<Record<string, TradeMediatorStore[]>> {
+  const slugForEntry = (entry: MyOfferEntry) =>
+    resolveMediatorGameSlug(games, entry.listing?.game_id);
+  const uniqueSlugs = [
+    ...new Set(
+      entries.flatMap((entry) => {
+        const slug = slugForEntry(entry);
+        return slug ? [slug] : [];
+      }),
+    ),
+  ];
+  const mediatorsBySlug = new Map(
+    await Promise.all(
+      uniqueSlugs.map(
+        async (slug) =>
+          [slug, await getTradeMediators(slug).catch(() => [])] as const,
+      ),
+    ),
+  );
+  return Object.fromEntries(
+    entries.map((entry) => [
+      entry.offer.id,
+      selectMediatorsForSlug(slugForEntry(entry), mediatorsBySlug),
+    ]),
+  );
 }
 
 function SentOffersSection({
@@ -286,6 +340,7 @@ export default async function AccountOffersPage({
   searchParams: Promise<{
     view?: string | string[];
     createdOfferId?: string | string[];
+    game?: string | string[];
   }>;
 }) {
   const configured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
@@ -307,7 +362,11 @@ export default async function AccountOffersPage({
     redirect(signInRedirectUrl);
   }
 
-  const params = await searchParams;
+  const [params, games, cookieStore] = await Promise.all([
+    searchParams,
+    loadGames(),
+    cookies(),
+  ]);
   const viewRaw = Array.isArray(params.view) ? params.view[0] : params.view;
   const view = views.has(viewRaw ?? "")
     ? (viewRaw as "sent" | "received")
@@ -315,6 +374,12 @@ export default async function AccountOffersPage({
   const createdOfferId = Array.isArray(params.createdOfferId)
     ? params.createdOfferId[0]
     : params.createdOfferId;
+  const gameRaw = Array.isArray(params.game) ? params.game[0] : params.game;
+  const gameFilter = resolveOptionalGameFilter(
+    games,
+    gameRaw,
+    cookieStore.get(ACTIVE_GAME_COOKIE)?.value,
+  );
 
   try {
     const currentUser = await getAuthenticatedCurrentUser();
@@ -335,14 +400,11 @@ export default async function AccountOffersPage({
       );
     }
 
-    const [transactions, offers, tradeMediators] = await Promise.all([
+    const [transactions, offers] = await Promise.all([
       getMyTransactions(currentUser.user.id),
       view === "received"
-        ? getMyReceivedOffers(currentUser.user.id)
-        : getMySentOffers(currentUser.user.id),
-      view === "received"
-        ? getTradeMediators().catch(() => [])
-        : Promise.resolve([]),
+        ? getMyReceivedOffers(currentUser.user.id, gameFilter)
+        : getMySentOffers(currentUser.user.id, gameFilter),
     ]);
 
     const transactionIdByOfferId = new Map(
@@ -354,6 +416,8 @@ export default async function AccountOffersPage({
     );
 
     const entries = await loadOfferEntries(offers, transactionIdByOfferId);
+    const mediatorsByOfferId =
+      view === "received" ? await loadMediatorsByOfferId(entries, games) : {};
     const receivedMarketPrices =
       view === "received"
         ? await getLatestMarketPrices(
@@ -400,10 +464,30 @@ export default async function AccountOffersPage({
             </Link>
           </nav>
 
+          {games.length > 0 && (
+            <nav className={styles.tabs} aria-label="Offer game filter">
+              <Link
+                href={offersGameHref(view, ALL_GAMES_VALUE)}
+                aria-current={!gameFilter ? "page" : undefined}
+              >
+                All games
+              </Link>
+              {orderGames(games).map((game) => (
+                <Link
+                  key={game.id}
+                  href={offersGameHref(view, game.slug)}
+                  aria-current={gameFilter === game.slug ? "page" : undefined}
+                >
+                  {game.name}
+                </Link>
+              ))}
+            </nav>
+          )}
+
           {view === "received" ? (
             <ReceivedOffersManager
               entries={entries}
-              stores={tradeMediators}
+              mediatorsByOfferId={mediatorsByOfferId}
               marketPrices={receivedMarketPrices}
             />
           ) : (

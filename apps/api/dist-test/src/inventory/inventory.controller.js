@@ -29,8 +29,8 @@ let InventoryController = class InventoryController {
     createUserInventoryItem(userId, input) {
         return this.inventoryService.createUserInventoryItem(userId, input);
     }
-    getUserCollections(userId) {
-        return this.inventoryService.getUserCollections(userId);
+    getUserCollections(userId, query) {
+        return this.inventoryService.getUserCollections(userId, query);
     }
     createUserCollection(userId, input) {
         return this.inventoryService.createUserCollection(userId, input);
@@ -70,8 +70,9 @@ __decorate([
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
         version: "4",
     }))),
+    __param(1, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.gameScopedListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], InventoryController.prototype, "getUserCollections", null);
 __decorate([

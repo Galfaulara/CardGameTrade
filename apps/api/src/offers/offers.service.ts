@@ -9,6 +9,7 @@ import {
 import type {
   AcceptListingOfferInput,
   CreateListingOfferInput,
+  GameScopedListQuery,
 } from "@repo/validation";
 
 import { DatabaseService } from "../database/database.service";
@@ -19,9 +20,20 @@ export class OffersService {
     private readonly database: DatabaseService,
   ) {}
 
+  private async resolveGameId(gameSlug?: string) {
+    if (!gameSlug) return undefined;
+    const game = await this.database.client.games.findUnique({
+      where: { slug: gameSlug },
+      select: { id: true },
+    });
+    if (!game) throw new BadRequestException("Unknown gameSlug.");
+    return game.id;
+  }
+
   private getOfferSelect() {
     return {
       id: true,
+      game_id: true,
       listing_id: true,
       offerer_user_id: true,
       offerer_store_id: true,
@@ -404,6 +416,7 @@ export class OffersService {
 
   async getUserSentOffers(
     userId: string,
+    query: GameScopedListQuery = {},
   ) {
     const user =
       await this.database.client.user_profiles.findUnique({
@@ -421,10 +434,13 @@ export class OffersService {
       );
     }
 
+    const gameId = await this.resolveGameId(query.gameSlug);
+
     const offers =
       await this.database.client.listing_offers.findMany({
         where: {
           offerer_user_id: userId,
+          ...(gameId ? { game_id: gameId } : {}),
         },
         select: this.getOfferSelect(),
         orderBy: {
@@ -441,6 +457,7 @@ export class OffersService {
   async getUserReceivedOffers(
     userId: string,
     listingId?: string,
+    query: GameScopedListQuery = {},
   ) {
     const user =
       await this.database.client.user_profiles.findUnique({
@@ -457,6 +474,8 @@ export class OffersService {
         "User was not found.",
       );
     }
+
+    const gameId = await this.resolveGameId(query.gameSlug);
 
     if (listingId) {
       const listing =
@@ -504,6 +523,7 @@ export class OffersService {
               listing_id: {
                 in: listingIds,
               },
+              ...(gameId ? { game_id: gameId } : {}),
             },
             select: this.getOfferSelect(),
             orderBy: {

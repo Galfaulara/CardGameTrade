@@ -1,18 +1,34 @@
-import type { AcceptListingOfferInput, CreateListingOfferInput } from "@repo/validation";
+import type { AcceptListingOfferInput, CreateListingOfferInput, GameScopedListQuery } from "@repo/validation";
 import { DatabaseService } from "../database/database.service";
 export declare class OffersService {
     private readonly database;
     constructor(database: DatabaseService);
+    private resolveGameId;
     private getOfferSelect;
     private mapOffer;
     private loadOffer;
     private getAcceptedTransaction;
-    getUserSentOffers(userId: string): Promise<any[]>;
-    getUserReceivedOffers(userId: string, listingId?: string): Promise<any[]>;
+    getUserSentOffers(userId: string, query?: GameScopedListQuery): Promise<any[]>;
+    getUserReceivedOffers(userId: string, listingId?: string, query?: GameScopedListQuery): Promise<any[]>;
     createUserOffer(userId: string, listingId: string, input: CreateListingOfferInput, interestId?: string): Promise<any>;
     withdrawUserOffer(userId: string, offerId: string): Promise<any>;
     rejectUserOffer(sellerUserId: string, offerId: string): Promise<any>;
     acceptUserOffer(sellerUserId: string, offerId: string, input: AcceptListingOfferInput): Promise<{
+        store_trade_handoffs: {
+            stores: {
+                name: string;
+                id: string;
+                slug: string;
+                city: string | null;
+                state_region: string | null;
+                country_code: string | null;
+                trade_mediation_enabled: boolean;
+            };
+            status: string;
+            id: string;
+            created_at: Date;
+            store_id: string;
+        } | null;
         custody: {
             id: string;
             store_id: string;
@@ -27,21 +43,6 @@ export declare class OffersService {
         id: string;
         created_at: Date;
         updated_at: Date;
-        store_trade_handoffs: {
-            status: string;
-            id: string;
-            created_at: Date;
-            store_id: string;
-            stores: {
-                name: string;
-                id: string;
-                slug: string;
-                city: string | null;
-                state_region: string | null;
-                country_code: string | null;
-                trade_mediation_enabled: boolean;
-            };
-        } | null;
         seller_user_id: string | null;
         seller_store_id: string | null;
         currency_code: string;

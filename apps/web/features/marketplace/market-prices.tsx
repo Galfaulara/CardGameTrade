@@ -1,5 +1,6 @@
 import type { MarketPrice } from "./api";
 import styles from "./market-prices.module.css";
+import { hasMarketProviderData } from "../cards/presentation";
 import {
   MARKET_SOURCES,
   priceFor,
@@ -53,6 +54,7 @@ export function MarketPrices({
   title?: string;
   compact?: boolean;
 }) {
+  if (!hasMarketProviderData(prices)) return null;
   return (
     <section
       aria-label={title}

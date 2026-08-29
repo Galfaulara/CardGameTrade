@@ -1,8 +1,9 @@
-import type { AcceptWishlistOfferInput, CreateUserWishlistInput, CreateWishlistItemInput, CreateWishlistOfferInput, UpdateUserWishlistInput, UpdateWishlistItemInput } from "@repo/validation";
+import type { AcceptWishlistOfferInput, CreateUserWishlistInput, CreateWishlistItemInput, CreateWishlistOfferInput, GameScopedListQuery, UpdateUserWishlistInput, UpdateWishlistItemInput } from "@repo/validation";
 import { DatabaseService } from "../database/database.service";
 export declare class WishlistsService {
     private readonly database;
     constructor(database: DatabaseService);
+    private resolveGameId;
     private requireActiveUser;
     private findEligibleTradeStore;
     private requireEligibleTradeStore;
@@ -16,19 +17,19 @@ export declare class WishlistsService {
     private hydrateWishlists;
     private validateWishlistTargetExists;
     private validateWishlistItemMergedRules;
-    getUserWishlists(userId: string): Promise<any[]>;
+    getUserWishlists(userId: string, query?: GameScopedListQuery): Promise<any[]>;
     getUserWishlist(userId: string, wishlistId: string): Promise<any>;
     createUserWishlist(userId: string, input: CreateUserWishlistInput): Promise<any>;
     updateUserWishlist(userId: string, wishlistId: string, input: UpdateUserWishlistInput): Promise<any>;
     createWishlistItem(userId: string, wishlistId: string, input: CreateWishlistItemInput): Promise<any>;
     updateWishlistItem(userId: string, wishlistId: string, itemId: string, input: UpdateWishlistItemInput): Promise<any>;
-    getPublicWishlistItems(): Promise<any[]>;
+    getPublicWishlistItems(query?: GameScopedListQuery): Promise<any[]>;
     private loadWishlistOffer;
     private hydrateWishlistOffers;
     private validateOfferedInventoryMatchesWishlistItem;
     private validateRequestedTradeItems;
     createUserWishlistOffer(userId: string, wishlistItemId: string, input: CreateWishlistOfferInput, interestId?: string): Promise<any>;
-    getUserSentWishlistOffers(userId: string): Promise<any[]>;
+    getUserSentWishlistOffers(userId: string, query?: GameScopedListQuery): Promise<any[]>;
     getUserReceivedWishlistOffers(ownerUserId: string, wishlistItemId: string): Promise<any[]>;
     withdrawUserWishlistOffer(userId: string, offerId: string): Promise<any>;
     acceptUserWishlistOffer(ownerUserId: string, offerId: string, input: AcceptWishlistOfferInput): Promise<{
@@ -46,8 +47,8 @@ export declare class WishlistsService {
             created_at: Date;
             updated_at: Date;
             store_id: string;
-            transaction_id: string;
             completed_at: Date | null;
+            transaction_id: string;
             store_notes: string | null;
             cancelled_at: Date | null;
         };

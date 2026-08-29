@@ -28,7 +28,7 @@ const inventorySelect = {
     stores: { select: { id: true, name: true } },
 };
 const previewSelect = {
-    id: true, inventory_item_id: true, accepts_cash: true, accepts_trade: true,
+    id: true, game_id: true, inventory_item_id: true, accepts_cash: true, accepts_trade: true,
     asking_price: true, currency_code: true,
     inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: { select: inventorySelect },
     inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: { select: inventorySelect },
@@ -43,15 +43,26 @@ let DiscoveryService = class DiscoveryService {
     constructor(database) {
         this.database = database;
     }
+    async resolveGameId(gameSlug) {
+        if (!gameSlug)
+            return undefined;
+        const game = await this.database.client.games.findUnique({
+            where: { slug: gameSlug }, select: { id: true },
+        });
+        if (!game)
+            throw new common_1.BadRequestException("The selected game does not exist.");
+        return game.id;
+    }
     encodeCursor(value) {
         return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
     }
-    decodeCursor(cursor, kind, filter) {
+    decodeCursor(cursor, kind, filter, gameId) {
         if (!cursor)
             return null;
         try {
             const value = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
-            if (value.v !== 1 || value.kind !== kind || value.filter !== filter)
+            if (value.v !== 1 || value.kind !== kind || value.filter !== filter ||
+                (value.gameId ?? null) !== (gameId ?? null))
                 throw new Error();
             return value;
         }
@@ -74,7 +85,7 @@ let DiscoveryService = class DiscoveryService {
     mapPreview(listing) {
         const item = listing.inventory_items_listings_inventory_item_id_seller_user_idToinventory_items ??
             listing.inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
-        return { ...this.mapItem(item), listing: { id: listing.id, accepts_cash: listing.accepts_cash,
+        return { ...this.mapItem(item), game_id: listing.game_id, listing: { id: listing.id, game_id: listing.game_id, accepts_cash: listing.accepts_cash,
                 accepts_trade: listing.accepts_trade, asking_price: listing.asking_price,
                 currency_code: listing.currency_code } };
     }
@@ -102,14 +113,16 @@ let DiscoveryService = class DiscoveryService {
             throw new common_1.NotFoundException("User was not found.");
         return user;
     }
-    userListingWhere(userId) {
+    userListingWhere(userId, gameId) {
         return { seller_user_id: userId, seller_store_id: null, ...activeListing,
+            ...(gameId ? { game_id: gameId } : {}),
             inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: {
                 is: { owner_user_id: userId, owner_store_id: null, ...available },
             } };
     }
-    storeListingWhere(storeId) {
+    storeListingWhere(storeId, gameId) {
         return { seller_store_id: storeId, seller_user_id: null, ...activeListing,
+            ...(gameId ? { game_id: gameId } : {}),
             inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: {
                 is: { owner_store_id: storeId, owner_user_id: null, ...available },
             } };
@@ -190,7 +203,8 @@ let DiscoveryService = class DiscoveryService {
     }
     async getUserListings(id, query) {
         const user = await this.requirePublicUser(id);
-        const where = this.userListingWhere(id);
+        const gameId = await this.resolveGameId(query.gameSlug);
+        const where = this.userListingWhere(id, gameId);
         const [listings, total] = await Promise.all([
             this.database.client.listings.findMany({ where, select: previewSelect,
                 orderBy: [{ created_at: "desc" }, { id: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
@@ -203,10 +217,12 @@ let DiscoveryService = class DiscoveryService {
     }
     async getUserWishlists(id, query) {
         const user = await this.requirePublicUser(id);
-        const where = { user_id: id, visibility: "public", status: "active" };
+        const gameId = await this.resolveGameId(query.gameSlug);
+        const where = { user_id: id, visibility: "public", status: "active",
+            ...(gameId ? { game_id: gameId } : {}) };
         const [wishlists, total] = await Promise.all([
             this.database.client.wishlists.findMany({ where,
-                select: { id: true, name: true, description: true, created_at: true, updated_at: true },
+                select: { id: true, game_id: true, name: true, description: true, created_at: true, updated_at: true },
                 orderBy: [{ updated_at: "desc" }, { id: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
             this.database.client.wishlists.count({ where }),
         ]);
@@ -215,7 +231,7 @@ let DiscoveryService = class DiscoveryService {
             where: { wishlist_id: { in: ids }, status: "active" }, _count: { _all: true }, _sum: { quantity_desired: true } });
         const items = await this.database.client.wishlist_items.findMany({
             where: { wishlist_id: { in: ids }, status: "active" },
-            select: { id: true, wishlist_id: true, canonical_card_id: true, printing_id: true,
+            select: { id: true, game_id: true, wishlist_id: true, canonical_card_id: true, printing_id: true,
                 desired_finish: true, desired_condition: true, language_code: true, quantity_desired: true,
                 canonical_cards: { select: { id: true, name: true } },
                 card_printings: { select: { id: true, canonical_card_id: true, collector_number: true,
@@ -306,7 +322,8 @@ let DiscoveryService = class DiscoveryService {
         return result;
     }
     async getCollectionFeed(query) {
-        const cursor = this.decodeCursor(query.cursor, "collections", query.availability);
+        const gameId = await this.resolveGameId(query.gameSlug);
+        const cursor = this.decodeCursor(query.cursor, "collections", query.availability, gameId);
         const cursorDate = cursor ? new Date(cursor.updatedAt) : null;
         if (cursor && (!cursor.id || !cursorDate || Number.isNaN(cursorDate.getTime()))) {
             throw new common_1.BadRequestException("The discovery cursor is malformed or does not match these filters.");
@@ -315,6 +332,7 @@ let DiscoveryService = class DiscoveryService {
             listings_listings_inventory_item_id_seller_user_idToinventory_items: { some: activeListing } };
         const where = {
             visibility: "public", user_profiles: { status: "active" },
+            ...(gameId ? { game_id: gameId } : {}),
             ...(query.availability === "marketplace" ? { inventory_items: { some: marketplace } } : {}),
             ...(cursor && cursorDate ? { OR: [
                     { updated_at: { lt: cursorDate } },
@@ -322,7 +340,7 @@ let DiscoveryService = class DiscoveryService {
                 ] } : {}),
         };
         const rows = await this.database.client.collections.findMany({ where,
-            select: { id: true, user_id: true, name: true, description: true, created_at: true, updated_at: true,
+            select: { id: true, game_id: true, user_id: true, name: true, description: true, created_at: true, updated_at: true,
                 user_profiles: { select: { id: true, display_name: true, username: true,
                         preferred_store: { select: preferredStoreSelect } } } },
             orderBy: [{ updated_at: "desc" }, { id: "asc" }], take: query.limit + 1 });
@@ -346,7 +364,7 @@ let DiscoveryService = class DiscoveryService {
         });
         const last = collections.at(-1);
         return { items, next_cursor: hasMore && last ? this.encodeCursor({ v: 1, kind: "collections", filter: query.availability,
-                updatedAt: last.updated_at.toISOString(), id: last.id }) : null, has_more: hasMore };
+                gameId, updatedAt: last.updated_at.toISOString(), id: last.id }) : null, has_more: hasMore };
     }
     async getStoreFeed(query) {
         const cursor = this.decodeCursor(query.cursor, "stores", query.availability);
@@ -378,7 +396,8 @@ let DiscoveryService = class DiscoveryService {
                 name: last.name, id: last.id }) : null, has_more: hasMore };
     }
     async getListingFeed(query) {
-        const cursor = this.decodeCursor(query.cursor, "listings", query.intent);
+        const gameId = await this.resolveGameId(query.gameSlug);
+        const cursor = this.decodeCursor(query.cursor, "listings", query.intent, gameId);
         const cursorDate = cursor ? new Date(cursor.createdAt) : null;
         if (cursor && (!cursor.id || !cursorDate || Number.isNaN(cursorDate.getTime())))
             throw new common_1.BadRequestException("The discovery cursor is malformed or does not match these filters.");
@@ -392,7 +411,7 @@ let DiscoveryService = class DiscoveryService {
                 { seller_store_id: { not: null }, seller_user_id: null,
                     inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: { is: { ...available, owner_user_id: null, stores: eligibleStore } } },
             ] };
-        const where = { status: "active", AND: [intent, ownership,
+        const where = { status: "active", ...(gameId ? { game_id: gameId } : {}), AND: [intent, ownership,
                 ...(cursor && cursorDate ? [{ OR: [{ created_at: { lt: cursorDate } }, { created_at: cursorDate, id: { gt: cursor.id } }] }] : [])] };
         const rows = await this.database.client.listings.findMany({ where, select: { ...previewSelect, seller_user_id: true, seller_store_id: true, created_at: true },
             orderBy: [{ created_at: "desc" }, { id: "asc" }], take: query.limit + 1 });
@@ -401,6 +420,7 @@ let DiscoveryService = class DiscoveryService {
         const last = listings.at(-1);
         return { items: listings.map((listing) => this.mapFeedListing(listing)),
             next_cursor: hasMore && last ? this.encodeCursor({ v: 1, kind: "listings", filter: query.intent,
+                gameId,
                 createdAt: last.created_at.toISOString(), id: last.id }) : null, has_more: hasMore };
     }
     async getCollections(query) {
@@ -446,7 +466,7 @@ let DiscoveryService = class DiscoveryService {
     }
     async getCollection(id, query) {
         const collection = await this.database.client.collections.findFirst({ where: { id, visibility: "public", user_profiles: { status: "active" } },
-            select: { id: true, name: true, description: true, created_at: true, updated_at: true,
+            select: { id: true, game_id: true, name: true, description: true, created_at: true, updated_at: true,
                 user_profiles: { select: { id: true, display_name: true, username: true,
                         preferred_store: { select: preferredStoreSelect } } } } });
         if (!collection)
@@ -467,7 +487,7 @@ let DiscoveryService = class DiscoveryService {
         ]);
         const total = aggregate._count._all;
         const { preferred_store, ...owner } = collection.user_profiles;
-        return { collection: { id: collection.id, name: collection.name, description: collection.description, created_at: collection.created_at,
+        return { collection: { id: collection.id, game_id: collection.game_id, name: collection.name, description: collection.description, created_at: collection.created_at,
                 updated_at: collection.updated_at, owner, preferred_store: this.mapPreferredStore(preferred_store), inventory_row_count: total, card_quantity: aggregate._sum.quantity ?? 0 },
             items: items.map((item) => {
                 const { listings_listings_inventory_item_id_seller_user_idToinventory_items: listings, ...safeItem } = item;
@@ -520,7 +540,8 @@ let DiscoveryService = class DiscoveryService {
     }
     async getStoreListings(id, query) {
         const store = await this.requirePublicStore(id);
-        const where = this.storeListingWhere(id);
+        const gameId = await this.resolveGameId(query.gameSlug);
+        const where = this.storeListingWhere(id, gameId);
         const [listings, total] = await Promise.all([
             this.database.client.listings.findMany({ where, select: previewSelect,
                 orderBy: [{ created_at: "desc" }, { id: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),

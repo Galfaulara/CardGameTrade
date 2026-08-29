@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { tryGetAuthenticatedCurrentUser } from "../../features/auth/authenticated-api";
 import { Brand } from "../brand/brand";
 import { SearchForm } from "../search-form/search-form";
+import { ActiveGameSelector } from "../active-game-selector/active-game-selector";
 import styles from "./app-shell.module.css";
 
 export async function AppShell({ children }: { children: ReactNode }) {
@@ -49,7 +50,10 @@ export async function AppShell({ children }: { children: ReactNode }) {
             <UserButton />
           </> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></>}</div>
           </div>
-          <div className={styles.search}><SearchForm /></div>
+          <div className={styles.searchTools}>
+            <ActiveGameSelector />
+            <div className={styles.search}><SearchForm /></div>
+          </div>
         </div>
       </header>
       <main id="main-content">{children}</main>

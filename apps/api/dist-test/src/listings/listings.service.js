@@ -17,27 +17,44 @@ let ListingsService = class ListingsService {
     constructor(database) {
         this.database = database;
     }
-    async findEligibleTradeStore(storeId) {
+    async resolveGameId(gameSlug) {
+        if (!gameSlug)
+            return undefined;
+        const game = await this.database.client.games.findUnique({
+            where: { slug: gameSlug },
+            select: { id: true },
+        });
+        if (!game)
+            throw new common_1.BadRequestException("The selected game does not exist.");
+        return game.id;
+    }
+    async findEligibleTradeStore(storeId, gameId) {
         return this.database.client.stores.findFirst({
             where: {
                 id: storeId,
                 status: "active",
                 verification_status: "verified",
                 trade_mediation_enabled: true,
+                store_games: {
+                    some: {
+                        game_id: gameId,
+                        trade_mediation_enabled: true,
+                    },
+                },
             },
             select: {
                 id: true,
             },
         });
     }
-    async requireEligibleTradeStore(storeId) {
-        const store = await this.findEligibleTradeStore(storeId);
+    async requireEligibleTradeStore(storeId, gameId) {
+        const store = await this.findEligibleTradeStore(storeId, gameId);
         if (!store) {
             throw new common_1.BadRequestException("The selected store must be an active affiliated DeckDeal trade-mediation store.");
         }
         return store;
     }
-    async resolvePreferredStoreForNewListing(userId, requestedStoreId) {
+    async resolvePreferredStoreForNewListing(userId, gameId, requestedStoreId) {
         /*
          * Explicit null means:
          * do not use a preferred store
@@ -53,7 +70,7 @@ let ListingsService = class ListingsService {
          */
         if (requestedStoreId !==
             undefined) {
-            await this.requireEligibleTradeStore(requestedStoreId);
+            await this.requireEligibleTradeStore(requestedStoreId, gameId);
             return requestedStoreId;
         }
         /*
@@ -85,7 +102,7 @@ let ListingsService = class ListingsService {
          * listing to be created without
          * a preferred store.
          */
-        const eligibleStore = await this.findEligibleTradeStore(preferredStoreId);
+        const eligibleStore = await this.findEligibleTradeStore(preferredStoreId, gameId);
         return (eligibleStore?.id ??
             null);
     }
@@ -94,7 +111,11 @@ let ListingsService = class ListingsService {
             .inventory_items_listings_inventory_item_id_seller_user_idToinventory_items ??
             listing
                 .inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
-        const { inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: _userInventoryRelation, inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: _storeInventoryRelation, stores: preferredStore, ...listingData } = listing;
+        const preferredStoreRelations = listing;
+        const preferredStore = preferredStoreRelations
+            .store_games
+            ?.stores ?? null;
+        const { inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: _userInventoryRelation, inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: _storeInventoryRelation, store_games: _preferredStoreRelation, ...listingData } = listing;
         if (!inventoryItem) {
             return {
                 ...listingData,
@@ -120,6 +141,7 @@ let ListingsService = class ListingsService {
     getListingSelect() {
         return {
             id: true,
+            game_id: true,
             inventory_item_id: true,
             seller_user_id: true,
             seller_store_id: true,
@@ -133,18 +155,22 @@ let ListingsService = class ListingsService {
             status: true,
             created_at: true,
             updated_at: true,
-            stores: {
+            store_games: {
                 select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    logo_url: true,
-                    city: true,
-                    state_region: true,
-                    country_code: true,
-                    verification_status: true,
-                    status: true,
-                    trade_mediation_enabled: true,
+                    stores: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                            logo_url: true,
+                            city: true,
+                            state_region: true,
+                            country_code: true,
+                            verification_status: true,
+                            status: true,
+                            trade_mediation_enabled: true,
+                        },
+                    },
                 },
             },
             inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: {
@@ -256,9 +282,11 @@ let ListingsService = class ListingsService {
             },
         };
     }
-    async getActiveListings() {
+    async getActiveListings(gameSlug) {
+        const gameId = await this.resolveGameId(gameSlug);
         const listings = await this.database.client.listings.findMany({
             where: {
+                ...(gameId ? { game_id: gameId } : {}),
                 status: "active",
                 OR: [
                     {
@@ -318,9 +346,11 @@ let ListingsService = class ListingsService {
         }
         return this.mapListing(listing);
     }
-    async getUserListings(userId) {
+    async getUserListings(userId, gameSlug) {
+        const gameId = await this.resolveGameId(gameSlug);
         const user = await this.database.client.user_profiles.findUnique({
             where: {
+                ...(gameId ? { game_id: gameId } : {}),
                 id: userId,
             },
             select: {
@@ -373,6 +403,7 @@ let ListingsService = class ListingsService {
             },
             select: {
                 id: true,
+                game_id: true,
                 status: true,
             },
         });
@@ -400,9 +431,10 @@ let ListingsService = class ListingsService {
         if (existingOpenListing) {
             throw new common_1.ConflictException("This inventory item already has an open listing.");
         }
-        const preferredStoreId = await this.resolvePreferredStoreForNewListing(userId, input.preferredStoreId);
+        const preferredStoreId = await this.resolvePreferredStoreForNewListing(userId, inventoryItem.game_id, input.preferredStoreId);
         const listing = await this.database.client.listings.create({
             data: {
+                game_id: inventoryItem.game_id,
                 inventory_item_id: inventoryItem.id,
                 seller_user_id: userId,
                 seller_store_id: null,
@@ -435,6 +467,7 @@ let ListingsService = class ListingsService {
             },
             select: {
                 id: true,
+                game_id: true,
                 inventory_item_id: true,
                 accepts_cash: true,
                 accepts_trade: true,
@@ -449,6 +482,7 @@ let ListingsService = class ListingsService {
         if (!existing) {
             throw new common_1.NotFoundException("Listing was not found or does not belong to this user.");
         }
+        const listingGameId = existing.game_id;
         if (existing.status !==
             "active" &&
             existing.status !==
@@ -505,7 +539,7 @@ let ListingsService = class ListingsService {
                  * must currently be eligible
                  * for DeckDeal mediation.
                  */
-                await this.requireEligibleTradeStore(input.preferredStoreId);
+                await this.requireEligibleTradeStore(input.preferredStoreId, listingGameId);
                 finalPreferredStoreId =
                     input.preferredStoreId;
             }

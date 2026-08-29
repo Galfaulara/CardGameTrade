@@ -8,6 +8,7 @@ type CardContext = {
   canonicalCardId: string;
   cardName: string;
   printingId?: string;
+  gameId?: string;
 };
 type OpenOptions = {
   initialCard?: CardContext;

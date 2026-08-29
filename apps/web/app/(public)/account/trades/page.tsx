@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   AccountShell,
@@ -20,12 +21,25 @@ import {
   getAuthenticatedCurrentUser,
   getMyTransactions,
 } from "../../../../features/auth/authenticated-api";
+import { loadGames } from "../../../../features/games/games.server";
+import { ACTIVE_GAME_COOKIE, orderGames } from "../../../../features/games/active-game";
+import {
+  ALL_GAMES_VALUE,
+  resolveOptionalGameFilter,
+} from "../../../../features/games/optional-game-filter";
 import styles from "./page.module.css";
 
 const signInRedirectUrl =
   "/sign-in?redirect_url=%2Faccount%2Ftrades";
 
-export default async function AccountTradesPage() {
+const tradesGameHref = (gameSlug: string) =>
+  `/account/trades?${new URLSearchParams({ game: gameSlug }).toString()}`;
+
+export default async function AccountTradesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ game?: string | string[] }>;
+}) {
   const configured = Boolean(
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   );
@@ -46,6 +60,18 @@ export default async function AccountTradesPage() {
   if (!userId) {
     redirect(signInRedirectUrl);
   }
+
+  const [params, games, cookieStore] = await Promise.all([
+    searchParams,
+    loadGames(),
+    cookies(),
+  ]);
+  const gameRaw = Array.isArray(params.game) ? params.game[0] : params.game;
+  const gameFilter = resolveOptionalGameFilter(
+    games,
+    gameRaw,
+    cookieStore.get(ACTIVE_GAME_COOKIE)?.value,
+  );
 
   try {
     const currentUser =
@@ -69,6 +95,7 @@ export default async function AccountTradesPage() {
 
     const trades = await getMyTransactions(
       currentUser.user.id,
+      gameFilter,
     );
 
     return (
@@ -77,6 +104,25 @@ export default async function AccountTradesPage() {
         title="My Trades"
         intro="These are your accepted Store-mediated DeckDeal trades. Ownership stays unchanged until authorized Store release."
       >
+        {games.length > 0 && (
+          <nav className={styles.tabs} aria-label="Trade game filter">
+            <Link
+              href={tradesGameHref(ALL_GAMES_VALUE)}
+              aria-current={!gameFilter ? "page" : undefined}
+            >
+              All games
+            </Link>
+            {orderGames(games).map((game) => (
+              <Link
+                key={game.id}
+                href={tradesGameHref(game.slug)}
+                aria-current={gameFilter === game.slug ? "page" : undefined}
+              >
+                {game.name}
+              </Link>
+            ))}
+          </nav>
+        )}
         {trades.length ? (
           <ul className={styles.list}>
             {trades.map((trade) => {

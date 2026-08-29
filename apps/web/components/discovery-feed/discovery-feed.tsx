@@ -7,23 +7,33 @@ import { CardTile } from "../card-tile/card-tile";
 import { PublicUserLink } from "../public-user-link/public-user-link";
 import { PublicStoreLink } from "../public-store-link/public-store-link";
 import styles from "./discovery-feed.module.css";
+import { canAppendDiscoveryResponse, discoveryFeedSearch } from "../../features/games/discovery-game";
 
 type ListingItem = { id: string; card: CardView };
 type FeedItem = DiscoverCollection | DiscoverStore | ListingItem;
 
-export function DiscoveryFeedView({ view, filter, initial }: { view: "collections" | "stores" | "listings"; filter: string; initial: DiscoveryFeed<FeedItem> }) {
+export function DiscoveryFeedView({ view, filter, gameSlug, initial }: { view: "collections" | "stores" | "listings"; filter: string; gameSlug?: string; initial: DiscoveryFeed<FeedItem> }) {
   const [items, setItems] = useState(initial.items); const [cursor, setCursor] = useState(initial.next_cursor);
   const [hasMore, setHasMore] = useState(initial.has_more); const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
+  const gameRef = useRef(gameSlug); gameRef.current = gameSlug;
+  const requestRef = useRef<AbortController | null>(null);
   const loadMore = useCallback(async () => {
     if (!cursor || loading) return; setLoading(true); setFailed(false);
+    const requestGame = gameSlug;
+    requestRef.current?.abort();
+    const controller = new AbortController(); requestRef.current = controller;
     try {
-      const query = new URLSearchParams({ view, filter, cursor }); const response = await fetch(`/api/discovery-feed?${query}`);
+      const query = discoveryFeedSearch({ view, filter, cursor, gameSlug });
+      const response = await fetch(`/api/discovery-feed?${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error(); const page = await response.json() as DiscoveryFeed<FeedItem>;
+      if (!canAppendDiscoveryResponse(requestGame, gameRef.current)) return;
       setItems((current) => { const ids = new Set(current.map((item) => item.id)); return [...current, ...page.items.filter((item) => !ids.has(item.id))]; });
       setCursor(page.next_cursor); setHasMore(page.has_more);
-    } catch { setFailed(true); } finally { setLoading(false); }
-  }, [cursor, filter, loading, view]);
+    } catch (error) { if (!(error instanceof DOMException && error.name === "AbortError")) setFailed(true); }
+    finally { if (requestRef.current === controller) { requestRef.current = null; setLoading(false); } }
+  }, [cursor, filter, gameSlug, loading, view]);
+  useEffect(() => () => requestRef.current?.abort(), [gameSlug]);
   useEffect(() => {
     const node = sentinel.current; if (!node || !hasMore || !cursor || !("IntersectionObserver" in window)) return;
     const observer = new IntersectionObserver((entries) => { if (entries[0]?.isIntersecting) void loadMore(); }, { rootMargin: "400px" });

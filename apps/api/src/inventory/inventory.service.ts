@@ -13,6 +13,7 @@ import type {
   CreateInventoryPhotoInput,
   CreateUserCollectionInput,
   CreateUserInventoryItemInput,
+  GameScopedListQuery,
   MyInventoryListQuery,
   SetInventoryCollectionInput,
   UpdateUserInventoryItemInput,
@@ -72,12 +73,23 @@ export class InventoryService {
     private readonly storage: StorageService,
   ) {}
 
+  private async resolveGameId(gameSlug: string) {
+    const game = await this.database.client.games.findUnique({
+      where: { slug: gameSlug },
+      select: { id: true },
+    });
+    if (!game) throw new BadRequestException("Unknown gameSlug.");
+    return game.id;
+  }
+
   private myInventoryBaseWhere(
     userId: string,
+    gameId?: string,
   ): Prisma.inventory_itemsWhereInput {
     return {
       owner_user_id: userId,
       owner_store_id: null,
+      ...(gameId ? { game_id: gameId } : {}),
       status: {
         in: [...currentInventoryStatuses],
       },
@@ -97,6 +109,7 @@ export class InventoryService {
   private myInventorySelect() {
     return {
       id: true,
+      game_id: true,
       printing_id: true,
       finish: true,
       collection_id: true,
@@ -118,6 +131,7 @@ export class InventoryService {
       collections: {
         select: {
           id: true,
+          game_id: true,
           name: true,
           visibility: true,
         },
@@ -149,6 +163,7 @@ export class InventoryService {
           card_printings: {
             select: {
               id: true,
+              game_id: true,
               canonical_card_id: true,
               collector_number: true,
               language_code: true,
@@ -208,6 +223,7 @@ export class InventoryService {
   private myInventoryWhere(
     userId: string,
     query: MyInventoryListQuery,
+    gameId?: string,
   ): Prisma.inventory_itemsWhereInput {
     const terms =
       this.myInventoryTerms(
@@ -217,6 +233,7 @@ export class InventoryService {
     return {
       ...this.myInventoryBaseWhere(
         userId,
+        gameId,
       ),
       ...(query.status !== "all"
         ? {
@@ -462,15 +479,20 @@ export class InventoryService {
     userId: string,
     query: MyInventoryListQuery,
   ) {
+    const gameId = query.gameSlug
+      ? await this.resolveGameId(query.gameSlug)
+      : undefined;
     const baseWhere =
       this.myInventoryBaseWhere(
         userId,
+        gameId,
       );
 
     const where =
       this.myInventoryWhere(
         userId,
         query,
+        gameId,
       );
 
     const [
@@ -951,6 +973,7 @@ export class InventoryService {
 
   async getUserCollections(
     userId: string,
+    query: GameScopedListQuery = {},
   ) {
     const user =
       await this.database.client.user_profiles.findUnique({
@@ -969,13 +992,19 @@ export class InventoryService {
       );
     }
 
+    const gameId = query.gameSlug
+      ? await this.resolveGameId(query.gameSlug)
+      : undefined;
+
     return this.database.client.collections.findMany({
       where: {
         user_id: userId,
+        ...(gameId ? { game_id: gameId } : {}),
       },
 
       select: {
         id: true,
+        game_id: true,
         name: true,
         description: true,
         visibility: true,

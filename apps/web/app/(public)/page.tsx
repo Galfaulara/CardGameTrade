@@ -4,6 +4,9 @@ import { PublicStoreLink } from "../../components/public-store-link/public-store
 import { SearchForm } from "../../components/search-form/search-form";
 import { getPublicCollections, getPublicStores, getRecentListings } from "../../features/marketplace/api";
 import styles from "./page.module.css";
+import { cookies } from "next/headers";
+import { ACTIVE_GAME_COOKIE, resolveActiveGame } from "../../features/games/active-game";
+import { loadGames } from "../../features/games/games.server";
 
 const steps=[["Discover real cards","Search exact printings and browse inventory that collectors have actually registered."],["Shape the deal","Buy, trade, or combine both through offers tied to physical inventory."],["Meet at a trusted store","Complete the handoff with a participating local game store."]] as const;
 
@@ -13,7 +16,9 @@ const collectionEyebrow = (owner: { id: string; display_name: string | null; use
     : "Public collection";
 
 export default async function HomePage(){
-  const [collections,stores,listings]=await Promise.all([getPublicCollections(),getPublicStores(),getRecentListings()]);
+  const [games,cookieStore]=await Promise.all([loadGames(),cookies()]);
+  const game=resolveActiveGame(games,null,cookieStore.get(ACTIVE_GAME_COOKIE)?.value);
+  const [collections,stores,listings]=await Promise.all([getPublicCollections(),getPublicStores(),getRecentListings(game?.slug)]);
   return <div>
     <section className={styles.hero}>
       <div className={styles.heroCopy}>

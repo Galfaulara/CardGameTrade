@@ -45,10 +45,20 @@ let InventoryService = InventoryService_1 = class InventoryService {
         this.database = database;
         this.storage = storage;
     }
-    myInventoryBaseWhere(userId) {
+    async resolveGameId(gameSlug) {
+        const game = await this.database.client.games.findUnique({
+            where: { slug: gameSlug },
+            select: { id: true },
+        });
+        if (!game)
+            throw new common_1.BadRequestException("Unknown gameSlug.");
+        return game.id;
+    }
+    myInventoryBaseWhere(userId, gameId) {
         return {
             owner_user_id: userId,
             owner_store_id: null,
+            ...(gameId ? { game_id: gameId } : {}),
             status: {
                 in: [...currentInventoryStatuses],
             },
@@ -64,6 +74,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
     myInventorySelect() {
         return {
             id: true,
+            game_id: true,
             printing_id: true,
             finish: true,
             collection_id: true,
@@ -85,6 +96,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             collections: {
                 select: {
                     id: true,
+                    game_id: true,
                     name: true,
                     visibility: true,
                 },
@@ -115,6 +127,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                     card_printings: {
                         select: {
                             id: true,
+                            game_id: true,
                             canonical_card_id: true,
                             collector_number: true,
                             language_code: true,
@@ -156,10 +169,10 @@ let InventoryService = InventoryService_1 = class InventoryService {
             },
         };
     }
-    myInventoryWhere(userId, query) {
+    myInventoryWhere(userId, query, gameId) {
         const terms = this.myInventoryTerms(query.q);
         return {
-            ...this.myInventoryBaseWhere(userId),
+            ...this.myInventoryBaseWhere(userId, gameId),
             ...(query.status !== "all"
                 ? {
                     status: query.status,
@@ -332,8 +345,11 @@ let InventoryService = InventoryService_1 = class InventoryService {
         }
     }
     async getMyInventory(userId, query) {
-        const baseWhere = this.myInventoryBaseWhere(userId);
-        const where = this.myInventoryWhere(userId, query);
+        const gameId = query.gameSlug
+            ? await this.resolveGameId(query.gameSlug)
+            : undefined;
+        const baseWhere = this.myInventoryBaseWhere(userId, gameId);
+        const where = this.myInventoryWhere(userId, query, gameId);
         const [items, filteredAggregate, totalAggregate,] = await Promise.all([
             this.database.client.inventory_items.findMany({
                 where,
@@ -656,7 +672,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             },
         };
     }
-    async getUserCollections(userId) {
+    async getUserCollections(userId, query = {}) {
         const user = await this.database.client.user_profiles.findUnique({
             where: {
                 id: userId,
@@ -668,12 +684,17 @@ let InventoryService = InventoryService_1 = class InventoryService {
         if (!user) {
             throw new common_1.NotFoundException("User was not found.");
         }
+        const gameId = query.gameSlug
+            ? await this.resolveGameId(query.gameSlug)
+            : undefined;
         return this.database.client.collections.findMany({
             where: {
                 user_id: userId,
+                ...(gameId ? { game_id: gameId } : {}),
             },
             select: {
                 id: true,
+                game_id: true,
                 name: true,
                 description: true,
                 visibility: true,
@@ -706,9 +727,21 @@ let InventoryService = InventoryService_1 = class InventoryService {
         if (user.status !== "active") {
             throw new common_1.ForbiddenException("Collections cannot be created for an inactive user.");
         }
+        const game = await this.database.client.games.findUnique({
+            where: {
+                slug: input.gameSlug,
+            },
+            select: {
+                id: true,
+            },
+        });
+        if (!game) {
+            throw new common_1.BadRequestException("The selected game does not exist.");
+        }
         const existing = await this.database.client.collections.findFirst({
             where: {
                 user_id: userId,
+                game_id: game.id,
                 name: input.name,
             },
             select: {
@@ -721,6 +754,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         return this.database.client.collections.create({
             data: {
                 user_id: userId,
+                game_id: game.id,
                 name: input.name,
                 description: input.description ?? null,
                 visibility: input.visibility,
@@ -735,6 +769,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             },
             select: {
                 id: true,
+                game_id: true,
                 status: true,
             },
         });
@@ -750,10 +785,15 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                 },
             });
             if (!collection) {
                 throw new common_1.BadRequestException("The selected collection does not exist or does not belong to this user.");
+            }
+            if (collection.game_id !==
+                inventoryItem.game_id) {
+                throw new common_1.BadRequestException("The selected collection belongs to a different game than the inventory item.");
             }
         }
         await this.database.client.inventory_items.update({
@@ -793,6 +833,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 card_printings: {
                     select: {
                         id: true,
+                        game_id: true,
                         language_code: true,
                         is_digital: true,
                     },
@@ -815,14 +856,22 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                 },
             });
             if (!collection) {
                 throw new common_1.BadRequestException("The selected collection does not exist or does not belong to this user.");
             }
+            if (collection.game_id !==
+                printingFinish.card_printings.game_id) {
+                throw new common_1.BadRequestException("The selected collection belongs to a different game than the printing.");
+            }
         }
         const created = await this.database.client.inventory_items.create({
             data: {
+                game_id: printingFinish
+                    .card_printings
+                    .game_id,
                 printing_id: input.printingId,
                 finish: input.finish,
                 owner_user_id: userId,

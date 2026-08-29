@@ -41,6 +41,16 @@ export class ListingsService {
       DatabaseService,
   ) {}
 
+  private async resolveGameId(gameSlug?: string) {
+    if (!gameSlug) return undefined;
+    const game = await this.database.client.games.findUnique({
+      where: { slug: gameSlug },
+      select: { id: true },
+    });
+    if (!game) throw new BadRequestException("The selected game does not exist.");
+    return game.id;
+  }
+
   private async findEligibleTradeStore(
     storeId: string,
     gameId: string,
@@ -250,6 +260,7 @@ export class ListingsService {
   private getListingSelect() {
     return {
       id: true,
+      game_id: true,
       inventory_item_id:
         true,
       seller_user_id:
@@ -478,10 +489,12 @@ export class ListingsService {
     } as const;
   }
 
-  async getActiveListings() {
+  async getActiveListings(gameSlug?: string) {
+    const gameId = await this.resolveGameId(gameSlug);
     const listings =
       await this.database.client.listings.findMany({
         where: {
+          ...(gameId ? { game_id: gameId } : {}),
           status:
             "active",
 
@@ -570,10 +583,13 @@ export class ListingsService {
 
   async getUserListings(
     userId: string,
+    gameSlug?: string,
   ) {
+    const gameId = await this.resolveGameId(gameSlug);
     const user =
       await this.database.client.user_profiles.findUnique({
         where: {
+          ...(gameId ? { game_id: gameId } : {}),
           id:
             userId,
         },

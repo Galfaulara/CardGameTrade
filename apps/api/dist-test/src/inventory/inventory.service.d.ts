@@ -1,4 +1,4 @@
-import type { CreateInventoryPhotoInput, CreateUserCollectionInput, CreateUserInventoryItemInput, MyInventoryListQuery, SetInventoryCollectionInput, UpdateUserInventoryItemInput } from "@repo/validation";
+import type { CreateInventoryPhotoInput, CreateUserCollectionInput, CreateUserInventoryItemInput, GameScopedListQuery, MyInventoryListQuery, SetInventoryCollectionInput, UpdateUserInventoryItemInput } from "@repo/validation";
 import { DatabaseService } from "../database/database.service";
 import { StorageService } from "../storage/storage.service";
 export interface InventoryPhotoUploadFile {
@@ -13,6 +13,7 @@ export declare class InventoryService {
     private assertInventoryItemIsMutable;
     private readonly logger;
     constructor(database: DatabaseService, storage: StorageService);
+    private resolveGameId;
     private myInventoryBaseWhere;
     private myInventoryTerms;
     private myInventorySelect;
@@ -176,7 +177,7 @@ export declare class InventoryService {
         acquired_price: import("@prisma/client-runtime-utils").Decimal | null;
         notes: string | null;
     }>;
-    getUserCollections(userId: string): Promise<{
+    getUserCollections(userId: string, query?: GameScopedListQuery): Promise<{
         name: string;
         id: string;
         created_at: Date;
@@ -185,6 +186,7 @@ export declare class InventoryService {
             inventory_items: number;
         };
         description: string | null;
+        game_id: string;
         visibility: string;
     }[]>;
     createUserCollection(userId: string, input: CreateUserCollectionInput): Promise<{
@@ -194,6 +196,7 @@ export declare class InventoryService {
         updated_at: Date;
         user_id: string;
         description: string | null;
+        game_id: string;
         visibility: string;
     }>;
     setUserInventoryCollection(userId: string, inventoryItemId: string, input: SetInventoryCollectionInput): Promise<{

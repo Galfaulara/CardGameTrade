@@ -171,6 +171,7 @@ let InventoryInterestsService = class InventoryInterestsService {
             },
             select: {
                 id: true,
+                game_id: true,
                 owner_user_id: true,
                 owner_store_id: true,
                 collection_id: true,
@@ -228,6 +229,7 @@ let InventoryInterestsService = class InventoryInterestsService {
         try {
             const interest = await this.database.client.inventory_item_interests.create({
                 data: {
+                    game_id: inventoryItem.game_id,
                     inventory_item_id: inventoryItemId,
                     interested_user_id: userId,
                     interested_store_id: null,

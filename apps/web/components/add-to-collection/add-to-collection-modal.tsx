@@ -17,6 +17,8 @@ import type {
   CatalogSearchResult,
 } from "../../features/marketplace/api";
 import type { MyInventoryItem } from "../../features/account/inventory-types";
+import { useActiveGame } from "../../features/games/active-game-provider";
+import { authoritativeCollectionGameSlug, collectionOptionsHref } from "../../features/games/inventory-game";
 import styles from "./add-to-collection-modal.module.css";
 
 type CollectionOption = { id: string; name: string };
@@ -24,6 +26,7 @@ type CardContext = {
   canonicalCardId: string;
   cardName: string;
   printingId?: string;
+  gameId?: string;
 };
 type PickerOrigin = "initial" | "search" | "change" | null;
 export type AddToCollectionModalProps = {
@@ -71,13 +74,23 @@ export function AddToCollectionModal({
   initialCard,
   onAdded,
 }: AddToCollectionModalProps) {
+  const { games, activeGameSlug } = useActiveGame();
   const closeRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const initialCanonicalCardId = initialCard?.canonicalCardId,
     initialCardName = initialCard?.cardName,
-    initialPrintingId = initialCard?.printingId;
+    initialPrintingId = initialCard?.printingId,
+    initialGameSlug = initialCard?.gameId
+      ? games.find((game) => game.id === initialCard.gameId)?.slug
+      : undefined;
+  const collectionGameSlug = authoritativeCollectionGameSlug(
+    games,
+    initialCard?.gameId,
+    activeGameSlug,
+  );
+  const collectionOptionsUrl = collectionOptionsHref(collectionGameSlug);
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [card, setCard] = useState<CatalogCard | null>(null);
@@ -177,12 +190,16 @@ export function AddToCollectionModal({
     setAcquiredAt("");
     setAcquiredPrice("");
     setNotes("");
-    fetch("/api/me/collections/options")
+    setCollections([]);
+    if (!collectionOptionsUrl) {
+      setError("Collections are unavailable because this card's game could not be resolved.");
+    } else fetch(collectionOptionsUrl)
       .then(async (response) => {
         if (response.ok)
           setCollections((await response.json()) as CollectionOption[]);
+        else setError("Collections are unavailable for this game.");
       })
-      .catch(() => undefined);
+      .catch(() => setError("Collections are unavailable for this game."));
     if (initialCanonicalCardId && initialCardName) {
       const value = {
         id: initialCanonicalCardId,
@@ -213,6 +230,8 @@ export function AddToCollectionModal({
     initialCanonicalCardId,
     initialCardName,
     initialPrintingId,
+    collectionGameSlug,
+    collectionOptionsUrl,
     loadPrintings,
   ]);
 
@@ -226,7 +245,7 @@ export function AddToCollectionModal({
     setPrintings([]);
     try {
       const response = await fetch(
-        `/api/catalog/search?q=${encodeURIComponent(query)}&page=1`,
+        `/api/catalog/search?q=${encodeURIComponent(query)}&page=1${initialGameSlug ?? activeGameSlug ? `&game=${encodeURIComponent(initialGameSlug ?? activeGameSlug!)}` : ""}`,
       );
       if (!response.ok) throw new Error("Catalog search is unavailable.");
       const result = (await response.json()) as CatalogSearchResult;

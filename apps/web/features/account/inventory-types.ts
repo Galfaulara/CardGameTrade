@@ -1,5 +1,6 @@
 export type MyInventoryCollection = {
   id: string;
+  game_id: string;
   name: string;
   visibility: "private" | "unlisted" | "public";
 };
@@ -17,6 +18,7 @@ export type MyInventoryListing = {
 
 export type MyInventoryPrinting = {
   id: string;
+  game_id: string;
   canonical_card_id: string;
   collector_number: string;
   language_code: string;
@@ -41,6 +43,7 @@ export type MyInventoryPrinting = {
 
 export type MyInventoryItem = {
   id: string;
+  game_id: string;
   printing_id: string;
   finish: string;
   collection_id: string | null;

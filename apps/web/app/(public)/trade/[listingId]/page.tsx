@@ -21,14 +21,17 @@ import {
 } from "../../../../features/marketplace/market-prices";
 import { TradeOfferBuilder } from "./trade-offer-builder";
 import styles from "./page.module.css";
+import { ResourceGameSync } from "../../../../features/games/resource-game-sync";
+import { loadGames } from "../../../../features/games/games.server";
 
 const pretty = (value: string) => value.replaceAll("_", " ");
 
-const inventoryQuery = (page: number, q: string) => {
+const inventoryQuery = (page: number, q: string, gameSlug: string) => {
   const query = new URLSearchParams({
     page: String(page),
     pageSize: "24",
     status: "available",
+    gameSlug,
   });
 
   if (q) {
@@ -125,6 +128,7 @@ export default async function TradePage({
   if (!listingAvailable(listing)) {
     return (
       <main className={styles.main}>
+        <ResourceGameSync gameId={listing.game_id} />
         <NavigationBack fallback={fallback} />
         <section className={styles.state}>
           <p className={styles.kicker}>Trade unavailable</p>
@@ -146,6 +150,7 @@ export default async function TradePage({
   if (!configured) {
     return (
       <main className={styles.main}>
+        <ResourceGameSync gameId={listing.game_id} />
         <NavigationBack fallback={fallback} />
         <section className={styles.state}>
           <p className={styles.kicker}>Trade unavailable</p>
@@ -174,6 +179,7 @@ export default async function TradePage({
     if (currentUser.account_status !== "active") {
       return (
         <main className={styles.main}>
+          <ResourceGameSync gameId={listing.game_id} />
           <NavigationBack fallback={fallback} />
           <section className={styles.state}>
             <p className={styles.kicker}>DeckDeal account unavailable</p>
@@ -190,6 +196,7 @@ export default async function TradePage({
     if (listing.seller_user_id === currentUser.user.id) {
       return (
         <main className={styles.main}>
+          <ResourceGameSync gameId={listing.game_id} />
           <NavigationBack fallback={fallback} />
           <section className={styles.state}>
             <p className={styles.kicker}>Own listing</p>
@@ -206,8 +213,12 @@ export default async function TradePage({
       );
     }
 
+    const listingGame = (await loadGames()).find((game) => game.id === listing.game_id);
+    if (!listingGame) {
+      throw new AuthenticatedApiError(503);
+    }
     const inventory = (await getMyInventory(
-      inventoryQuery(page, q),
+      inventoryQuery(page, q, listingGame.slug),
     )) as MyInventoryListResult;
     const target = listing.inventory_item!;
     const marketPrices = await getLatestMarketPrices([
@@ -220,6 +231,7 @@ export default async function TradePage({
 
     return (
       <main className={styles.main}>
+        <ResourceGameSync gameId={listing.game_id} />
         <NavigationBack fallback={fallback} />
         <section className={styles.layout}>
           <header className={styles.hero}>
@@ -296,6 +308,7 @@ export default async function TradePage({
 
     return (
       <main className={styles.main}>
+        <ResourceGameSync gameId={listing.game_id} />
         <NavigationBack fallback={fallback} />
         <section className={styles.state}>
           <p className={styles.kicker}>Trade unavailable</p>

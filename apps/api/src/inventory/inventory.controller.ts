@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
@@ -14,6 +15,7 @@ import {
 } from "@nestjs/platform-express";
 import {
   createInventoryPhotoSchema,
+  gameScopedListQuerySchema,
   createUserCollectionSchema,
   createUserInventoryItemSchema,
   setInventoryCollectionSchema,
@@ -23,6 +25,7 @@ import type {
   CreateInventoryPhotoInput,
   CreateUserCollectionInput,
   CreateUserInventoryItemInput,
+  GameScopedListQuery,
   SetInventoryCollectionInput,
   UpdateUserInventoryItemInput,
 } from "@repo/validation";
@@ -91,9 +94,12 @@ export class InventoryController {
       }),
     )
     userId: string,
+    @Query(new ZodValidationPipe(gameScopedListQuerySchema))
+    query: GameScopedListQuery,
   ) {
     return this.inventoryService.getUserCollections(
       userId,
+      query,
     );
   }
 

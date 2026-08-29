@@ -11,6 +11,7 @@ import type {
   CreateUserWishlistInput,
   CreateWishlistItemInput,
   CreateWishlistOfferInput,
+  GameScopedListQuery,
   UpdateUserWishlistInput,
   UpdateWishlistItemInput,
 } from "@repo/validation";
@@ -23,6 +24,15 @@ export class WishlistsService {
     private readonly database:
       DatabaseService,
   ) {}
+
+  private async resolveGameId(gameSlug: string) {
+    const game = await this.database.client.games.findUnique({
+      where: { slug: gameSlug },
+      select: { id: true },
+    });
+    if (!game) throw new BadRequestException("Unknown gameSlug.");
+    return game.id;
+  }
 
   private async requireActiveUser(
     userId: string,
@@ -176,6 +186,7 @@ export class WishlistsService {
   private getWishlistSelect() {
     return {
       id: true,
+      game_id: true,
       user_id: true,
       name: true,
       description: true,
@@ -191,6 +202,7 @@ export class WishlistsService {
   private getWishlistItemSelect() {
     return {
       id: true,
+      game_id: true,
       wishlist_id: true,
       canonical_card_id:
         true,
@@ -223,6 +235,7 @@ export class WishlistsService {
   private getWishlistOfferSelect() {
     return {
       id: true,
+      game_id: true,
       wishlist_item_id:
         true,
       offerer_user_id:
@@ -863,16 +876,22 @@ export class WishlistsService {
 
   async getUserWishlists(
     userId: string,
+    query: GameScopedListQuery = {},
   ) {
     await this.requireActiveUser(
       userId,
     );
+
+    const gameId = query.gameSlug
+      ? await this.resolveGameId(query.gameSlug)
+      : undefined;
 
     const wishlists =
       await this.database.client.wishlists.findMany({
         where: {
           user_id:
             userId,
+          ...(gameId ? { game_id: gameId } : {}),
 
           status: {
             not:
@@ -1652,12 +1671,16 @@ export class WishlistsService {
     return hydrated[0];
   }
 
-  async getPublicWishlistItems() {
+  async getPublicWishlistItems(query: GameScopedListQuery = {}) {
+    const gameId = query.gameSlug
+      ? await this.resolveGameId(query.gameSlug)
+      : undefined;
     const items =
       await this.database.client.wishlist_items.findMany({
         where: {
           status:
             "active",
+          ...(gameId ? { game_id: gameId } : {}),
 
           wishlists: {
             status:
@@ -3261,16 +3284,22 @@ export class WishlistsService {
 
   async getUserSentWishlistOffers(
     userId: string,
+    query: GameScopedListQuery = {},
   ) {
     await this.requireActiveUser(
       userId,
     );
+
+    const gameId = query.gameSlug
+      ? await this.resolveGameId(query.gameSlug)
+      : undefined;
 
     const offers =
       await this.database.client.wishlist_offers.findMany({
         where: {
           offerer_user_id:
             userId,
+          ...(gameId ? { game_id: gameId } : {}),
         },
 
         select:

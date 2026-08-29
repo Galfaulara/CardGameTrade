@@ -21,6 +21,7 @@ export declare class DiscoveryController {
             created_at: Date;
             updated_at: Date;
             description: string | null;
+            game_id: string;
         }[];
         next_cursor: string | null;
         has_more: boolean;
@@ -60,8 +61,10 @@ export declare class DiscoveryController {
                 username?: undefined;
             };
             created_at: any;
+            game_id: any;
             listing: {
                 id: any;
+                game_id: any;
                 accepts_cash: any;
                 accepts_trade: any;
                 asking_price: any;
@@ -124,8 +127,10 @@ export declare class DiscoveryController {
             username: string | null;
         };
         items: {
+            game_id: any;
             listing: {
                 id: any;
+                game_id: any;
                 accepts_cash: any;
                 accepts_trade: any;
                 asking_price: any;
@@ -161,6 +166,7 @@ export declare class DiscoveryController {
             created_at: Date;
             updated_at: Date;
             description: string | null;
+            game_id: string;
         }[];
         pagination: {
             page: number;
@@ -190,6 +196,7 @@ export declare class DiscoveryController {
     getCollection(collectionId: string, query: DiscoveryInventoryPageQuery): Promise<{
         collection: {
             id: string;
+            game_id: string;
             name: string;
             description: string | null;
             created_at: Date;
@@ -279,8 +286,10 @@ export declare class DiscoveryController {
             country_code: string | null;
         };
         items: {
+            game_id: any;
             listing: {
                 id: any;
+                game_id: any;
                 accepts_cash: any;
                 accepts_trade: any;
                 asking_price: any;

@@ -44,6 +44,7 @@ export type MyListingOfferItem = {
 
 export type MyListingOffer = {
   id: string;
+  game_id: string;
   listing_id: string;
   offerer_user_id: string | null;
   offerer_store_id: string | null;

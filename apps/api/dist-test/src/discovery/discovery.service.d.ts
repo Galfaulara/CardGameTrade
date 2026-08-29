@@ -3,6 +3,7 @@ import { DatabaseService } from "../database/database.service";
 export declare class DiscoveryService {
     private readonly database;
     constructor(database: DatabaseService);
+    private resolveGameId;
     private encodeCursor;
     private decodeCursor;
     private mapItem;
@@ -61,8 +62,10 @@ export declare class DiscoveryService {
             username: string | null;
         };
         items: {
+            game_id: any;
             listing: {
                 id: any;
+                game_id: any;
                 accepts_cash: any;
                 accepts_trade: any;
                 asking_price: any;
@@ -98,6 +101,7 @@ export declare class DiscoveryService {
             created_at: Date;
             updated_at: Date;
             description: string | null;
+            game_id: string;
         }[];
         pagination: {
             page: number;
@@ -128,6 +132,7 @@ export declare class DiscoveryService {
             created_at: Date;
             updated_at: Date;
             description: string | null;
+            game_id: string;
         }[];
         next_cursor: string | null;
         has_more: boolean;
@@ -167,8 +172,10 @@ export declare class DiscoveryService {
                 username?: undefined;
             };
             created_at: any;
+            game_id: any;
             listing: {
                 id: any;
+                game_id: any;
                 accepts_cash: any;
                 accepts_trade: any;
                 asking_price: any;
@@ -206,6 +213,7 @@ export declare class DiscoveryService {
     getCollection(id: string, query: DiscoveryInventoryPageQuery): Promise<{
         collection: {
             id: string;
+            game_id: string;
             name: string;
             description: string | null;
             created_at: Date;
@@ -285,8 +293,10 @@ export declare class DiscoveryService {
             country_code: string | null;
         };
         items: {
+            game_id: any;
             listing: {
                 id: any;
+                game_id: any;
                 accepts_cash: any;
                 accepts_trade: any;
                 asking_price: any;

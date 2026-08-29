@@ -183,7 +183,7 @@ let CatalogService = class CatalogService {
                 ...(selected ? { id: { not: selected.id } } : {}) }, select: this.printingSelect(), orderBy: [{ released_at: "desc" }, { id: "asc" }], take: 10 });
         const { raw_data, ...canonical } = card;
         return { card: { ...canonical, ...this.characteristics(raw_data), faces: this.faces(raw_data) },
-            selected_printing: selected ? this.mapPrinting(selected) : null,
+            selected_printing: requested ? this.mapPrinting(requested) : (representative ?? null),
             other_printings: alternatives.map((printing) => this.mapPrinting(printing)),
             requested_printing_valid: !requestedPrintingId || Boolean(requested) };
     }

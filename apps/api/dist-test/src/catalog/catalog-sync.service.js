@@ -422,7 +422,8 @@ let CatalogSyncService = CatalogSyncService_1 = class CatalogSyncService {
             const imageUris = this.getCardImageUris(card);
             const printing = await this.database.client.card_printings.upsert({
                 where: {
-                    source_source_key: {
+                    game_id_source_source_key: {
+                        game_id: game.id,
                         source: "scryfall",
                         source_key: card.id,
                     },

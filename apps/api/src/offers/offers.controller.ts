@@ -6,16 +6,19 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 
 import {
   acceptListingOfferSchema,
   createListingOfferSchema,
+  gameScopedListQuerySchema,
 } from "@repo/validation";
 
 import type {
   AcceptListingOfferInput,
   CreateListingOfferInput,
+  GameScopedListQuery,
 } from "@repo/validation";
 
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
@@ -118,9 +121,13 @@ export class OffersController {
       }),
     )
     userId: string,
+
+    @Query(new ZodValidationPipe(gameScopedListQuerySchema))
+    query: GameScopedListQuery,
   ) {
     return this.offersService.getUserSentOffers(
       userId,
+      query,
     );
   }
 
@@ -135,9 +142,14 @@ export class OffersController {
       }),
     )
     userId: string,
+
+    @Query(new ZodValidationPipe(gameScopedListQuerySchema))
+    query: GameScopedListQuery,
   ) {
     return this.offersService.getUserReceivedOffers(
       userId,
+      undefined,
+      query,
     );
   }
 

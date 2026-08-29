@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   AccountShell,
@@ -11,6 +12,9 @@ import {
   getMyInventory,
 } from "../../../../features/auth/authenticated-api";
 import { InventoryManager } from "./inventory-manager";
+import { ACTIVE_GAME_COOKIE, resolveActiveGame } from "../../../../features/games/active-game";
+import { loadGames } from "../../../../features/games/games.server";
+import { inventoryGameQuery } from "../../../../features/games/inventory-game";
 
 const signInRedirectUrl =
   "/sign-in?redirect_url=%2Faccount%2Finventory";
@@ -83,6 +87,7 @@ export default async function AccountInventoryPage({
     status?: string | string[];
     condition?: string | string[];
     collection?: string | string[];
+    game?: string | string[];
   }>;
 }) {
   const configured = Boolean(
@@ -106,7 +111,13 @@ export default async function AccountInventoryPage({
     redirect(signInRedirectUrl);
   }
 
-  const params = await searchParams;
+  const [params, games, cookieStore] = await Promise.all([searchParams, loadGames(), cookies()]);
+  const requestedGame = normalizeText(params.game);
+  const game = resolveActiveGame(
+    games,
+    requestedGame || undefined,
+    cookieStore.get(ACTIVE_GAME_COOKIE)?.value,
+  );
   const page = normalizePage(
     params.page,
   );
@@ -128,24 +139,6 @@ export default async function AccountInventoryPage({
     ? requestedCollection
     : "all";
 
-  const query = new URLSearchParams({
-    page: String(page),
-    pageSize: "24",
-  });
-
-  if (q) {
-    query.set("q", q);
-  }
-
-  if (status !== "all") {
-    query.set("status", status);
-  }
-
-  if (condition !== "all") {
-    query.set("condition", condition);
-  }
-  if (collection !== "all") query.set("collection", collection);
-
   try {
     const currentUser =
       await getAuthenticatedCurrentUser();
@@ -166,10 +159,19 @@ export default async function AccountInventoryPage({
       );
     }
 
-    const [inventory, collections] = await Promise.all([
-      getMyInventory(query.toString()),
-      getMyCollectionOptions(currentUser.user.id),
-    ]);
+    const collections = await getMyCollectionOptions(currentUser.user.id, game?.slug);
+    const validCollection = collection === "unassigned" || collection === "all" ||
+      collections.some((value) => value.id === collection)
+      ? collection
+      : "all";
+    const query = game ? inventoryGameQuery(game.slug) : new URLSearchParams();
+    query.set("page", String(page));
+    query.set("pageSize", "24");
+    if (q) query.set("q", q);
+    if (status !== "all") query.set("status", status);
+    if (condition !== "all") query.set("condition", condition);
+    if (validCollection !== "all") query.set("collection", validCollection);
+    const inventory = await getMyInventory(query.toString());
 
     return (
       <AccountShell
@@ -181,11 +183,12 @@ export default async function AccountInventoryPage({
         <InventoryManager
           initialData={inventory}
           initialFilters={{
+            game: game?.slug ?? "",
             page,
             q,
             status,
             condition,
-            collection,
+            collection: validCollection,
           }}
           collections={collections}
         />

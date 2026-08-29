@@ -6,10 +6,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 
 import {
   createUserWishlistSchema,
+  gameScopedListQuerySchema,
   createWishlistItemSchema,
   createWishlistOfferSchema,
   acceptWishlistOfferSchema,
@@ -22,6 +24,7 @@ import type {
   CreateUserWishlistInput,
   CreateWishlistItemInput,
   CreateWishlistOfferInput,
+  GameScopedListQuery,
   UpdateUserWishlistInput,
   UpdateWishlistItemInput,
 } from "@repo/validation";
@@ -41,8 +44,10 @@ export class WishlistsController {
     "public/items",
   )
   @Public()
-  getPublicWishlistItems() {
-    return this.wishlistsService.getPublicWishlistItems();
+  getPublicWishlistItems(
+    @Query(new ZodValidationPipe(gameScopedListQuerySchema)) query: GameScopedListQuery,
+  ) {
+    return this.wishlistsService.getPublicWishlistItems(query);
   }
 
   @Get(
@@ -57,9 +62,11 @@ export class WishlistsController {
       }),
     )
     userId: string,
+    @Query(new ZodValidationPipe(gameScopedListQuerySchema)) query: GameScopedListQuery,
   ) {
     return this.wishlistsService.getUserWishlists(
       userId,
+      query,
     );
   }
 
@@ -335,9 +342,13 @@ export class WishlistsController {
       }),
     )
     userId: string,
+
+    @Query(new ZodValidationPipe(gameScopedListQuerySchema))
+    query: GameScopedListQuery,
   ) {
     return this.wishlistsService.getUserSentWishlistOffers(
       userId,
+      query,
     );
   }
 

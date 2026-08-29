@@ -36,11 +36,13 @@ export const discoveryStoreListQuerySchema =
     .strict();
 
 const cursor = z.string().min(1).max(1000).optional();
+const gameSlug = z.string().trim().min(1).max(64).toLowerCase().optional();
 
 export const discoveryCollectionFeedQuerySchema = z.object({
   limit: boundedInteger(12, 24),
   previewLimit: boundedInteger(5, 5),
   availability: z.enum(["all", "marketplace"]).default("all"),
+  gameSlug,
   cursor,
 }).strict();
 
@@ -54,6 +56,7 @@ export const discoveryStoreFeedQuerySchema = z.object({
 export const discoveryListingFeedQuerySchema = z.object({
   limit: boundedInteger(24, 48),
   intent: z.enum(["all", "trade", "sale", "mixed"]).default("all"),
+  gameSlug,
   cursor,
 }).strict();
 
@@ -74,12 +77,16 @@ export const discoveryUserCollectionQuerySchema = z.object({
 export const discoveryUserListingQuerySchema = z.object({
   page: boundedInteger(1, 1000000),
   pageSize: boundedInteger(24, 48),
+  gameSlug,
 }).strict();
+
+export const listingListQuerySchema = z.object({ gameSlug }).strict();
 
 export const discoveryUserWishlistQuerySchema = z.object({
   page: boundedInteger(1, 1000000),
   pageSize: boundedInteger(6, 12),
   previewLimit: boundedInteger(6, 6),
+  gameSlug,
 }).strict();
 
 export type DiscoveryCollectionListQuery =
@@ -103,4 +110,5 @@ export type DiscoveryInventoryPageQuery =
 
 export type DiscoveryUserCollectionQuery = z.infer<typeof discoveryUserCollectionQuerySchema>;
 export type DiscoveryUserListingQuery = z.infer<typeof discoveryUserListingQuerySchema>;
+export type ListingListQuery = z.infer<typeof listingListQuerySchema>;
 export type DiscoveryUserWishlistQuery = z.infer<typeof discoveryUserWishlistQuerySchema>;

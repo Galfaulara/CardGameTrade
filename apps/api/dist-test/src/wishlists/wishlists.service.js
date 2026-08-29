@@ -17,6 +17,15 @@ let WishlistsService = class WishlistsService {
     constructor(database) {
         this.database = database;
     }
+    async resolveGameId(gameSlug) {
+        const game = await this.database.client.games.findUnique({
+            where: { slug: gameSlug },
+            select: { id: true },
+        });
+        if (!game)
+            throw new common_1.BadRequestException("Unknown gameSlug.");
+        return game.id;
+    }
     async requireActiveUser(userId) {
         const user = await this.database.client.user_profiles.findUnique({
             where: {
@@ -36,34 +45,40 @@ let WishlistsService = class WishlistsService {
         }
         return user;
     }
-    async findEligibleTradeStore(storeId) {
+    async findEligibleTradeStore(storeId, gameId) {
         return this.database.client.stores.findFirst({
             where: {
                 id: storeId,
                 status: "active",
                 verification_status: "verified",
                 trade_mediation_enabled: true,
+                store_games: {
+                    some: {
+                        game_id: gameId,
+                        trade_mediation_enabled: true,
+                    },
+                },
             },
             select: {
                 id: true,
             },
         });
     }
-    async requireEligibleTradeStore(storeId) {
-        const store = await this.findEligibleTradeStore(storeId);
+    async requireEligibleTradeStore(storeId, gameId) {
+        const store = await this.findEligibleTradeStore(storeId, gameId);
         if (!store) {
             throw new common_1.BadRequestException("The selected store must be an active affiliated DeckDeal trade-mediation store.");
         }
         return store;
     }
-    async resolvePreferredStoreForNewWishlist(userId, requestedStoreId) {
+    async resolvePreferredStoreForNewWishlist(userId, gameId, requestedStoreId) {
         if (requestedStoreId ===
             null) {
             return null;
         }
         if (requestedStoreId !==
             undefined) {
-            await this.requireEligibleTradeStore(requestedStoreId);
+            await this.requireEligibleTradeStore(requestedStoreId, gameId);
             return requestedStoreId;
         }
         const preference = await this.database.client.user_preferences.findUnique({
@@ -80,13 +95,14 @@ let WishlistsService = class WishlistsService {
         if (!preferredStoreId) {
             return null;
         }
-        const eligibleStore = await this.findEligibleTradeStore(preferredStoreId);
+        const eligibleStore = await this.findEligibleTradeStore(preferredStoreId, gameId);
         return (eligibleStore?.id ??
             null);
     }
     getWishlistSelect() {
         return {
             id: true,
+            game_id: true,
             user_id: true,
             name: true,
             description: true,
@@ -100,6 +116,7 @@ let WishlistsService = class WishlistsService {
     getWishlistItemSelect() {
         return {
             id: true,
+            game_id: true,
             wishlist_id: true,
             canonical_card_id: true,
             printing_id: true,
@@ -122,6 +139,7 @@ let WishlistsService = class WishlistsService {
     getWishlistOfferSelect() {
         return {
             id: true,
+            game_id: true,
             wishlist_item_id: true,
             offerer_user_id: true,
             offerer_store_id: true,
@@ -382,7 +400,7 @@ let WishlistsService = class WishlistsService {
                 : {}),
         }));
     }
-    async validateWishlistTargetExists(canonicalCardId, printingId, desiredFinish) {
+    async validateWishlistTargetExists(canonicalCardId, printingId, desiredFinish, gameId) {
         if (canonicalCardId) {
             const card = await this.database.client.canonical_cards.findUnique({
                 where: {
@@ -390,10 +408,14 @@ let WishlistsService = class WishlistsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                 },
             });
             if (!card) {
                 throw new common_1.BadRequestException("The requested canonical card does not exist.");
+            }
+            if (card.game_id !== gameId) {
+                throw new common_1.BadRequestException("The requested canonical card belongs to a different game than the wishlist.");
             }
             return;
         }
@@ -406,10 +428,14 @@ let WishlistsService = class WishlistsService {
             },
             select: {
                 id: true,
+                game_id: true,
             },
         });
         if (!printing) {
             throw new common_1.BadRequestException("The requested printing does not exist.");
+        }
+        if (printing.game_id !== gameId) {
+            throw new common_1.BadRequestException("The requested printing belongs to a different game than the wishlist.");
         }
         if (desiredFinish) {
             const finish = await this.database.client.printing_finishes.findFirst({
@@ -452,11 +478,15 @@ let WishlistsService = class WishlistsService {
             throw new common_1.BadRequestException("currencyCode is required when maxCashAmount is set.");
         }
     }
-    async getUserWishlists(userId) {
+    async getUserWishlists(userId, query = {}) {
         await this.requireActiveUser(userId);
+        const gameId = query.gameSlug
+            ? await this.resolveGameId(query.gameSlug)
+            : undefined;
         const wishlists = await this.database.client.wishlists.findMany({
             where: {
                 user_id: userId,
+                ...(gameId ? { game_id: gameId } : {}),
                 status: {
                     not: "deleted",
                 },
@@ -489,9 +519,21 @@ let WishlistsService = class WishlistsService {
     }
     async createUserWishlist(userId, input) {
         await this.requireActiveUser(userId);
+        const game = await this.database.client.games.findUnique({
+            where: {
+                slug: input.gameSlug,
+            },
+            select: {
+                id: true,
+            },
+        });
+        if (!game) {
+            throw new common_1.BadRequestException("The selected game does not exist.");
+        }
         const duplicate = await this.database.client.wishlists.findFirst({
             where: {
                 user_id: userId,
+                game_id: game.id,
                 name: input.name,
             },
             select: {
@@ -501,9 +543,10 @@ let WishlistsService = class WishlistsService {
         if (duplicate) {
             throw new common_1.ConflictException("This user already has a wishlist with that name.");
         }
-        const preferredStoreId = await this.resolvePreferredStoreForNewWishlist(userId, input.preferredStoreId);
+        const preferredStoreId = await this.resolvePreferredStoreForNewWishlist(userId, game.id, input.preferredStoreId);
         const wishlist = await this.database.client.wishlists.create({
             data: {
+                game_id: game.id,
                 user_id: userId,
                 name: input.name,
                 description: input.description ??
@@ -527,7 +570,12 @@ let WishlistsService = class WishlistsService {
                     not: "deleted",
                 },
             },
-            select: this.getWishlistSelect(),
+            select: {
+                id: true,
+                game_id: true,
+                name: true,
+                preferred_store_id: true,
+            },
         });
         if (!wishlist) {
             throw new common_1.NotFoundException("Wishlist was not found or does not belong to this user.");
@@ -539,6 +587,7 @@ let WishlistsService = class WishlistsService {
             const duplicate = await this.database.client.wishlists.findFirst({
                 where: {
                     user_id: userId,
+                    game_id: wishlist.game_id,
                     name: input.name,
                     id: {
                         not: wishlistId,
@@ -580,7 +629,7 @@ let WishlistsService = class WishlistsService {
                     null;
             }
             else {
-                await this.requireEligibleTradeStore(input.preferredStoreId);
+                await this.requireEligibleTradeStore(input.preferredStoreId, wishlist.game_id);
                 preferredStoreId =
                     input.preferredStoreId;
             }
@@ -636,6 +685,7 @@ let WishlistsService = class WishlistsService {
             },
             select: {
                 id: true,
+                game_id: true,
             },
         });
         if (!wishlist) {
@@ -644,7 +694,7 @@ let WishlistsService = class WishlistsService {
         await this.validateWishlistTargetExists(input.canonicalCardId ??
             null, input.printingId ??
             null, input.desiredFinish ??
-            null);
+            null, wishlist.game_id);
         const duplicate = await this.database.client.wishlist_items.findFirst({
             where: {
                 wishlist_id: wishlistId,
@@ -661,6 +711,7 @@ let WishlistsService = class WishlistsService {
             },
             select: {
                 id: true,
+                game_id: true,
             },
         });
         if (duplicate) {
@@ -668,6 +719,7 @@ let WishlistsService = class WishlistsService {
         }
         const item = await this.database.client.wishlist_items.create({
             data: {
+                game_id: wishlist.game_id,
                 wishlist_id: wishlistId,
                 canonical_card_id: input.canonicalCardId ??
                     null,
@@ -715,11 +767,13 @@ let WishlistsService = class WishlistsService {
             },
             select: {
                 id: true,
+                game_id: true,
             },
         });
         if (!wishlist) {
             throw new common_1.NotFoundException("Wishlist was not found or does not belong to this user.");
         }
+        const wishlistGameId = wishlist.game_id;
         const item = await this.database.client.wishlist_items.findFirst({
             where: {
                 id: itemId,
@@ -780,7 +834,7 @@ let WishlistsService = class WishlistsService {
             undefined
             ? input.desiredFinish
             : item.desired_finish;
-        await this.validateWishlistTargetExists(canonicalCardId, printingId, desiredFinish);
+        await this.validateWishlistTargetExists(canonicalCardId, printingId, desiredFinish, wishlistGameId);
         await this.database.client.wishlist_items.update({
             where: {
                 id: itemId,
@@ -868,10 +922,14 @@ let WishlistsService = class WishlistsService {
         ]);
         return hydrated[0];
     }
-    async getPublicWishlistItems() {
+    async getPublicWishlistItems(query = {}) {
+        const gameId = query.gameSlug
+            ? await this.resolveGameId(query.gameSlug)
+            : undefined;
         const items = await this.database.client.wishlist_items.findMany({
             where: {
                 status: "active",
+                ...(gameId ? { game_id: gameId } : {}),
                 wishlists: {
                     status: "active",
                     visibility: "public",
@@ -1245,6 +1303,7 @@ let WishlistsService = class WishlistsService {
             },
             select: {
                 id: true,
+                game_id: true,
                 printing_id: true,
                 finish: true,
                 condition: true,
@@ -1289,6 +1348,10 @@ let WishlistsService = class WishlistsService {
                 "available") {
                 throw new common_1.BadRequestException("Only available inventory items can be offered.");
             }
+            if (inventory.game_id !==
+                wishlistItem.game_id) {
+                throw new common_1.BadRequestException("Every offered inventory item must belong to the same game as the wishlist item.");
+            }
             if (requestedItem.quantity !==
                 inventory.quantity) {
                 throw new common_1.BadRequestException("A wishlist offer must include the full registered inventory quantity. Split the inventory item first if only part should be offered.");
@@ -1328,7 +1391,7 @@ let WishlistsService = class WishlistsService {
             throw new common_1.BadRequestException("This offer contains more copies than the wishlist item requests.");
         }
     }
-    async validateRequestedTradeItems(wishlistOwnerUserId, requestedItems) {
+    async validateRequestedTradeItems(wishlistOwnerUserId, requestedItems, gameId) {
         const exactInventoryRequests = requestedItems.filter((item) => Boolean(item.requestedInventoryItemId));
         if (exactInventoryRequests.length >
             0) {
@@ -1346,6 +1409,7 @@ let WishlistsService = class WishlistsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     quantity: true,
                     status: true,
                 },
@@ -1366,6 +1430,10 @@ let WishlistsService = class WishlistsService {
                 if (inventoryItem.status !==
                     "available") {
                     throw new common_1.BadRequestException("An exact requested inventory item must currently be available.");
+                }
+                if (inventoryItem.game_id !==
+                    gameId) {
+                    throw new common_1.BadRequestException("Every exact requested inventory item must belong to the same game as the wishlist item.");
                 }
                 if (requested.quantity !==
                     inventoryItem.quantity) {
@@ -1388,11 +1456,16 @@ let WishlistsService = class WishlistsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                 },
             });
             if (cards.length !==
                 canonicalIds.length) {
                 throw new common_1.BadRequestException("One or more requested canonical cards do not exist.");
+            }
+            if (cards.some((card) => card.game_id !==
+                gameId)) {
+                throw new common_1.BadRequestException("Every requested canonical card must belong to the same game as the wishlist item.");
             }
         }
         const printingIds = [
@@ -1410,11 +1483,16 @@ let WishlistsService = class WishlistsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                 },
             });
             if (printings.length !==
                 printingIds.length) {
                 throw new common_1.BadRequestException("One or more requested printings do not exist.");
+            }
+            if (printings.some((printing) => printing.game_id !==
+                gameId)) {
+                throw new common_1.BadRequestException("Every requested printing must belong to the same game as the wishlist item.");
             }
         }
     }
@@ -1424,13 +1502,17 @@ let WishlistsService = class WishlistsService {
             where: {
                 id: wishlistItemId,
             },
-            select: this.getWishlistItemSelect(),
+            select: {
+                ...this.getWishlistItemSelect(),
+                game_id: true,
+            },
         });
         if (!wishlistItem ||
             wishlistItem.status !==
                 "active") {
             throw new common_1.NotFoundException("Active wishlist item was not found.");
         }
+        const wishlistItemGameId = wishlistItem.game_id;
         const wishlist = await this.database.client.wishlists.findUnique({
             where: {
                 id: wishlistItem.wishlist_id,
@@ -1477,7 +1559,7 @@ let WishlistsService = class WishlistsService {
         }
         await this.validateOfferedInventoryMatchesWishlistItem(wishlistItem, userId, input.items);
         if (input.requestsTrade) {
-            await this.validateRequestedTradeItems(wishlist.user_id, input.requestedItems);
+            await this.validateRequestedTradeItems(wishlist.user_id, input.requestedItems, wishlistItemGameId);
         }
         const offerId = await this.database.client.$transaction(async (transaction) => {
             const now = new Date();
@@ -1538,6 +1620,7 @@ let WishlistsService = class WishlistsService {
             }
             const offer = await transaction.wishlist_offers.create({
                 data: {
+                    game_id: wishlistItemGameId,
                     wishlist_item_id: wishlistItemId,
                     offerer_user_id: userId,
                     offerer_store_id: null,
@@ -1566,6 +1649,7 @@ let WishlistsService = class WishlistsService {
             });
             await transaction.wishlist_offer_items.createMany({
                 data: input.items.map((item) => ({
+                    game_id: wishlistItemGameId,
                     wishlist_offer_id: offer.id,
                     offerer_user_id: userId,
                     offerer_store_id: null,
@@ -1579,6 +1663,7 @@ let WishlistsService = class WishlistsService {
                 0) {
                 await transaction.wishlist_offer_requested_items.createMany({
                     data: input.requestedItems.map((item) => ({
+                        game_id: wishlistItemGameId,
                         wishlist_offer_id: offer.id,
                         requested_inventory_item_id: item.requestedInventoryItemId ??
                             null,
@@ -1625,11 +1710,15 @@ let WishlistsService = class WishlistsService {
         });
         return this.loadWishlistOffer(offerId);
     }
-    async getUserSentWishlistOffers(userId) {
+    async getUserSentWishlistOffers(userId, query = {}) {
         await this.requireActiveUser(userId);
+        const gameId = query.gameSlug
+            ? await this.resolveGameId(query.gameSlug)
+            : undefined;
         const offers = await this.database.client.wishlist_offers.findMany({
             where: {
                 offerer_user_id: userId,
+                ...(gameId ? { game_id: gameId } : {}),
             },
             select: this.getWishlistOfferSelect(),
             orderBy: {
@@ -1727,6 +1816,7 @@ let WishlistsService = class WishlistsService {
                 select: {
                     id: true,
                     wishlist_item_id: true,
+                    game_id: true,
                     offerer_user_id: true,
                     offerer_store_id: true,
                     requests_cash: true,
@@ -1774,6 +1864,7 @@ let WishlistsService = class WishlistsService {
                 select: {
                     id: true,
                     wishlist_id: true,
+                    game_id: true,
                     canonical_card_id: true,
                     printing_id: true,
                     desired_finish: true,
@@ -1797,11 +1888,36 @@ let WishlistsService = class WishlistsService {
                 select: {
                     id: true,
                     user_id: true,
+                    game_id: true,
                     status: true,
                 },
             });
             if (!wishlist) {
                 throw new common_1.NotFoundException("The wishlist for this offer was not found.");
+            }
+            const transactionGameId = offer.game_id;
+            if (wishlistItem.game_id !==
+                transactionGameId ||
+                wishlist.game_id !==
+                    transactionGameId) {
+                throw new common_1.ConflictException("The accepted offer no longer matches the wishlist game.");
+            }
+            const gameEligibleStore = await transaction.stores.findFirst({
+                where: {
+                    id: store.id,
+                    store_games: {
+                        some: {
+                            game_id: transactionGameId,
+                            trade_mediation_enabled: true,
+                        },
+                    },
+                },
+                select: {
+                    id: true,
+                },
+            });
+            if (!gameEligibleStore) {
+                throw new common_1.BadRequestException("The selected store is not enabled to mediate trades for this wishlist game.");
             }
             if (wishlist.user_id !==
                 ownerUserId) {
@@ -1901,6 +2017,7 @@ let WishlistsService = class WishlistsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     printing_id: true,
                     finish: true,
                     condition: true,
@@ -1952,6 +2069,10 @@ let WishlistsService = class WishlistsService {
                 if (inventory.status !==
                     "available") {
                     throw new common_1.ConflictException("An offered inventory item is no longer available.");
+                }
+                if (inventory.game_id !==
+                    transactionGameId) {
+                    throw new common_1.ConflictException("An offered inventory item no longer matches the wishlist offer game.");
                 }
                 if (inventory.quantity !==
                     offeredRow.quantity) {
@@ -2039,6 +2160,7 @@ let WishlistsService = class WishlistsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     printing_id: true,
                     finish: true,
                     condition: true,
@@ -2089,6 +2211,10 @@ let WishlistsService = class WishlistsService {
                 if (inventory.status !==
                     "available") {
                     throw new common_1.ConflictException("A requested return card is no longer available.");
+                }
+                if (inventory.game_id !==
+                    transactionGameId) {
+                    throw new common_1.ConflictException("A requested return card no longer matches the wishlist offer game.");
                 }
                 if (inventory.quantity !==
                     resolved.quantity) {
@@ -2217,6 +2343,7 @@ let WishlistsService = class WishlistsService {
              */
             const transactionHeader = await transaction.transactions.create({
                 data: {
+                    game_id: transactionGameId,
                     listing_id: null,
                     accepted_offer_id: null,
                     accepted_wishlist_offer_id: offer.id,
@@ -2255,6 +2382,7 @@ let WishlistsService = class WishlistsService {
             for (const ownerItem of resolvedOwnerItems) {
                 const created = await transaction.transaction_items.create({
                     data: {
+                        game_id: transactionGameId,
                         transaction_id: transactionHeader.id,
                         inventory_item_id: ownerItem.inventoryItemId,
                         item_role: "listed_item",
@@ -2287,6 +2415,7 @@ let WishlistsService = class WishlistsService {
             for (const offeredRow of offeredRows) {
                 const created = await transaction.transaction_items.create({
                     data: {
+                        game_id: transactionGameId,
                         transaction_id: transactionHeader.id,
                         inventory_item_id: offeredRow.inventory_item_id,
                         item_role: "offered_item",
@@ -2318,6 +2447,7 @@ let WishlistsService = class WishlistsService {
             }
             const handoff = await transaction.store_trade_handoffs.create({
                 data: {
+                    game_id: transactionGameId,
                     transaction_id: transactionHeader.id,
                     store_id: store.id,
                     status: "awaiting_items",

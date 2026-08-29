@@ -23,11 +23,11 @@ let WishlistsController = class WishlistsController {
     constructor(wishlistsService) {
         this.wishlistsService = wishlistsService;
     }
-    getPublicWishlistItems() {
-        return this.wishlistsService.getPublicWishlistItems();
+    getPublicWishlistItems(query) {
+        return this.wishlistsService.getPublicWishlistItems(query);
     }
-    getUserWishlists(userId) {
-        return this.wishlistsService.getUserWishlists(userId);
+    getUserWishlists(userId, query) {
+        return this.wishlistsService.getUserWishlists(userId, query);
     }
     getUserWishlist(wishlistId, userId) {
         return this.wishlistsService.getUserWishlist(userId, wishlistId);
@@ -50,8 +50,8 @@ let WishlistsController = class WishlistsController {
     createUserWishlistOfferFromInterest(wishlistItemId, userId, interestId, input) {
         return this.wishlistsService.createUserWishlistOffer(userId, wishlistItemId, input, interestId);
     }
-    getUserSentWishlistOffers(userId) {
-        return this.wishlistsService.getUserSentWishlistOffers(userId);
+    getUserSentWishlistOffers(userId, query) {
+        return this.wishlistsService.getUserSentWishlistOffers(userId, query);
     }
     getUserReceivedWishlistOffers(wishlistItemId, userId) {
         return this.wishlistsService.getUserReceivedWishlistOffers(userId, wishlistItemId);
@@ -70,8 +70,9 @@ exports.WishlistsController = WishlistsController;
 __decorate([
     (0, common_1.Get)("public/items"),
     (0, public_decorator_1.Public)(),
+    __param(0, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.gameScopedListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], WishlistsController.prototype, "getPublicWishlistItems", null);
 __decorate([
@@ -79,8 +80,9 @@ __decorate([
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
         version: "4",
     }))),
+    __param(1, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.gameScopedListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], WishlistsController.prototype, "getUserWishlists", null);
 __decorate([
@@ -181,8 +183,9 @@ __decorate([
     __param(0, (0, common_1.Param)("userId", new common_1.ParseUUIDPipe({
         version: "4",
     }))),
+    __param(1, (0, common_1.Query)(new zod_validation_pipe_1.ZodValidationPipe(validation_1.gameScopedListQuerySchema))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], WishlistsController.prototype, "getUserSentWishlistOffers", null);
 __decorate([

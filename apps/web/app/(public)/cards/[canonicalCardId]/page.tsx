@@ -9,6 +9,16 @@ import { AddToCollectionLauncher } from "../../../../components/add-to-collectio
 import { ListingIntentPill } from "../../../../components/listing-intent/listing-intent-pill";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
 import { MarketPrices } from "../../../../features/marketplace/market-prices";
+import { ResourceGameSync } from "../../../../features/games/resource-game-sync";
+import { loadGames } from "../../../../features/games/games.server";
+import { resolveResourceGame } from "../../../../features/games/active-game";
+import {
+  cardImageState,
+  finishLabel,
+  isMtgGame,
+  isSpecialFinish,
+  shouldShowScryfall,
+} from "../../../../features/cards/presentation";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -36,10 +46,13 @@ export default async function CardPage({
     query = await searchParams,
     parsed = Number(query.offersPage),
     offersPage = Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+  const games = await loadGames();
+  const mtgGameId = games.find((game) => game.slug === "mtg")?.id ?? null;
   const result = await getCardDetail(
     canonicalCardId,
     query.printing,
     offersPage,
+    mtgGameId,
   );
   if (result.status === "not-found") notFound();
   if (result.status !== "ready")
@@ -55,10 +68,13 @@ export default async function CardPage({
       other_printings: others,
     } = result.detail,
     listings = result.listings;
-  const rules = (subject: any) => (
+  const cardGameSlug = resolveResourceGame(games, card.game_id)?.slug ?? null;
+  const isMtg = isMtgGame(cardGameSlug);
+  const typeLine = (subject: any) =>
+    subject.type_line ? <p className={styles.type}>{subject.type_line}</p> : null;
+  const mtgRules = (subject: any) => (
     <>
       {subject.mana_cost && <p className={styles.mana}>{subject.mana_cost}</p>}
-      {subject.type_line && <p className={styles.type}>{subject.type_line}</p>}
       {subject.oracle_text && (
         <p className={styles.oracle}>{subject.oracle_text}</p>
       )}
@@ -86,17 +102,21 @@ export default async function CardPage({
       </dl>
     </>
   );
+  const image = cardImageState(
+    selected?.image_large_uri ?? selected?.image_normal_uri ?? null,
+  );
   const listingHref = (page: number) =>
     `/cards/${canonicalCardId}?${new URLSearchParams({ ...query, offersPage: String(page) }).toString()}`;
   return (
     <main className={styles.main}>
+      <ResourceGameSync gameId={card.game_id} />
       <NavigationBack fallback="/search" />
       <section className={styles.hero}>
         <div className={styles.art}>
-          {selected?.image_large_uri || selected?.image_normal_uri ? (
+          {image.kind === "image" ? (
             <Image
-              src={selected.image_large_uri ?? selected.image_normal_uri}
-              alt={`${card.name} — ${selected.set.name} printing`}
+              src={image.url}
+              alt={`${card.name} — ${selected?.set.name ?? "unknown"} printing`}
               fill
               sizes="(max-width: 48rem) 82vw, 360px"
               unoptimized
@@ -108,14 +128,20 @@ export default async function CardPage({
         <div className={styles.info}>
           <p className={styles.eyebrow}>DeckDeal card catalog</p>
           <h1>{card.name}</h1>
-          {card.faces?.length
+          {isMtg && card.faces?.length
             ? card.faces.map((face: any, index: number) => (
                 <section className={styles.face} key={`${face.name}-${index}`}>
                   <h2>{face.name ?? `Face ${index + 1}`}</h2>
-                  {rules(face)}
+                  {typeLine(face)}
+                  {mtgRules(face)}
                 </section>
               ))
-            : rules(card)}
+            : (
+                <>
+                  {typeLine(card)}
+                  {isMtg && mtgRules(card)}
+                </>
+              )}
           {selected && (
             <section className={styles.printing}>
               <div className={styles.printingHeading}>
@@ -125,6 +151,7 @@ export default async function CardPage({
                   canonicalCardId={canonicalCardId}
                   cardName={card.name}
                   printingId={selected.id}
+                  gameId={card.game_id}
                 />
               </div>
               <dl>
@@ -158,11 +185,27 @@ export default async function CardPage({
                     </dd>
                   </>
                 )}
+                {result.market_finishes.length > 0 && (
+                  <>
+                    <dt>Finishes</dt>
+                    <dd className={styles.finishList}>
+                      {result.market_finishes.map(({ finish }: { finish: string }) => (
+                        <span
+                          key={finish}
+                          className={isSpecialFinish(finish) ? styles.finishSpecial : undefined}
+                        >
+                          {finishLabel(finish)}
+                        </span>
+                      ))}
+                    </dd>
+                  </>
+                )}
               </dl>
-              {result.market_finishes.map(({ finish }: { finish: string }) => (
-                <MarketPrices key={finish} prices={result.market_prices.filter((price: { finish: string }) => price.finish === finish)} title={`Market prices · ${finish.replaceAll("_", " ")}`} />
-              ))}
-              {selected.scryfall_uri && (
+              {isMtg &&
+                result.market_finishes.map(({ finish }: { finish: string }) => (
+                  <MarketPrices key={finish} prices={result.market_prices.filter((price: { finish: string }) => price.finish === finish)} title={`Market prices · ${finish.replaceAll("_", " ")}`} />
+                ))}
+              {shouldShowScryfall(cardGameSlug, selected.scryfall_uri) && (
                 <a
                   href={selected.scryfall_uri}
                   target="_blank"

@@ -722,6 +722,7 @@ let StoreHandoffsService = class StoreHandoffsService {
                     id: true,
                     transaction_id: true,
                     store_id: true,
+                    game_id: true,
                     status: true,
                 },
             });
@@ -747,6 +748,7 @@ let StoreHandoffsService = class StoreHandoffsService {
                 select: {
                     id: true,
                     listing_id: true,
+                    game_id: true,
                     accepted_wishlist_offer_id: true,
                     transaction_type: true,
                     status: true,
@@ -754,6 +756,11 @@ let StoreHandoffsService = class StoreHandoffsService {
             });
             if (!transactionHeader) {
                 throw new common_1.NotFoundException("The transaction for this handoff was not found.");
+            }
+            const transactionGameId = transactionHeader.game_id;
+            if (handoff.game_id !==
+                transactionGameId) {
+                throw new common_1.ConflictException("The store handoff no longer matches the transaction game.");
             }
             if (transactionHeader.status !==
                 "awaiting_handoff") {
@@ -817,6 +824,7 @@ let StoreHandoffsService = class StoreHandoffsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     inventory_item_id: true,
                     result_inventory_item_id: true,
                     quantity: true,
@@ -828,6 +836,11 @@ let StoreHandoffsService = class StoreHandoffsService {
             });
             if (!transactionItem) {
                 throw new common_1.NotFoundException("Transaction item was not found.");
+            }
+            const transactionItemGameId = transactionItem.game_id;
+            if (transactionItemGameId !==
+                transactionGameId) {
+                throw new common_1.ConflictException("The transaction item no longer matches the transaction game.");
             }
             if (transactionItem.result_inventory_item_id) {
                 throw new common_1.ConflictException("This transaction item already produced a recipient inventory record.");
@@ -850,6 +863,7 @@ let StoreHandoffsService = class StoreHandoffsService {
                 },
                 select: {
                     id: true,
+                    game_id: true,
                     printing_id: true,
                     finish: true,
                     owner_user_id: true,
@@ -868,6 +882,10 @@ let StoreHandoffsService = class StoreHandoffsService {
             });
             if (!sourceInventory) {
                 throw new common_1.ConflictException("The source inventory record no longer exists.");
+            }
+            if (sourceInventory.game_id !==
+                transactionItemGameId) {
+                throw new common_1.ConflictException("The source inventory item no longer matches the transaction game.");
             }
             if (sourceInventory.status !==
                 "in_trade") {
@@ -940,6 +958,7 @@ let StoreHandoffsService = class StoreHandoffsService {
              */
             const resultInventory = await transaction.inventory_items.create({
                 data: {
+                    game_id: transactionItemGameId,
                     printing_id: sourceInventory.printing_id,
                     finish: sourceInventory.finish,
                     owner_user_id: transactionItem.to_user_id,
@@ -968,7 +987,7 @@ let StoreHandoffsService = class StoreHandoffsService {
              * 8. Provenance link:
              *
              * transaction item
-             *      ↓
+             *      â†“
              * new recipient inventory row
              */
             const linkedResult = await transaction.transaction_items.updateMany({

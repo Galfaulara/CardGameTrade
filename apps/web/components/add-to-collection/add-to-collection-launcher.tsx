@@ -8,12 +8,14 @@ export function AddToCollectionLauncher({
   canonicalCardId,
   cardName,
   printingId,
+  gameId,
   className,
   compact = false,
 }: {
   canonicalCardId: string;
   cardName: string;
   printingId?: string;
+  gameId?: string;
   className?: string;
   compact?: boolean;
 }) {
@@ -41,7 +43,7 @@ export function AddToCollectionLauncher({
       type="button"
       onClick={() =>
         openAddToCollection({
-          initialCard: { canonicalCardId, cardName, printingId },
+          initialCard: { canonicalCardId, cardName, printingId, gameId },
         })
       }
       disabled={!isLoaded}

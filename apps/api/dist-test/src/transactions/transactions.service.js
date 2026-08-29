@@ -17,6 +17,17 @@ let TransactionsService = class TransactionsService {
     constructor(database) {
         this.database = database;
     }
+    async resolveGameId(gameSlug) {
+        if (!gameSlug)
+            return undefined;
+        const game = await this.database.client.games.findUnique({
+            where: { slug: gameSlug },
+            select: { id: true },
+        });
+        if (!game)
+            throw new common_1.BadRequestException("Unknown gameSlug.");
+        return game.id;
+    }
     getInventoryHistorySelect() {
         return {
             id: true,
@@ -406,6 +417,7 @@ let TransactionsService = class TransactionsService {
     getTransactionHeaderSelect() {
         return {
             id: true,
+            game_id: true,
             listing_id: true,
             accepted_offer_id: true,
             accepted_wishlist_offer_id: true,
@@ -423,7 +435,7 @@ let TransactionsService = class TransactionsService {
             updated_at: true,
         };
     }
-    async getUserTransactions(userId) {
+    async getUserTransactions(userId, query = {}) {
         const user = await this.database.client.user_profiles.findUnique({
             where: {
                 id: userId,
@@ -435,8 +447,10 @@ let TransactionsService = class TransactionsService {
         if (!user) {
             throw new common_1.NotFoundException("User was not found.");
         }
+        const gameId = await this.resolveGameId(query.gameSlug);
         const transactions = await this.database.client.transactions.findMany({
             where: {
+                ...(gameId ? { game_id: gameId } : {}),
                 OR: [
                     {
                         seller_user_id: userId,

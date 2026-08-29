@@ -22,6 +22,7 @@ type Condition =
   | "heavily_played"
   | "damaged";
 type Filters = {
+  game: string;
   page: number;
   q: string;
   status: Status;
@@ -30,6 +31,7 @@ type Filters = {
 };
 type Collection = {
   id: string;
+  game_id: string;
   name: string;
   visibility: string;
   _count: { inventory_items: number };
@@ -59,6 +61,7 @@ const conditions: [Condition, string][] = [
 ];
 const href = (filters: Filters) => {
   const query = new URLSearchParams({ page: String(filters.page) });
+  if (filters.game) query.set("game", filters.game);
   if (filters.q) query.set("q", filters.q);
   if (filters.status !== "all") query.set("status", filters.status);
   if (filters.condition !== "all") query.set("condition", filters.condition);

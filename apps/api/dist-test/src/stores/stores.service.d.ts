@@ -2,7 +2,7 @@ import { DatabaseService } from "../database/database.service";
 export declare class StoresService {
     private readonly database;
     constructor(database: DatabaseService);
-    getTradeMediators(): Promise<{
+    getTradeMediators(gameSlug?: string): Promise<{
         name: string;
         status: string;
         id: string;

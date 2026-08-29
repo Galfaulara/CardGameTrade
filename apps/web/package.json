@@ -9,7 +9,14 @@
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "check-types": "next typegen && tsc --noEmit",
-    "test:market-values": "node --experimental-strip-types test/market-value-regression.ts"
+    "test:market-values": "node --experimental-strip-types test/market-value-regression.ts",
+    "test:active-game": "node --experimental-strip-types test/active-game-regression.ts",
+    "test:catalog-game": "node --experimental-strip-types test/catalog-game-regression.ts",
+    "test:discovery-game": "node --experimental-strip-types test/discovery-game-regression.ts",
+    "test:inventory-wishlist-game": "node --experimental-strip-types test/inventory-wishlist-game-regression.ts",
+    "test:card-presentation": "node --experimental-strip-types test/card-presentation-regression.ts",
+    "test:trade-mediator-picker": "node --experimental-strip-types test/trade-mediator-picker-regression.ts",
+    "test:optional-game-filter": "node --experimental-strip-types test/optional-game-filter-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

@@ -1,7 +1,12 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+
+import type {
+  GameScopedListQuery,
+} from "@repo/validation";
 
 import { DatabaseService } from "../database/database.service";
 
@@ -11,6 +16,16 @@ export class TransactionsService {
     private readonly database:
       DatabaseService,
   ) {}
+
+  private async resolveGameId(gameSlug?: string) {
+    if (!gameSlug) return undefined;
+    const game = await this.database.client.games.findUnique({
+      where: { slug: gameSlug },
+      select: { id: true },
+    });
+    if (!game) throw new BadRequestException("Unknown gameSlug.");
+    return game.id;
+  }
 
   private getInventoryHistorySelect() {
     return {
@@ -702,6 +717,7 @@ export class TransactionsService {
   private getTransactionHeaderSelect() {
     return {
       id: true,
+      game_id: true,
 
       listing_id: true,
       accepted_offer_id:
@@ -737,6 +753,7 @@ export class TransactionsService {
 
   async getUserTransactions(
     userId: string,
+    query: GameScopedListQuery = {},
   ) {
     const user =
       await this.database.client.user_profiles.findUnique({
@@ -756,9 +773,12 @@ export class TransactionsService {
       );
     }
 
+    const gameId = await this.resolveGameId(query.gameSlug);
+
     const transactions =
       await this.database.client.transactions.findMany({
         where: {
+          ...(gameId ? { game_id: gameId } : {}),
           OR: [
             {
               seller_user_id:

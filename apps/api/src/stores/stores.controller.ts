@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Query,
 } from "@nestjs/common";
 
 import { StoresService } from "./stores.service";
@@ -15,7 +16,7 @@ export class StoresController {
   ) {}
 
   @Get("trade-mediators")
-  getTradeMediators() {
-    return this.storesService.getTradeMediators();
+  getTradeMediators(@Query("gameSlug") gameSlug?: string) {
+    return this.storesService.getTradeMediators(gameSlug);
   }
 }
