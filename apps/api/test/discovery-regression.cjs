@@ -89,12 +89,33 @@ async function main() {
     "Turtle Power!",
     "Prismari Artistry",
   ];
+  const expectedQuantitiesByCollection = new Map();
 
   for (const name of fixtureNames) {
     const collection = collections.find((value) => value.name === name);
     assert(collection, `${name} was not discoverable`);
-    assert(collection.card_quantity === 100, `${name} quantity was not 100`);
-    assert(collection.marketplace_card_quantity === 14, `${name} marketplace quantity was not 14`);
+    const [available, marketplace] = await Promise.all([
+      database.inventory_items.aggregate({
+        where: { collection_id: collection.id, status: "available" },
+        _sum: { quantity: true },
+      }),
+      database.inventory_items.aggregate({
+        where: {
+          collection_id: collection.id,
+          status: "available",
+          listings_listings_inventory_item_id_seller_user_idToinventory_items: {
+            some: {
+              status: "active",
+              OR: [{ accepts_trade: true }, { accepts_cash: true }],
+            },
+          },
+        },
+        _sum: { quantity: true },
+      }),
+    ]);
+    expectedQuantitiesByCollection.set(collection.id, available._sum.quantity ?? 0);
+    assert(collection.card_quantity === (available._sum.quantity ?? 0), `${name} available quantity did not match inventory`);
+    assert(collection.marketplace_card_quantity === (marketplace._sum.quantity ?? 0), `${name} marketplace quantity did not match active Listings`);
     assert(collection.preview_items.length <= 10, `${name} preview exceeded 10`);
     assert(collection.preview_items.every((item) => item.listing && item.listing.accepts_trade), `${name} returned non-marketplace inventory`);
     assert(collection.preferred_store?.id === preferredStoreId, `${name} preferred store was not publicly resolved`);
@@ -123,7 +144,8 @@ async function main() {
   await database.user_profiles.update({ where: { id: preferredUserIds[0] }, data: { preferred_store_id: null } });
   try {
     const withoutPreference = await getJson(`/discovery/collections/${sanzaCollection.id}`);
-    assert(withoutPreference.collection.card_quantity === 100 && withoutPreference.collection.preferred_store === null,
+    assert(withoutPreference.collection.card_quantity === expectedQuantitiesByCollection.get(sanzaCollection.id)
+      && withoutPreference.collection.preferred_store === null,
       "null preferred store hid or malformed a public collection");
   } finally {
     await database.user_profiles.update({ where: { id: preferredUserIds[0] }, data: { preferred_store_id: preferredStoreId } });
