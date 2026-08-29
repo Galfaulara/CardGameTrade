@@ -12,6 +12,7 @@
 },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "prebuild": "prisma generate",
     "build": "tsc -p tsconfig.json",
     "bulk-import:inventory": "npm run build && node dist/scripts/bulk-inventory-import.js",
     "fixtures:marketplace-preview": "npm run build && node dist/scripts/seed-marketplace-preview-listings.js",
