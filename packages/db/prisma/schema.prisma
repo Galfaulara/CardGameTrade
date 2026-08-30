@@ -83,6 +83,7 @@ model card_sets {
   set_type       String?
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
   card_printings card_printings[]
+  store_sealed_products store_sealed_products[]
   games          games            @relation(fields: [game_id], references: [id], onUpdate: NoAction, map: "fk_card_sets_game")
 
   @@unique([game_id, code], map: "uq_card_sets_game_code")
@@ -377,6 +378,8 @@ model store_staff {
   transaction_item_custody_transaction_item_custody_received_by_staff_id_store_idTostore_staff transaction_item_custody[] @relation("transaction_item_custody_received_by_staff_id_store_idTostore_staff")
   transaction_item_custody_transaction_item_custody_released_by_staff_id_store_idTostore_staff transaction_item_custody[] @relation("transaction_item_custody_released_by_staff_id_store_idTostore_staff")
   transaction_item_custody_transaction_item_custody_verified_by_staff_id_store_idTostore_staff transaction_item_custody[] @relation("transaction_item_custody_verified_by_staff_id_store_idTostore_staff")
+  store_sealed_products_created_by_staff_id_store_idTostore_staff                              store_sealed_products[] @relation("store_sealed_products_created_by_staff_id_store_idTostore_staff")
+  store_sealed_products_updated_by_staff_id_store_idTostore_staff                              store_sealed_products[] @relation("store_sealed_products_updated_by_staff_id_store_idTostore_staff")
 
   @@unique([id, store_id], map: "uq_store_staff_id_store")
   @@unique([store_id, user_id], map: "uq_store_staff_store_user")
@@ -432,6 +435,10 @@ model stores {
   created_at               DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
   trade_mediation_enabled  Boolean                    @default(false)
+  verification_submitted_at DateTime?                 @db.Timestamptz(6)
+  verification_reviewed_at DateTime?                  @db.Timestamptz(6)
+  verification_reviewed_by_user_id String?            @db.Uuid
+  verification_review_notes String?
   inventory_item_interests inventory_item_interests[]
   inventory_items          inventory_items[]
   listing_offers           listing_offers[]
@@ -440,8 +447,64 @@ model stores {
   user_preferences         user_preferences[]
   preferred_by_users       user_profiles[]            @relation("user_profiles_preferred_store")
   wishlist_offers          wishlist_offers[]
+  verification_reviewed_by user_profiles?             @relation("stores_verification_reviewed_by_user", fields: [verification_reviewed_by_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_stores_verification_reviewed_by_user")
+  store_sealed_products    store_sealed_products[]
 
   @@index([name], map: "idx_stores_trade_mediation_eligible", where: raw("((trade_mediation_enabled = true) AND (status = 'active'::text) AND (verification_status = 'verified'::text))"))
+  @@index([verification_reviewed_by_user_id], map: "idx_stores_verification_reviewed_by_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model store_sealed_products {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  store_id            String   @db.Uuid
+  game_id             String   @db.Uuid
+  name                String
+  description         String?
+  product_type        String
+  card_set_id         String?  @db.Uuid
+  sku                 String?
+  upc                 String?
+  price               Decimal  @db.Decimal(12, 2)
+  currency_code       String
+  quantity_on_hand    Int      @default(0)
+  status              String   @default("draft")
+  featured            Boolean  @default(false)
+  display_order       Int      @default(0)
+  created_by_staff_id String   @db.Uuid
+  updated_by_staff_id String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+  stores              stores   @relation(fields: [store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_store_sealed_products_store")
+  store_games         store_games @relation(fields: [store_id, game_id], references: [store_id, game_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_store_sealed_products_store_game")
+  card_sets           card_sets? @relation(fields: [card_set_id, game_id], references: [id, game_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_set_game")
+  created_by_staff    store_staff @relation("store_sealed_products_created_by_staff_id_store_idTostore_staff", fields: [created_by_staff_id, store_id], references: [id, store_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_created_staff")
+  updated_by_staff    store_staff @relation("store_sealed_products_updated_by_staff_id_store_idTostore_staff", fields: [updated_by_staff_id, store_id], references: [id, store_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_updated_staff")
+  store_sealed_product_images store_sealed_product_images[]
+
+  @@unique([store_id, sku], map: "uq_store_sealed_products_store_sku", where: raw("(sku IS NOT NULL)"))
+  @@index([store_id, game_id, status, display_order], map: "idx_store_sealed_products_store_game_status_order")
+  @@index([store_id, status, featured, display_order], map: "idx_store_sealed_products_store_public")
+  @@index([card_set_id, game_id], map: "idx_store_sealed_products_set_game")
+  @@index([created_by_staff_id, store_id], map: "idx_store_sealed_products_created_staff")
+  @@index([updated_by_staff_id, store_id], map: "idx_store_sealed_products_updated_staff")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model store_sealed_product_images {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  store_sealed_product_id String   @db.Uuid
+  storage_provider        String   @default("supabase")
+  storage_key             String
+  sort_order              Int      @default(0)
+  is_primary              Boolean  @default(false)
+  alt_text                String?
+  created_at              DateTime @default(now()) @db.Timestamptz(6)
+  store_sealed_products   store_sealed_products @relation(fields: [store_sealed_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_store_sealed_product_images_product")
+
+  @@unique([store_sealed_product_id, storage_key], map: "uq_store_sealed_product_images_storage_key")
+  @@unique([store_sealed_product_id], map: "uq_store_sealed_product_images_primary", where: raw("(is_primary = true)"))
+  @@index([store_sealed_product_id, sort_order], map: "idx_store_sealed_product_images_product_order")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -584,6 +647,7 @@ model user_profiles {
   preferred_store                                                 stores?                    @relation("user_profiles_preferred_store", fields: [preferred_store_id], references: [id], onUpdate: NoAction, map: "fk_user_profiles_preferred_store")
   wishlist_offers                                                 wishlist_offers[]
   wishlists                                                       wishlists[]
+  stores_verification_reviewed_by                                 stores[]                   @relation("stores_verification_reviewed_by_user")
 
   @@unique([auth_provider, auth_user_id], map: "uq_user_profiles_auth")
   @@index([preferred_store_id], map: "idx_user_profiles_preferred_store_id")
@@ -763,6 +827,7 @@ model store_games {
   transactions_transactions_seller_store_id_game_idTostore_games         transactions[]             @relation("transactions_seller_store_id_game_idTostore_games")
   wishlist_offers                                                        wishlist_offers[]
   wishlists                                                              wishlists[]
+  store_sealed_products                                                  store_sealed_products[]
 
   @@id([store_id, game_id])
   @@index([game_id, store_id], map: "idx_store_games_game_mediation_enabled", where: raw("(trade_mediation_enabled = true)"))
