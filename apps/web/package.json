@@ -16,7 +16,8 @@
     "test:inventory-wishlist-game": "node --experimental-strip-types test/inventory-wishlist-game-regression.ts",
     "test:card-presentation": "node --experimental-strip-types test/card-presentation-regression.ts",
     "test:trade-mediator-picker": "node --experimental-strip-types test/trade-mediator-picker-regression.ts",
-    "test:optional-game-filter": "node --experimental-strip-types test/optional-game-filter-regression.ts"
+    "test:optional-game-filter": "node --experimental-strip-types test/optional-game-filter-regression.ts",
+    "test:bulk-inventory": "node --experimental-strip-types test/bulk-inventory-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

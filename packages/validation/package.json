@@ -14,7 +14,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test:bulk-inventory": "npm run build && node test/bulk-inventory-regression.cjs"
   },
   "dependencies": {
     "@repo/types": "*",

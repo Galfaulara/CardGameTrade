@@ -11,6 +11,9 @@
   align-items: center;
 }
 
+.headerActions { display: flex; gap: var(--space-2); align-items: center; }
+.secondaryButton { display: inline-flex; align-items: center; text-decoration: none; }
+
 .kicker {
   color: var(--color-action);
   font-size: var(--font-size-xs);

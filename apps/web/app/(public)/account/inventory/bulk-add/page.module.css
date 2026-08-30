@@ -1,0 +1,12 @@
+.page { display: grid; gap: var(--space-5); }
+.game, .defaults, .entry, .success { padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); }
+.game { display: flex; justify-content: space-between; } .game strong { color: var(--color-action); }
+.defaults { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--space-3); } .defaults h2 { grid-column: 1/-1; }
+.defaults label { display: grid; gap: var(--space-1); font-weight: 700; } .defaults input,.defaults select,.entry textarea,.reviewHeader select,.tableWrap td select { min-height: 2.75rem; padding: .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.tabs { display: flex; gap: var(--space-2); }.tabs button[aria-pressed="true"] { background: var(--color-action); color: white; }
+.tabs button,.primary,.actions button,.actions a,.reviewHeader button,.tableWrap td button { padding: .7rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-weight: 700; }
+.entry { display: grid; gap: var(--space-3); }.entry textarea { min-height: 15rem; resize: vertical; font: inherit; }
+.primary { justify-self: start; border: 0; background: var(--color-action); color: white; }.primary:disabled { opacity: .5; }
+.reviewHeader,.actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }.tableWrap { overflow-x: auto; margin-block: var(--space-4); }.tableWrap table { width: 100%; border-collapse: collapse; }.tableWrap th,.tableWrap td { padding: var(--space-3); border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; }.tableWrap td small { display:block; max-width: 18rem; }.exact { color: var(--color-success); }.ambiguous { color: #9a6700; }.unmatched,.invalid,.error { color: var(--color-danger); }.success { text-align:center; }.actions { justify-content:center; margin-top:var(--space-4); }
+@media (max-width: 52rem) { .defaults { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 36rem) { .defaults { grid-template-columns: 1fr; } .reviewHeader { align-items:flex-start; flex-direction:column; } }

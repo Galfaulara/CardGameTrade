@@ -504,6 +504,10 @@ export function InventoryManager({
             ) : null}
           </h2>
         </div>
+        <div className={styles.headerActions}>
+        <Link className={styles.secondaryButton} href={`/account/inventory/bulk-add${initialFilters.game ? `?game=${encodeURIComponent(initialFilters.game)}` : ""}`}>
+          Bulk add cards
+        </Link>
         <button
           className={styles.primaryButton}
           type="button"
@@ -511,6 +515,7 @@ export function InventoryManager({
         >
           + Add cards
         </button>
+        </div>
       </section>
       <nav className={styles.binders} aria-label="Collections and binders">
         <Link

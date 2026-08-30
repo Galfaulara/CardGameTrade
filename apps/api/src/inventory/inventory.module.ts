@@ -5,6 +5,7 @@ import { StorageModule } from "../storage/storage.module";
 import { InventoryController } from "./inventory.controller";
 import { MeInventoryController } from "./me-inventory.controller";
 import { InventoryService } from "./inventory.service";
+import { BulkInventoryService } from "./bulk-inventory.service";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { InventoryService } from "./inventory.service";
   ],
   providers: [
     InventoryService,
+    BulkInventoryService,
   ],
 })
 export class InventoryModule {}

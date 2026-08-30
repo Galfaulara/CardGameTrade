@@ -9,3 +9,4 @@ export * from "./discovery";
 export * from "./onboarding";
 export * from "./profile";
 export * from "./inventory";
+export * from "./bulk-inventory";

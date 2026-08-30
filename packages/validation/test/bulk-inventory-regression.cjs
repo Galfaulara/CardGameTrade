@@ -1,0 +1,18 @@
+const assert = require("node:assert/strict");
+const { bulkInventoryCommitSchema, bulkInventoryResolveSchema, parseBulkInventoryCsv, parseBulkInventoryLine } = require("../dist");
+
+assert.deepEqual(parseBulkInventoryLine("4 Lightning Bolt"), { source: "4 Lightning Bolt", quantity: "4", name: "Lightning Bolt", set: null, collectorNumber: null });
+assert.equal(parseBulkInventoryLine("2 Lightning Bolt [M11]").set, "M11");
+assert.equal(parseBulkInventoryLine("1 Lightning Bolt [M11] 149").collectorNumber, "149");
+assert.equal(parseBulkInventoryLine("4x Lightning Bolt").quantity, "4");
+assert.equal(parseBulkInventoryLine("   "), null);
+assert.equal(parseBulkInventoryLine("x Lightning Bolt").quantity, "");
+const canonical = parseBulkInventoryCsv("quantity,name,set,collector_number,finish,condition,language\n2,Lightning Bolt,M11,149,foil,near_mint,en");
+assert.equal(canonical.errors.length, 0); assert.equal(canonical.rows[0].collectorNumber, "149");
+const aliases = parseBulkInventoryCsv("qty,card,edition,collector,foil,condition,lang\n1,Test,TST,1,normal,mint,en");
+assert.equal(aliases.errors.length, 0); assert.equal(aliases.rows[0].name, "Test");
+assert.ok(parseBulkInventoryCsv("quantity,name,price\n1,Test,9").errors[0].includes("Unsupported"));
+assert.ok(parseBulkInventoryCsv("quantity,set\n1,TST").errors.some((value) => value.includes("name")));
+assert.equal(bulkInventoryResolveSchema.safeParse({ gameSlug: "mtg", defaults: { condition: "near_mint", language: "en" }, rows: Array.from({ length: 501 }, (_, index) => ({ source: String(index), quantity: 1, name: "Test" })) }).success, false);
+assert.equal(bulkInventoryCommitSchema.safeParse({ gameSlug: "mtg", rows: [{ quantity: 5001, printingId: "00000000-0000-4000-8000-000000000001", finish: "normal", condition: "near_mint", language: "en", collectionId: null }] }).success, false);
+console.log("Bulk inventory parsing regression passed.");

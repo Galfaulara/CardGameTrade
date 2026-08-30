@@ -10,6 +10,8 @@ import {
   Query,
 } from "@nestjs/common";
 import {
+  bulkInventoryCommitSchema,
+  bulkInventoryResolveSchema,
   createUserInventoryItemSchema,
   myInventoryListQuerySchema,
   updateUserInventoryItemSchema,
@@ -18,6 +20,8 @@ import type {
   AuthenticatedPrincipal,
 } from "../auth/auth.types";
 import type {
+  BulkInventoryCommitInput,
+  BulkInventoryResolveInput,
   CreateUserInventoryItemInput,
   MyInventoryListQuery,
   UpdateUserInventoryItemInput,
@@ -25,13 +29,38 @@ import type {
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
 import { InventoryService } from "./inventory.service";
+import { BulkInventoryService } from "./bulk-inventory.service";
 
 @Controller("me/inventory")
 export class MeInventoryController {
   constructor(
     private readonly inventoryService:
       InventoryService,
+    private readonly bulkInventoryService:
+      BulkInventoryService,
   ) {}
+
+  @Post("bulk/resolve")
+  resolveBulkInventory(
+    @CurrentUser()
+    principal:
+      AuthenticatedPrincipal,
+    @Body(new ZodValidationPipe(bulkInventoryResolveSchema))
+    input: BulkInventoryResolveInput,
+  ) {
+    return this.bulkInventoryService.resolve(principal.deckdealUserId!, input);
+  }
+
+  @Post("bulk")
+  bulkAddInventory(
+    @CurrentUser()
+    principal:
+      AuthenticatedPrincipal,
+    @Body(new ZodValidationPipe(bulkInventoryCommitSchema))
+    input: BulkInventoryCommitInput,
+  ) {
+    return this.bulkInventoryService.commit(principal.deckdealUserId!, input);
+  }
 
   @Get()
   getMyInventory(

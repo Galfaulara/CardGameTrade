@@ -41,6 +41,7 @@ export const GAME_CENTRIC_ROUTES = [
   "/search",
   "/discover",
   "/account/inventory",
+  "/account/inventory/bulk-add",
 ] as const;
 
 export const GAME_SWITCH_RESET_PARAMS = ["page", "cursor", "collection"] as const;

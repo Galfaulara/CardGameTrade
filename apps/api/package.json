@@ -21,6 +21,7 @@
     "test:store-trade-mediator-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/store-trade-mediator-game-filter-regression.js",
     "test:offer-list-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/offer-list-game-filter-regression.js",
     "test:transaction-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/transaction-game-filter-regression.js",
+    "test:bulk-inventory": "tsc -p tsconfig.test.json && node dist-test/test/bulk-inventory-regression.js",
     "test:multigame-offers-transactions-read": "tsc -p tsconfig.test.json && node dist-test/test/multigame-offers-transactions-read-regression.js",
     "sync:scryfall:sets": "npm run build && node dist/scripts/sync-scryfall-sets.js",
     "sync:scryfall:canonical": "npm run build && node dist/scripts/sync-scryfall-canonical-cards.js",
