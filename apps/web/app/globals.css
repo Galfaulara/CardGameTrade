@@ -36,6 +36,15 @@ textarea {
   font: inherit;
 }
 
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href] { cursor:pointer; }
+button:disabled,
+[aria-disabled="true"] { cursor:not-allowed;opacity:.58; }
+button { transition:background-color 150ms ease,border-color 150ms ease,color 150ms ease,box-shadow 150ms ease,transform 150ms ease; }
+@media (hover:hover) and (pointer:fine) { button:not(:disabled):hover { filter:brightness(.96); } }
+button[aria-busy="true"] { min-inline-size:8rem; }
+
 img,
 svg {
   display: block;

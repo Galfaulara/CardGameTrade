@@ -8,6 +8,7 @@ assert.equal(parseBulkInventoryLine("1 Sol Ring [SOC]").set, "SOC");
 assert.equal(parseBulkInventoryLine("1 Sol Ring (SOC)").set, "SOC");
 assert.equal(parseBulkInventoryLine("1 Sol Ring [SOC] 123").collectorNumber, "123");
 assert.equal(parseBulkInventoryLine("1 Sol Ring (SOC) 123").collectorNumber, "123");
+assert.equal(parseBulkInventoryLine("1 Lightning Bolt (M11) 149a").collectorNumber, "149a");
 assert.equal(parseBulkInventoryLine("  1   Sol Ring   ( SOC )   123  ").set, "SOC");
 assert.equal(parseBulkInventoryLine("1 Everything Comes to Dust (Doctor Who)").set, null);
 assert.equal(parseBulkInventoryLine("1 Everything Comes to Dust (Doctor Who) extra words").set, null);

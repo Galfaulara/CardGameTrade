@@ -473,6 +473,7 @@ export function InventoryManager({
   const [q, setQ] = useState(initialFilters.q);
   const [status, setStatus] = useState(initialFilters.status);
   const [condition, setCondition] = useState(initialFilters.condition);
+  const filterDirty = q.trim() !== initialFilters.q || status !== initialFilters.status || condition !== initialFilters.condition;
   const count = initialData.summary.total_card_quantity,
     entries = initialData.summary.total_inventory_row_count,
     hasFilters = Boolean(
@@ -598,7 +599,7 @@ export function InventoryManager({
             ))}
           </select>
         </label>
-        <button className={styles.secondaryButton} disabled={pending}>
+        <button className={styles.secondaryButton} disabled={pending || !filterDirty} aria-busy={pending}>
           {pending ? "Applying…" : "Apply"}
         </button>
         {hasFilters && (

@@ -152,7 +152,7 @@ export function OnboardingForm() {
         return;
       }
 
-      router.replace(`/users/${data.user.id}`);
+      router.replace("/account/profile");
       router.refresh();
     } catch {
       setGeneralError("DeckDeal onboarding is temporarily unavailable.");

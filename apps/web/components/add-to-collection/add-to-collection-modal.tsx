@@ -18,6 +18,7 @@ import type {
 } from "../../features/marketplace/api";
 import type { MyInventoryItem } from "../../features/account/inventory-types";
 import { useActiveGame } from "../../features/games/active-game-provider";
+import { groupPrintingVersions, type VersionFamily } from "../../features/catalog/version-families";
 import { authoritativeCollectionGameSlug, collectionOptionsHref } from "../../features/games/inventory-game";
 import styles from "./add-to-collection-modal.module.css";
 
@@ -96,6 +97,7 @@ export function AddToCollectionModal({
   const [card, setCard] = useState<CatalogCard | null>(null);
   const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
   const [printing, setPrinting] = useState<CatalogPrinting | null>(null);
+  const [pendingFamily, setPendingFamily] = useState<VersionFamily | null>(null);
   const [pickerOrigin, setPickerOrigin] = useState<PickerOrigin>(null);
   const [finishes, setFinishes] = useState<CatalogPrintingFinish[]>([]);
   const [collections, setCollections] = useState<CollectionOption[]>([]);
@@ -115,10 +117,12 @@ export function AddToCollectionModal({
   const savingRef = useRef(saving);
   savingRef.current = saving;
   const ranked = useMemo(() => rankCards(cards, query), [cards, query]);
+  const versionFamilies = useMemo(() => groupPrintingVersions(printings), [printings]);
 
   const loadFinishes = useCallback(
     async (value: CatalogPrinting, retainedFinish?: string) => {
       setPrinting(value);
+      setPendingFamily(null);
       setPickerOrigin(null);
       setFinishes([]);
       setFinish("");
@@ -179,6 +183,7 @@ export function AddToCollectionModal({
     setCards([]);
     setPrintings([]);
     setPrinting(null);
+    setPendingFamily(null);
     setPickerOrigin(null);
     setFinishes([]);
     setFinish("");
@@ -401,7 +406,7 @@ export function AddToCollectionModal({
                       placeholder="Card name"
                     />
                   </label>
-                  <button className={styles.primary} disabled={loading}>
+                  <button className={styles.primary} disabled={loading} aria-busy={loading}>
                     {loading ? "Searching…" : "Search"}
                   </button>
                 </form>
@@ -433,16 +438,20 @@ export function AddToCollectionModal({
                   <div className={styles.sectionHeader}>
                     <h3>Choose the exact printing</h3>
                     <span>
-                      {loading ? "Loading…" : `${printings.length} versions`}
+                      {loading ? "Loading…" : `${versionFamilies.length} versions`}
                     </span>
                   </div>
                   <ul className={styles.choices}>
-                    {printings.map((value) => (
-                      <li key={value.id}>
+                    {versionFamilies.map((family) => {
+                      const value = family.representative;
+                      return <li key={family.key}>
                         <button
                           className={styles.choice}
                           type="button"
-                          onClick={() => void loadFinishes(value, finish)}
+                          onClick={() => {
+                            if (family.printings.length === 1) void loadFinishes(value, finish);
+                            else setPendingFamily(family);
+                          }}
                         >
                           <div className={styles.thumb}>
                             {value.image_normal_uri || value.image_small_uri ? (
@@ -465,17 +474,30 @@ export function AddToCollectionModal({
                             {value.collector_number}
                           </strong>
                           <span>
-                            {value.card_sets.name} ·{" "}
-                            {value.language_code.toUpperCase()}
+                            {value.card_sets.name} · {family.printings.length} languages
                             {value.rarity ? ` · ${pretty(value.rarity)}` : ""}
                             {value.treatment
                               ? ` · ${pretty(value.treatment)}`
                               : ""}
                           </span>
                         </button>
-                      </li>
-                    ))}
+                      </li>;
+                    })}
                   </ul>
+                  {pendingFamily ? (
+                    <label className={styles.field}>
+                      <span>Language</span>
+                      <select value="" onChange={(event) => {
+                        const selected = pendingFamily.printings.find((value) => value.id === event.target.value);
+                        if (selected) void loadFinishes(selected, finish);
+                      }}>
+                        <option value="">Choose language</option>
+                        {pendingFamily.printings.map((value) => (
+                          <option key={value.id} value={value.id}>{value.language_code.toUpperCase()}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                 </section>
               )}
               {card && !pickerOrigin && !printing && loading && (
@@ -648,7 +670,7 @@ export function AddToCollectionModal({
                       >
                         Cancel
                       </button>
-                      <button className={styles.primary} disabled={saving}>
+                    <button className={styles.primary} disabled={saving} aria-busy={saving}>
                         {saving ? "Adding…" : "Add card"}
                       </button>
                     </div>

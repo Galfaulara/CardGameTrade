@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import type { BulkInventoryCommitInput, BulkInventoryResolveInput } from "@repo/validation";
+import { Prisma } from "@repo/db";
 import { DatabaseService } from "../database/database.service";
 
 const conditions = new Set(["mint", "near_mint", "lightly_played", "moderately_played", "heavily_played", "damaged"]);
@@ -26,7 +27,20 @@ export class BulkInventoryService {
       where: { game_id: game.id, normalized_name: { in: normalizedNames } },
       select: { id: true, name: true, normalized_name: true },
     });
+    const faceAliases = normalizedNames.length ? await this.database.client.$queryRaw<Array<{
+      alias: string; id: string; name: string; normalized_name: string;
+    }>>(Prisma.sql`
+      SELECT DISTINCT lower(face->>'name') alias, cc.id, cc.name, cc.normalized_name
+      FROM card_printings cp JOIN canonical_cards cc ON cc.id = cp.canonical_card_id
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(cp.raw_data->'card_faces') = 'array'
+          THEN cp.raw_data->'card_faces' ELSE '[]'::jsonb END
+      ) face
+      WHERE cp.game_id = ${game.id}::uuid AND lower(face->>'name') IN (${Prisma.join(normalizedNames)})
+    `) : [];
+    for (const alias of faceAliases) if (!canonicalCards.some((card) => card.id === alias.id)) canonicalCards.push(alias);
     const canonicalByName = new Map(canonicalCards.map((card) => [card.normalized_name, card]));
+    for (const alias of faceAliases) canonicalByName.set(alias.alias, alias);
     const printings = canonicalCards.length ? await this.database.client.card_printings.findMany({
       where: { game_id: game.id, canonical_card_id: { in: canonicalCards.map((card) => card.id) }, is_digital: false },
       select: { id: true, canonical_card_id: true, collector_number: true, language_code: true, image_small_uri: true,

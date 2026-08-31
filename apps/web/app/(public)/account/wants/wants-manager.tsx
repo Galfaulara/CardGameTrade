@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MyWishlist } from "../../../../features/auth/authenticated-api";
 import type {
@@ -8,6 +8,7 @@ import type {
   CatalogSearchResult,
 } from "../../../../features/marketplace/api";
 import type { DeckDealGame } from "../../../../features/games/active-game";
+import { groupPrintingVersions } from "../../../../features/catalog/version-families";
 import styles from "./page.module.css";
 
 const parse = async (response: Response) =>
@@ -323,7 +324,7 @@ export function WantsManager({
               </select>
             </label>
             {error ? <p className={styles.error}>{error}</p> : null}
-            <button className={styles.primary} disabled={busy}>
+            <button className={styles.primary} disabled={busy} aria-busy={busy}>
               {busy ? "Creating…" : "Create wishlist"}
             </button>
           </form>
@@ -391,8 +392,8 @@ function WishlistMetadataForm({
           <option value="public">Public</option>
         </select>
       </label>
-      <button className={styles.primary} disabled={busy}>
-        Save Wishlist details
+      <button className={styles.primary} disabled={busy} aria-busy={busy}>
+        {busy ? "Saving…" : "Save Wishlist details"}
       </button>
     </form>
   );
@@ -415,8 +416,11 @@ function AddWantDialog({
   const [mode, setMode] = useState<"general" | "printing">("general");
   const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
   const [printingId, setPrintingId] = useState("");
+  const [versionKey, setVersionKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const versionFamilies = useMemo(() => groupPrintingVersions(printings), [printings]);
+  const selectedFamily = versionFamilies.find((value) => value.key === versionKey);
   const search = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -432,6 +436,7 @@ function AddWantDialog({
     setCard(value);
     setCards([]);
     setPrintingId("");
+    setVersionKey("");
     const response = await fetch(
       `/api/catalog/cards/${encodeURIComponent(value.id)}/printings`,
     );
@@ -504,9 +509,11 @@ function AddWantDialog({
           />
           <button
             type="button"
+            disabled={busy}
+            aria-busy={busy}
             onClick={(event) => void search(event as unknown as FormEvent)}
           >
-            Search
+            {busy ? "Searching…" : "Search"}
           </button>
         </div>
         {cards.length ? (
@@ -544,24 +551,35 @@ function AddWantDialog({
               </label>
             </div>
             {mode === "printing" ? (
-              <label>
-                Printing
-                <select
-                  value={printingId}
-                  onChange={(event) => setPrintingId(event.target.value)}
-                  required
-                >
-                  <option value="">Choose printing</option>
-                  {printings.map((value) => (
-                    <option key={value.id} value={value.id}>
-                      {value.card_sets.name} ·{" "}
-                      {value.card_sets.code.toUpperCase()} #
-                      {value.collector_number} ·{" "}
-                      {value.language_code.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <>
+                <label>
+                  Version
+                  <select value={versionKey} onChange={(event) => {
+                    const family = versionFamilies.find((value) => value.key === event.target.value);
+                    setVersionKey(event.target.value);
+                    setPrintingId(family?.printings.length === 1 ? family.printings[0]!.id : "");
+                  }} required>
+                    <option value="">Choose version</option>
+                    {versionFamilies.map((family) => {
+                      const value = family.representative;
+                      return <option key={family.key} value={family.key}>
+                        {value.card_sets.name} · {value.card_sets.code.toUpperCase()} #{value.collector_number} · {family.printings.length} language{family.printings.length === 1 ? "" : "s"}
+                      </option>;
+                    })}
+                  </select>
+                </label>
+                {selectedFamily && selectedFamily.printings.length > 1 ? (
+                  <label>
+                    Language
+                    <select value={printingId} onChange={(event) => setPrintingId(event.target.value)} required>
+                      <option value="">Choose language</option>
+                      {selectedFamily.printings.map((value) => (
+                        <option key={value.id} value={value.id}>{value.language_code.toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </>
             ) : null}
             <div className={styles.fields}>
               <label>
@@ -646,7 +664,7 @@ function AddWantDialog({
             {error}
           </p>
         ) : null}
-        <button className={styles.primary} disabled={busy || !card}>
+        <button className={styles.primary} disabled={busy || !card} aria-busy={busy}>
           {busy ? "Saving…" : "Save want"}
         </button>
       </form>

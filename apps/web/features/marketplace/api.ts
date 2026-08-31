@@ -23,6 +23,8 @@ export type CatalogPrinting = CardPrinting & {
   is_reprint: boolean;
   released_at: string | null;
   image_large_uri: string | null;
+  illustration_id: string | null;
+  variation: boolean;
   card_sets: {
     id: string;
     code: string;

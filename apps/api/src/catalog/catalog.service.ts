@@ -50,12 +50,14 @@ export class CatalogService {
       return [];
     }
 
+    const aliasIds = await this.faceAliasCanonicalIds(gameId, normalizedQuery);
     return this.database.client.canonical_cards.findMany({
       where: {
         game_id: gameId,
-        normalized_name: {
-          contains: normalizedQuery,
-        },
+        OR: [
+          { normalized_name: { contains: normalizedQuery } },
+          ...(aliasIds.length ? [{ id: { in: aliasIds } }] : []),
+        ],
       },
       select: {
         id: true,
@@ -84,6 +86,22 @@ export class CatalogService {
     return query.trim().replace(/\s+/g, " ").toLowerCase().split(" ").filter(Boolean);
   }
 
+  /** Scryfall explicitly supplies card_faces; aliases are never inferred from punctuation. */
+  private async faceAliasCanonicalIds(gameId: string, normalizedQuery: string) {
+    if (!normalizedQuery) return [];
+    const rows = await this.database.client.$queryRaw<Array<{ canonical_card_id: string }>>(Prisma.sql`
+      SELECT DISTINCT cp.canonical_card_id
+      FROM card_printings cp
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(cp.raw_data->'card_faces') = 'array'
+          THEN cp.raw_data->'card_faces' ELSE '[]'::jsonb END
+      ) face
+      WHERE cp.game_id = ${gameId}::uuid
+        AND lower(face->>'name') LIKE ${`%${normalizedQuery}%`}
+    `);
+    return rows.map((row) => row.canonical_card_id);
+  }
+
   private printingSelect() {
     return {
       id: true, source_key: true, canonical_card_id: true, collector_number: true,
@@ -107,7 +125,14 @@ export class CatalogService {
 
   private mapPrinting(printing: any) {
     const { raw_data, ...safe } = printing;
-    return { ...safe, set: printing.card_sets, scryfall_uri: this.safeScryfallUri(raw_data) };
+    const raw = raw_data && typeof raw_data === "object" ? raw_data as Record<string, unknown> : {};
+    return {
+      ...safe,
+      set: printing.card_sets,
+      scryfall_uri: this.safeScryfallUri(raw_data),
+      illustration_id: typeof raw.illustration_id === "string" ? raw.illustration_id : null,
+      variation: raw.variation === true,
+    };
   }
 
   private faces(raw: unknown) {
@@ -152,14 +177,19 @@ export class CatalogService {
     const terms = this.terms(query); const page = this.positiveInteger(pageValue, 1, 1_000_000);
     const pageSize = this.positiveInteger(pageSizeValue, 60, 60);
     if (!terms.length) return { query: "", items: [], page, page_size: pageSize, total_results: 0, total_pages: 0 };
-    const where = { game_id: gameId, AND: terms.map((term) => ({ normalized_name: { contains: term } })) };
+    const normalizedQuery = terms.join(" ");
+    const aliasIds = await this.faceAliasCanonicalIds(gameId, normalizedQuery);
+    const where = { game_id: gameId, OR: [
+      { AND: terms.map((term) => ({ normalized_name: { contains: term } })) },
+      ...(aliasIds.length ? [{ id: { in: aliasIds } }] : []),
+    ] };
     const [cards, total] = await Promise.all([
       this.database.client.canonical_cards.findMany({ where, select: { id: true, game_id: true, name: true, mana_cost: true, type_line: true },
         orderBy: [{ name: "asc" }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize }),
       this.database.client.canonical_cards.count({ where }),
     ]);
     const representatives = await this.representativePrintings(cards.map((card) => card.id));
-    return { query: terms.join(" "), items: cards.map((card) => ({ ...card, representative_printing: representatives.get(card.id) ?? null })),
+    return { query: normalizedQuery, items: cards.map((card) => ({ ...card, representative_printing: representatives.get(card.id) ?? null })),
       page, page_size: pageSize, total_results: total, total_pages: Math.ceil(total / pageSize) };
   }
 
@@ -225,7 +255,7 @@ export class CatalogService {
   }
 
   async getPrintingsByCanonicalCard(canonicalCardId: string) {
-    return this.database.client.card_printings.findMany({
+    const printings = await this.database.client.card_printings.findMany({
       where: {
         canonical_card_id: canonicalCardId,
         is_digital: false,
@@ -249,6 +279,7 @@ export class CatalogService {
         image_small_uri: true,
         image_normal_uri: true,
         image_large_uri: true,
+        raw_data: true,
 
         card_sets: {
           select: {
@@ -263,6 +294,7 @@ export class CatalogService {
         released_at: "desc",
       },
     });
+    return printings.map((printing) => this.mapPrinting(printing));
   }
 
   async getPrintingFinishes(printingId: string) {

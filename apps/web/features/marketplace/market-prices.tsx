@@ -67,9 +67,11 @@ export function MarketPrices({
           <div
             key={source}
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: ".75rem",
+              display: "grid",
+              gridTemplateColumns: "max-content max-content",
+              justifyContent: "start",
+              columnGap: ".5rem",
+              rowGap: ".15rem",
             }}
           >
             <span>{source === "tcgplayer" ? "TCGplayer" : "Card Kingdom"}</span>

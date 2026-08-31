@@ -26,7 +26,7 @@ export default async function OnboardingPage() {
 
     if (currentUser.onboarded) {
       if (currentUser.account_status === "active") {
-        redirect(`/users/${currentUser.user.id}`);
+        redirect("/account/profile");
       }
 
       return <main className={styles.main}><div className={styles.shell}><Brand /><section className={styles.panel}><p className={styles.eyebrow}>DeckDeal account unavailable</p><h1>This DeckDeal account can&apos;t complete onboarding again</h1><p>Your authenticated Clerk identity is already bound to a disabled DeckDeal account.</p><Link href="/">Return to DeckDeal</Link></section></div></main>;

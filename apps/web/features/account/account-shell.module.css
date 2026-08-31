@@ -7,7 +7,7 @@
 }
 
 .shell {
-  width: min(100%, 72rem);
+  width: min(100%, 92rem);
   margin-inline: auto;
   display: grid;
   gap: var(--space-8);

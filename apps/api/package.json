@@ -18,6 +18,7 @@
     "test:multigame-discovery-read": "tsc -p tsconfig.test.json && node dist-test/test/multigame-discovery-read-regression.js",
     "test:multigame-inventory-wishlist-read": "tsc -p tsconfig.test.json && node dist-test/test/multigame-inventory-wishlist-read-regression.js",
     "test:catalog-card-detail-scryfall": "tsc -p tsconfig.test.json && node dist-test/test/catalog-card-detail-scryfall-regression.js",
+    "test:catalog-mdfc": "tsc -p tsconfig.test.json && node dist-test/test/catalog-mdfc-regression.js",
     "test:store-trade-mediator-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/store-trade-mediator-game-filter-regression.js",
     "test:offer-list-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/offer-list-game-filter-regression.js",
     "test:transaction-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/transaction-game-filter-regression.js",

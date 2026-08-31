@@ -4,6 +4,7 @@ import { DiscoveryFeedView } from "../../../components/discovery-feed/discovery-
 import styles from "./page.module.css";
 import { cookies } from "next/headers";
 import { ACTIVE_GAME_COOKIE, resolveActiveGame } from "../../../features/games/active-game";
+import { redirect } from "next/navigation";
 import { loadGames } from "../../../features/games/games.server";
 
 type View = "collections" | "stores" | "listings";
@@ -22,6 +23,10 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
   const game = resolveActiveGame(games, requestedGame, cookieStore.get(ACTIVE_GAME_COOKIE)?.value);
   const gameSuffix = game ? `&game=${encodeURIComponent(game.slug)}` : "";
   const requestedView = typeof params.view === "string" ? params.view : "collections";
+  if (requestedView === "stores") {
+    const availability = typeof params.availability === "string" ? params.availability : "all";
+    redirect(`/stores?availability=${encodeURIComponent(availability)}`);
+  }
   const view: View = viewOptions.some((item) => item.value === requestedView) ? requestedView as View : "collections";
   const filterName = view === "listings" ? "intent" : "availability";
   const requestedFilter = typeof params[filterName] === "string" ? params[filterName] : "all";

@@ -30,6 +30,7 @@ const client: any = {
       printing("printing-2", ["normal", "foil"]),
     ],
   },
+  $queryRaw: async () => [],
   $transaction: async (callback: any) =>
     callback({
       games: client.games,

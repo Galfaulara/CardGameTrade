@@ -58,7 +58,7 @@ export default async function AccountProfilePage() {
     return (
       <AccountShell
         section="profile"
-        title="Profile"
+        title="DeckDeal public profile"
         intro="Manage your DeckDeal public identity, display name, and preferred local game store without changing Clerk sign-in controls."
       >
         <ProfileForm initialProfile={profile} />
