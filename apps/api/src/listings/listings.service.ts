@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 
 import type {
+  CollectionListingInput,
   CreateUserListingInput,
   SetUserListingStatusInput,
   UpdateUserListingInput,
@@ -49,6 +50,91 @@ export class ListingsService {
     });
     if (!game) throw new BadRequestException("The selected game does not exist.");
     return game.id;
+  }
+
+  private async collectionListingCandidates(userId: string, collectionId: string, gameSlug: string) {
+    if (!gameSlug?.trim()) throw new BadRequestException("A game is required.");
+    const gameId = await this.resolveGameId(gameSlug);
+    const collection = await this.database.client.collections.findFirst({
+      where: { id: collectionId, user_id: userId, game_id: gameId },
+      select: {
+        id: true,
+        inventory_items: {
+          where: { owner_user_id: userId, owner_store_id: null, game_id: gameId },
+          select: {
+            id: true,
+            quantity: true,
+            status: true,
+            listings_listings_inventory_item_id_game_idToinventory_items: {
+              where: { status: { in: ["active", "paused"] } },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+    if (!collection) throw new NotFoundException("Collection was not found or does not belong to this user and game.");
+    const items = collection.inventory_items.map((item) => ({
+      inventory_item_id: item.id,
+      reason: item.listings_listings_inventory_item_id_game_idToinventory_items.length
+        ? "ALREADY_LISTED"
+        : item.status !== "available"
+          ? "INELIGIBLE_STATUS"
+          : item.quantity < 1
+            ? "NO_AVAILABLE_QUANTITY"
+            : "ELIGIBLE",
+    }));
+    return { gameId: gameId!, items };
+  }
+
+  async preflightCollectionListings(userId: string, collectionId: string, gameSlug: string) {
+    const result = await this.collectionListingCandidates(userId, collectionId, gameSlug);
+    return {
+      requested_items: result.items.length,
+      eligible: result.items.filter((item) => item.reason === "ELIGIBLE").length,
+      skipped_already_listed: result.items.filter((item) => item.reason === "ALREADY_LISTED").length,
+      skipped_ineligible: result.items.filter((item) => item.reason !== "ELIGIBLE" && item.reason !== "ALREADY_LISTED").length,
+      items: result.items,
+    };
+  }
+
+  async createCollectionListings(userId: string, collectionId: string, input: CollectionListingInput) {
+    const user = await this.database.client.user_profiles.findFirst({ where: { id: userId, status: "active" }, select: { id: true } });
+    if (!user) throw new ForbiddenException("Listings cannot be created for an inactive user.");
+    const candidates = await this.collectionListingCandidates(userId, collectionId, input.gameSlug);
+    const eligibleIds = candidates.items.filter((item) => item.reason === "ELIGIBLE").map((item) => item.inventory_item_id);
+    const preferredStoreId = await this.resolvePreferredStoreForNewListing(userId, candidates.gameId, input.preferredStoreId);
+    await this.database.client.$transaction(async (transaction) => {
+      const current = await transaction.inventory_items.findMany({
+        where: { id: { in: eligibleIds }, collection_id: collectionId, owner_user_id: userId, owner_store_id: null, game_id: candidates.gameId, status: "available", quantity: { gt: 0 } },
+        select: { id: true },
+      });
+      if (current.length !== eligibleIds.length) throw new ConflictException("Collection inventory changed after preflight. Review the collection again.");
+      const newlyOpen = await transaction.listings.count({ where: { inventory_item_id: { in: eligibleIds }, status: { in: ["active", "paused"] } } });
+      if (newlyOpen) throw new ConflictException("A collection item was listed after preflight. Review the collection again.");
+      if (eligibleIds.length) await transaction.listings.createMany({
+        data: eligibleIds.map((inventoryItemId) => ({
+          game_id: candidates.gameId,
+          inventory_item_id: inventoryItemId,
+          seller_user_id: userId,
+          seller_store_id: null,
+          accepts_cash: input.acceptsCash,
+          accepts_trade: input.acceptsTrade,
+          asking_price: input.acceptsCash ? input.askingPrice : null,
+          currency_code: input.acceptsCash ? input.currencyCode : null,
+          preferred_store_id: preferredStoreId,
+          title: input.title ?? null,
+          description: input.description ?? null,
+          status: "active",
+        })),
+      });
+    });
+    return {
+      requested_items: candidates.items.length,
+      created_listings: eligibleIds.length,
+      skipped_already_listed: candidates.items.filter((item) => item.reason === "ALREADY_LISTED").length,
+      skipped_ineligible: candidates.items.filter((item) => item.reason !== "ELIGIBLE" && item.reason !== "ALREADY_LISTED").length,
+    };
   }
 
   private async findEligibleTradeStore(

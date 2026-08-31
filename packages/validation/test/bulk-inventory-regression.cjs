@@ -4,6 +4,15 @@ const { bulkInventoryCommitSchema, bulkInventoryResolveSchema, parseBulkInventor
 assert.deepEqual(parseBulkInventoryLine("4 Lightning Bolt"), { source: "4 Lightning Bolt", quantity: "4", name: "Lightning Bolt", set: null, collectorNumber: null });
 assert.equal(parseBulkInventoryLine("2 Lightning Bolt [M11]").set, "M11");
 assert.equal(parseBulkInventoryLine("1 Lightning Bolt [M11] 149").collectorNumber, "149");
+assert.equal(parseBulkInventoryLine("1 Sol Ring [SOC]").set, "SOC");
+assert.equal(parseBulkInventoryLine("1 Sol Ring (SOC)").set, "SOC");
+assert.equal(parseBulkInventoryLine("1 Sol Ring [SOC] 123").collectorNumber, "123");
+assert.equal(parseBulkInventoryLine("1 Sol Ring (SOC) 123").collectorNumber, "123");
+assert.equal(parseBulkInventoryLine("  1   Sol Ring   ( SOC )   123  ").set, "SOC");
+assert.equal(parseBulkInventoryLine("1 Everything Comes to Dust (Doctor Who)").set, null);
+assert.equal(parseBulkInventoryLine("1 Everything Comes to Dust (Doctor Who) extra words").set, null);
+assert.equal(parseBulkInventoryLine("1 Sol Ring (SOC").set, null);
+assert.equal(parseBulkInventoryLine("1 Sol Ring [SOC").set, null);
 assert.equal(parseBulkInventoryLine("4x Lightning Bolt").quantity, "4");
 assert.equal(parseBulkInventoryLine("   "), null);
 assert.equal(parseBulkInventoryLine("x Lightning Bolt").quantity, "");

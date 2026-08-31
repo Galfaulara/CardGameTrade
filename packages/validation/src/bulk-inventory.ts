@@ -84,13 +84,15 @@ export function parseBulkInventoryLine(
   if (!source) return null;
   const prefix = source.match(/^(\d+)\s*x?\s+(.+)$/i);
   if (!prefix) return { source, quantity: "", name: source };
-  const details = prefix[2]!.match(/^(.+?)\s+\[([^\]]+)\](?:\s+(\S+))?$/);
+  const details = prefix[2]!.match(
+    /^(.+?)\s+(?:\[([^\]]+)\]|\(\s*([A-Za-z0-9]{2,10})\s*\))(?:\s+(\S+))?$/,
+  );
   return {
     source,
     quantity: prefix[1]!,
     name: (details?.[1] ?? prefix[2]!).trim(),
-    set: details?.[2]?.trim() || null,
-    collectorNumber: details?.[3]?.trim() || null,
+    set: (details?.[2] ?? details?.[3])?.trim() || null,
+    collectorNumber: details?.[4]?.trim() || null,
   };
 }
 

@@ -1088,8 +1088,9 @@ export class InventoryService {
       );
     }
 
-    return this.database.client.collections.create({
-      data: {
+    try {
+      return await this.database.client.collections.create({
+        data: {
         user_id: userId,
         game_id: game.id,
         name: input.name,
@@ -1099,8 +1100,14 @@ export class InventoryService {
 
         visibility:
           input.visibility,
-      },
-    });
+        },
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") {
+        throw new ConflictException("A collection with this name already exists for this user and game.");
+      }
+      throw error;
+    }
   }
 
   async setUserInventoryCollection(

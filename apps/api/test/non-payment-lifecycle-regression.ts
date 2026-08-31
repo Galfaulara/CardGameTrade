@@ -47,7 +47,7 @@ export async function runNonPaymentLifecycleRegression() {
 
     for (const [actor, ownerId, suffix] of [[user1, USER_1_ID, "seller"], [user2, USER_2_ID, "offerer"]] as const) {
       const collectionResponse = await harness.as(actor).post(`/api/inventory/users/${ownerId}/collections`)
-        .send({ name: `${marker} ${suffix}`, description: marker, visibility: "public" }).expect(201);
+        .send({ gameSlug: "mtg", name: `${marker} ${suffix}`, description: marker, visibility: "public" }).expect(201);
       created.collections.push(collectionResponse.body.id);
     }
 

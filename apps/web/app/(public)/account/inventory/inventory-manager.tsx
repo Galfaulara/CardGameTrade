@@ -11,6 +11,7 @@ import type {
 import type { MarketPrice } from "../../../../features/marketplace/api";
 import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import styles from "./page.module.css";
+import { CollectionActions } from "./collection-actions";
 
 type Status = "all" | "available" | "not_for_trade" | "reserved" | "in_trade";
 type Condition =
@@ -505,6 +506,10 @@ export function InventoryManager({
           </h2>
         </div>
         <div className={styles.headerActions}>
+        <CollectionActions
+          gameSlug={initialFilters.game}
+          collectionId={collections.some((value) => value.id === initialFilters.collection) ? initialFilters.collection : undefined}
+        />
         <Link className={styles.secondaryButton} href={`/account/inventory/bulk-add${initialFilters.game ? `?game=${encodeURIComponent(initialFilters.game)}` : ""}`}>
           Bulk add cards
         </Link>

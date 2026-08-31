@@ -363,6 +363,16 @@ export const listingStatusSchema =
     "removed",
   ]);
 
+const listingSettingsFields = {
+  acceptsCash: z.boolean().default(false),
+  acceptsTrade: z.boolean().default(true),
+  askingPrice: z.number().nonnegative().nullable().optional(),
+  currencyCode: z.string().trim().length(3).transform((value) => value.toUpperCase()).nullable().optional(),
+  preferredStoreId: z.string().uuid().nullable().optional(),
+  title: z.string().trim().min(1).nullable().optional(),
+  description: z.string().trim().min(1).nullable().optional(),
+};
+
 export const createUserListingSchema =
   z
     .object({
@@ -370,50 +380,7 @@ export const createUserListingSchema =
         .string()
         .uuid(),
 
-      acceptsCash: z
-        .boolean()
-        .default(false),
-
-      acceptsTrade: z
-        .boolean()
-        .default(true),
-
-      askingPrice: z
-        .number()
-        .nonnegative()
-        .nullable()
-        .optional(),
-
-      currencyCode: z
-        .string()
-        .trim()
-        .length(3)
-        .transform(
-          (value) =>
-            value.toUpperCase(),
-        )
-        .nullable()
-        .optional(),
-
-      preferredStoreId: z
-        .string()
-        .uuid()
-        .nullable()
-        .optional(),
-
-      title: z
-        .string()
-        .trim()
-        .min(1)
-        .nullable()
-        .optional(),
-
-      description: z
-        .string()
-        .trim()
-        .min(1)
-        .nullable()
-        .optional(),
+      ...listingSettingsFields,
     })
     .strict()
     .superRefine(
@@ -496,6 +463,16 @@ export const createUserListingSchema =
         }
       },
     );
+
+export const collectionListingInputSchema = z.object({
+  gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
+  ...listingSettingsFields,
+}).strict().superRefine((value, context) => {
+  if (!value.acceptsCash && !value.acceptsTrade) context.addIssue({ code: z.ZodIssueCode.custom, message: "A listing must accept cash, trade, or both.", path: ["acceptsTrade"] });
+  if (value.acceptsCash && value.askingPrice == null) context.addIssue({ code: z.ZodIssueCode.custom, message: "askingPrice is required when acceptsCash is true.", path: ["askingPrice"] });
+  if (value.acceptsCash && !value.currencyCode) context.addIssue({ code: z.ZodIssueCode.custom, message: "currencyCode is required when acceptsCash is true.", path: ["currencyCode"] });
+  if (!value.acceptsCash && (value.askingPrice != null || value.currencyCode != null)) context.addIssue({ code: z.ZodIssueCode.custom, message: "askingPrice and currencyCode cannot be provided when acceptsCash is false.", path: ["acceptsCash"] });
+});
 
 export const updateUserListingSchema =
   z
@@ -1721,6 +1698,11 @@ export type ListingStatus =
 export type CreateUserListingInput =
   z.infer<
     typeof createUserListingSchema
+  >;
+
+export type CollectionListingInput =
+  z.infer<
+    typeof collectionListingInputSchema
   >;
 
 export type UpdateUserListingInput =

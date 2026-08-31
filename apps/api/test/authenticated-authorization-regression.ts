@@ -54,14 +54,14 @@ export async function runAuthenticatedAuthorizationRegression() {
     await harness.as(user2).get(`/api/inventory/users/${USER_1_ID}/items`).expect(403);
 
     const collection1 = await harness.as(user1).post(`/api/inventory/users/${USER_1_ID}/collections`)
-      .send({ name: `${marker} one`, visibility: "public" }).expect(201);
+      .send({ gameSlug: "mtg", name: `${marker} one`, visibility: "public" }).expect(201);
     cleanup.collections.push(collection1.body.id);
     const collection2 = await harness.as(user2).post(`/api/inventory/users/${USER_2_ID}/collections`)
-      .send({ name: `${marker} two`, visibility: "public" }).expect(201);
+      .send({ gameSlug: "mtg", name: `${marker} two`, visibility: "public" }).expect(201);
     cleanup.collections.push(collection2.body.id);
     await harness.as(user1).get(`/api/inventory/users/${USER_1_ID}/collections`).expect(200);
     await harness.as(user2).get(`/api/inventory/users/${USER_1_ID}/collections`).expect(403);
-    await harness.as(user2).post(`/api/inventory/users/${USER_1_ID}/collections`).send({ name: `${marker} spoof`, visibility: "private" }).expect(403);
+    await harness.as(user2).post(`/api/inventory/users/${USER_1_ID}/collections`).send({ gameSlug: "mtg", name: `${marker} spoof`, visibility: "private" }).expect(403);
 
     const inventoryBody = (collectionId: string, note: string) => ({ printingId: physical.printing_id, finish: physical.finish, collectionId, condition: "near_mint", quantity: 1, isSigned: false, isAltered: false, isGraded: false, notes: note });
     const inventory1 = await harness.as(user1).post(`/api/inventory/users/${USER_1_ID}/items`).send(inventoryBody(collection1.body.id, marker)).expect(201);
@@ -102,7 +102,7 @@ export async function runAuthenticatedAuthorizationRegression() {
     await harness.as(user2).patch(`/api/offers/${rejectOffer}/users/${USER_2_ID}/reject`).expect(404);
     await harness.as(user1).patch(`/api/offers/${rejectOffer}/users/${USER_1_ID}/reject`).expect(200);
 
-    const wishlist = await harness.as(user1).post(`/api/wishlists/users/${USER_1_ID}`).send({ name: marker, visibility: "public", preferredStoreId: staff.store_id }).expect(201);
+    const wishlist = await harness.as(user1).post(`/api/wishlists/users/${USER_1_ID}`).send({ gameSlug: "mtg", name: marker, visibility: "public", preferredStoreId: staff.store_id }).expect(201);
     cleanup.wishlists.push(wishlist.body.id);
     await harness.as(user1).get(`/api/wishlists/${wishlist.body.id}/users/${USER_1_ID}`).expect(200);
     await harness.as(user2).get(`/api/wishlists/${wishlist.body.id}/users/${USER_1_ID}`).expect(403);

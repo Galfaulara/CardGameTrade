@@ -175,12 +175,19 @@ export async function runMyInventoryRegression() {
     await harness.as(unmappedPrincipal(`inventory-unmapped-${seed.slice(0, 8)}`)).get("/api/me/inventory").expect(403);
     await harness.as({ ...user1, accountStatus: "disabled" }).get("/api/me/inventory").expect(403);
 
-    const publicCollection = await harness.as(user1).post(`/api/inventory/users/${USER_1_ID}/collections`).send({
+    await harness.as(null).post("/api/me/collections").send({ gameSlug: "mtg", name: "Rejected", visibility: "private" }).expect(401);
+    await harness.as(user1).post("/api/me/collections").send({ gameSlug: "mtg", name: `Spoof ${seed.slice(0, 8)}`, visibility: "private", user_id: USER_2_ID }).expect(400);
+    await harness.as(user1).post("/api/me/collections").send({ gameSlug: `missing-${seed.slice(0, 8)}`, name: "Wrong game", visibility: "private" }).expect(400);
+
+    const publicCollection = await harness.as(user1).post("/api/me/collections").send({
       gameSlug: "mtg",
       name: `My Inventory ${seed.slice(0, 8)}`,
       visibility: "public",
     }).expect(201);
     cleanup.collections.push(publicCollection.body.id);
+    await harness.as(user1).post("/api/me/collections").send({ gameSlug: "mtg", name: `My Inventory ${seed.slice(0, 8)}`, visibility: "private" }).expect(409);
+    const ownedCollections = await harness.as(user1).get("/api/me/collections?gameSlug=mtg").expect(200);
+    assert(ownedCollections.body.some((collection: any) => collection.id === publicCollection.body.id), "A newly created collection must immediately appear in authenticated destination options.");
 
     const createBody = (
       note: string,

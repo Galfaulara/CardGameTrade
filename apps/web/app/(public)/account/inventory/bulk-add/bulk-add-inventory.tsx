@@ -10,6 +10,7 @@ import {
 } from "@repo/validation";
 import type { DeckDealGame } from "../../../../../features/games/active-game";
 import styles from "./page.module.css";
+import { applyBulkPrintingSelection } from "../../../../../features/inventory/bulk-review";
 
 type Candidate = {
   id: string;
@@ -142,24 +143,7 @@ export function BulkAddInventory({
       (current) =>
         current?.map((row) => {
           if (row.index !== index) return row;
-          const candidate = row.candidates[candidateIndex];
-          if (!candidate || !chosenFinish)
-            return {
-              ...row,
-              status: "AMBIGUOUS",
-              printingId: undefined,
-              finish: null,
-            };
-          return {
-            ...row,
-            status: "EXACT",
-            printingId: candidate.id,
-            finish: chosenFinish,
-            language: candidate.language_code,
-            set: candidate.card_sets.code,
-            collectorNumber: candidate.collector_number,
-            message: null,
-          };
+          return applyBulkPrintingSelection(row, candidateIndex, chosenFinish);
         }) ?? null,
     );
   const submit = async () => {
@@ -358,12 +342,13 @@ export function BulkAddInventory({
                       {row.collectorNumber ?? "No number"} ·{" "}
                       {row.finish ?? "No finish"} · {row.language}
                       <br />
-                        {(row.status === "AMBIGUOUS" ||
-                          (row.status === "INVALID" &&
-                            row.candidates.length > 0)) && (
+                        {row.candidates.length > 1 || row.status === "AMBIGUOUS" ||
+                          (row.status === "INVALID" && row.candidates.length > 0) ? (
                         <select
                           aria-label={`Resolve row ${row.index + 1}`}
-                          defaultValue=""
+                          value={row.printingId && row.finish
+                            ? `${row.candidates.findIndex((candidate) => candidate.id === row.printingId)}|${row.finish}`
+                            : ""}
                           onChange={(e) => {
                             const [candidateIndex, selectedFinish] =
                               e.target.value.split("|");
@@ -391,7 +376,7 @@ export function BulkAddInventory({
                             )),
                           )}
                         </select>
-                      )}
+                      ) : null}
                     </td>
                     <td>
                       {pretty(row.condition)}
