@@ -20,6 +20,8 @@ import {
   shouldShowScryfall,
 } from "../../../../features/cards/presentation";
 import styles from "./page.module.css";
+import { CardFaceViewer } from "../../../../components/card-face-viewer/card-face-viewer";
+import { trueDfcFaces } from "../../../../features/cards/card-faces";
 
 export const dynamic = "force-dynamic";
 const value = (input: unknown) =>
@@ -105,6 +107,7 @@ export default async function CardPage({
   const image = cardImageState(
     selected?.image_large_uri ?? selected?.image_normal_uri ?? null,
   );
+  const dfcFaces = trueDfcFaces(selected);
   const listingHref = (page: number) =>
     `/cards/${canonicalCardId}?${new URLSearchParams({ ...query, offersPage: String(page) }).toString()}`;
   return (
@@ -112,7 +115,9 @@ export default async function CardPage({
       <ResourceGameSync gameId={card.game_id} />
       <NavigationBack fallback="/search" />
       <section className={styles.hero}>
-        <div className={styles.art}>
+        {dfcFaces && selected ? (
+          <CardFaceViewer front={dfcFaces[0]} back={dfcFaces[1]} canonicalCardId={canonicalCardId} printingId={selected.id} language={selected.language_code} />
+        ) : <div className={styles.art}>
           {image.kind === "image" ? (
             <Image
               src={image.url}
@@ -124,11 +129,11 @@ export default async function CardPage({
           ) : (
             <span>Card image unavailable</span>
           )}
-        </div>
+        </div>}
         <div className={styles.info}>
           <p className={styles.eyebrow}>DeckDeal card catalog</p>
           <h1>{card.name}</h1>
-          {isMtg && card.faces?.length
+          {dfcFaces ? null : isMtg && card.faces?.length
             ? card.faces.map((face: any, index: number) => (
                 <section className={styles.face} key={`${face.name}-${index}`}>
                   <h2>{face.name ?? `Face ${index + 1}`}</h2>

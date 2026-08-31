@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const form = readFileSync("components/search-form/search-form.tsx", "utf8");
+const wants = readFileSync("app/(public)/account/wants/wants-manager.tsx", "utf8");
+assert.ok(form.includes("useTransition()") && form.includes("startSearch"), "Every router search must create request-scoped pending state.");
+assert.ok(form.includes("onSubmit={submit}"), "Enter and Search button must use the same submit state machine.");
+assert.ok(form.includes('isSearching ? "Searching…" : "Search"') && form.includes("disabled={isSearching}"));
+assert.ok(!form.includes("results.length"), "Existing results must never suppress pending feedback.");
+assert.ok(wants.includes("setSearching(true)") && wants.includes("finally") && wants.includes("setSearching(false)"), "Modal searches must re-enter and clear pending on every success/error request.");
+assert.ok(wants.includes("search(1)") && wants.includes("search(searchPage + 1)"), "New queries and pagination must share explicit request state.");
+assert.ok(wants.includes("aria-busy={searching}"), "Pagination and query controls must expose pending state.");
+console.log("Catalog search request-state regression passed.");

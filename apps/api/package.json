@@ -19,6 +19,7 @@
     "test:multigame-inventory-wishlist-read": "tsc -p tsconfig.test.json && node dist-test/test/multigame-inventory-wishlist-read-regression.js",
     "test:catalog-card-detail-scryfall": "tsc -p tsconfig.test.json && node dist-test/test/catalog-card-detail-scryfall-regression.js",
     "test:catalog-mdfc": "tsc -p tsconfig.test.json && node dist-test/test/catalog-mdfc-regression.js",
+    "test:card-detail-dfc": "tsc -p tsconfig.test.json && node dist-test/test/card-detail-dfc-regression.js",
     "test:bulk-wishlist-items": "tsc -p tsconfig.test.json && node dist-test/test/bulk-wishlist-items-atomic-regression.js",
     "test:store-trade-mediator-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/store-trade-mediator-game-filter-regression.js",
     "test:offer-list-game-filter": "tsc -p tsconfig.test.json && node dist-test/test/offer-list-game-filter-regression.js",

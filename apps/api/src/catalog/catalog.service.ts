@@ -132,6 +132,8 @@ export class CatalogService {
       scryfall_uri: this.safeScryfallUri(raw_data),
       illustration_id: typeof raw.illustration_id === "string" ? raw.illustration_id : null,
       variation: raw.variation === true,
+      layout: typeof raw.layout === "string" ? raw.layout : null,
+      faces: this.faces(raw_data),
     };
   }
 
@@ -146,7 +148,16 @@ export class CatalogService {
       toughness: typeof face.toughness === "string" ? face.toughness : null,
       loyalty: typeof face.loyalty === "string" ? face.loyalty : null,
       defense: typeof face.defense === "string" ? face.defense : null,
+      image_small_uri: this.safeImageUri(face.image_uris?.small),
+      image_normal_uri: this.safeImageUri(face.image_uris?.normal),
+      image_large_uri: this.safeImageUri(face.image_uris?.large),
     }));
+  }
+
+  private safeImageUri(value: unknown) {
+    if (typeof value !== "string") return null;
+    try { const url = new URL(value); return url.protocol === "https:" ? url.href : null; }
+    catch { return null; }
   }
 
   private characteristics(raw: unknown) {
