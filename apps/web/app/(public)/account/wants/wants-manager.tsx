@@ -11,6 +11,7 @@ import type {
 } from "../../../../features/marketplace/api";
 import type { DeckDealGame } from "../../../../features/games/active-game";
 import { groupPrintingVersions } from "../../../../features/catalog/version-families";
+import { ADD_WANT_SEARCH_PAGE_SIZE, addWantQueryChanged, addWantSearchHref } from "../../../../features/catalog/add-want-search";
 import { BulkWantsDialog } from "./bulk-wants-dialog";
 import styles from "./page.module.css";
 
@@ -441,6 +442,11 @@ function AddWantDialog({
 }) {
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState<CatalogSearchResult["items"]>([]);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchPageSize, setSearchPageSize] = useState(ADD_WANT_SEARCH_PAGE_SIZE);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchTotalPages, setSearchTotalPages] = useState(0);
+  const [searchedQuery, setSearchedQuery] = useState("");
   const [card, setCard] = useState<CatalogCard | null>(null);
   const [mode, setMode] = useState<"general" | "printing">("general");
   const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
@@ -449,23 +455,31 @@ function AddWantDialog({
   const [finishes, setFinishes] = useState<CatalogPrintingFinish[]>([]);
   const [finish, setFinish] = useState("");
   const [busy, setBusy] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const versionFamilies = useMemo(() => groupPrintingVersions(printings), [printings]);
   const selectedFamily = versionFamilies.find((value) => value.key === versionKey);
-  const search = async () => {
-    if (busy || !query.trim()) return;
-    setBusy(true);
+  const search = async (page = 1) => {
+    const term = query.trim();
+    if (searching || !term) return;
+    setSearching(true);
     setError(null);
     try {
       const response = await fetch(
-        `/api/catalog/search?q=${encodeURIComponent(query)}&game=${encodeURIComponent(game.slug)}`,
+        addWantSearchHref(term, game.slug, page),
       );
       if (!response.ok) throw new Error();
-      setCards(((await response.json()) as CatalogSearchResult).items);
+      const result = (await response.json()) as CatalogSearchResult;
+      setCards(result.items);
+      setSearchPage(result.page);
+      setSearchPageSize(result.page_size);
+      setSearchTotal(result.total_results);
+      setSearchTotalPages(result.total_pages);
+      setSearchedQuery(term);
     } catch {
       setError("Catalog search failed. Please try again.");
     } finally {
-      setBusy(false);
+      setSearching(false);
     }
   };
   const choose = async (value: CatalogCard) => {
@@ -555,28 +569,37 @@ function AddWantDialog({
           <input
             aria-label="Search cards"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setQuery(value);
+              if (addWantQueryChanged(value, searchedQuery)) {
+                setCards([]);
+                setSearchPage(1);
+                setSearchTotal(0);
+                setSearchTotalPages(0);
+              }
+            }}
             placeholder="Search DeckDeal catalog"
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                void search();
+                void search(1);
               }
             }}
           />
           <button
             className={styles.searchButton}
             type="button"
-            disabled={busy}
-            aria-busy={busy}
-            onClick={() => void search()}
+            disabled={searching}
+            aria-busy={searching}
+            onClick={() => void search(1)}
           >
-            {busy ? "Searching…" : "Search"}
+            {searching ? "Searching…" : "Search"}
           </button>
         </div>
         {cards.length ? (
           <div className={styles.results}>
-            {cards.slice(0, 12).map((value) => (
+            {cards.map((value) => (
               <button
                 className={styles.resultCard}
                 type="button"
@@ -599,6 +622,21 @@ function AddWantDialog({
               </button>
             ))}
           </div>
+        ) : null}
+        {searchTotal > 0 ? (
+          <nav className={styles.resultPagination} aria-label="Add Want search result pages" aria-busy={searching}>
+            <p>
+              Showing {(searchPage - 1) * searchPageSize + 1}–{Math.min(searchPage * searchPageSize, searchTotal)} of {searchTotal.toLocaleString()} cards · Page {searchPage} of {searchTotalPages}
+            </p>
+            <div>
+              <button className={styles.secondary} type="button" disabled={searching || searchPage <= 1} onClick={() => void search(searchPage - 1)} aria-label="Previous card search page">
+                {searching ? "Loading…" : "Previous"}
+              </button>
+              <button className={styles.secondary} type="button" disabled={searching || searchPage >= searchTotalPages} onClick={() => void search(searchPage + 1)} aria-label="Next card search page">
+                {searching ? "Loading…" : "Next"}
+              </button>
+            </div>
+          </nav>
         ) : null}
         {card ? (
           <>

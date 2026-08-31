@@ -21,7 +21,8 @@
     "test:owner-wants": "node --experimental-strip-types test/owner-wants-regression.ts",
     "test:ux-hardening": "node --experimental-strip-types test/ux-hardening-regression.ts",
     "test:public-profile-banner": "node --experimental-strip-types test/public-profile-banner-regression.ts",
-    "test:bulk-wants": "node --experimental-strip-types test/bulk-wants-regression.ts"
+    "test:bulk-wants": "node --experimental-strip-types test/bulk-wants-regression.ts",
+    "test:add-want-pagination": "node --experimental-strip-types test/add-want-pagination-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

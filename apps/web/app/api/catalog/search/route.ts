@@ -27,6 +27,9 @@ export async function GET(
       "page",
     ),
   );
+  const pageSizeParam = request.nextUrl.searchParams.get("pageSize");
+  const requestedPageSize = pageSizeParam ? normalizePage(pageSizeParam) : 60;
+  const pageSize = Math.min(requestedPageSize, 60);
 
   try {
     const games = await loadGames();
@@ -40,7 +43,7 @@ export async function GET(
         query: query.trim(),
         items: [],
         page,
-        page_size: 60,
+        page_size: pageSize,
         total_results: 0,
         total_pages: 0,
         cards: [],
@@ -51,6 +54,7 @@ export async function GET(
         query,
         page,
         gameId: game.id,
+        pageSize,
       }),
     );
   } catch {

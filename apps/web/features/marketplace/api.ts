@@ -398,28 +398,32 @@ export function catalogSearchApiPath({
   query,
   page,
   gameId,
+  pageSize = 60,
 }: {
   query: string;
   page: number;
   gameId: string;
+  pageSize?: number;
 }) {
-  return `/catalog/games/${encodeURIComponent(gameId)}/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=60`;
+  return `/catalog/games/${encodeURIComponent(gameId)}/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=${pageSize}`;
 }
 
 export async function searchCatalog({
   query,
   page = 1,
   gameId,
+  pageSize = 60,
 }: {
   query: string;
   page?: number;
   gameId: string;
+  pageSize?: number;
 }): Promise<CatalogSearchResult> {
   const empty = {
     query: query.trim(),
     items: [],
     page,
-    page_size: 60,
+    page_size: pageSize,
     total_results: 0,
     total_pages: 0,
     cards: [],
@@ -427,7 +431,7 @@ export async function searchCatalog({
   if (!query.trim()) return empty;
   try {
     const result = await apiGet<Omit<CatalogSearchResult, "cards">>(
-      catalogSearchApiPath({ query, page, gameId }),
+      catalogSearchApiPath({ query, page, gameId, pageSize }),
     );
     return {
       ...result,
