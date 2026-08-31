@@ -10,7 +10,7 @@ assert.equal(parseBulkInventoryLine("2 Sol Ring [CMM]")?.set, "CMM");
 assert.equal(parseBulkInventoryLine("1 Agadeem's Awakening (ZNR) 90")?.name, "Agadeem's Awakening");
 assert.ok(manager.includes("Bulk add wants") && manager.includes("BulkWantsDialog"), "Owned Wishlist must expose first-class Bulk Add Wants.");
 assert.ok(bulk.includes("parseBulkInventoryLine") && bulk.includes("parseBulkInventoryCsv"), "Bulk Wants must reuse the shared parser.");
-assert.ok(bulk.includes("/api/me/wishlists/") && !bulk.includes("/api/me/inventory"), "Bulk Wants must create wishlist_items, never inventory_items.");
+assert.ok(bulk.includes("/items/bulk?gameSlug=") && !bulk.includes("/api/me/inventory"), "Bulk Wants must use one authenticated bulk wishlist_items mutation, never inventory_items.");
 assert.ok(bulk.includes('mode: input.set ? "printing"') && bulk.includes('"general"'), "Name-only rows must remain canonical-card Wants while set rows resolve exact versions.");
 assert.ok(bulk.includes("groupPrintingVersions") && bulk.includes("Choose a language"), "Exact Wants must preserve version-family then language selection.");
 assert.ok(bulk.includes("ALREADY_IN_WISHLIST") && bulk.includes("NEEDS_SELECTION") && bulk.includes("INVALID"), "Review statuses must be explicit.");

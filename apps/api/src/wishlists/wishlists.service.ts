@@ -8,6 +8,7 @@ import {
 
 import type {
   AcceptWishlistOfferInput,
+  BulkCreateWishlistItemsInput,
   CreateUserWishlistInput,
   CreateWishlistItemInput,
   CreateWishlistOfferInput,
@@ -715,12 +716,13 @@ export class WishlistsService {
       | string
       | null,
     gameId: string,
+    client: any = this.database.client,
   ) {
     if (
       canonicalCardId
     ) {
       const card =
-        await this.database.client.canonical_cards.findUnique({
+        await client.canonical_cards.findUnique({
           where: {
             id:
               canonicalCardId,
@@ -758,7 +760,7 @@ export class WishlistsService {
     }
 
     const printing =
-      await this.database.client.card_printings.findUnique({
+      await client.card_printings.findUnique({
         where: {
           id:
             printingId,
@@ -788,7 +790,7 @@ export class WishlistsService {
       desiredFinish
     ) {
       const finish =
-        await this.database.client.printing_finishes.findFirst({
+        await client.printing_finishes.findFirst({
           where: {
             printing_id:
               printingId,
@@ -1409,6 +1411,78 @@ export class WishlistsService {
       );
 
     return hydrated[0];
+  }
+
+  async createWishlistItemsBulk(
+    userId: string,
+    wishlistId: string,
+    gameSlug: string,
+    input: BulkCreateWishlistItemsInput,
+  ) {
+    const gameId = await this.resolveGameId(gameSlug);
+    return this.database.client.$transaction(async (transaction) => {
+      const wishlist = await transaction.wishlists.findFirst({
+        where: { id: wishlistId, user_id: userId, game_id: gameId, status: "active" },
+        select: { id: true, game_id: true },
+      });
+      if (!wishlist) throw new NotFoundException("Active wishlist was not found or does not belong to this user and game.");
+
+      const targetKeys = input.items.map((item) => item.canonicalCardId
+        ? `card:${item.canonicalCardId}` : `printing:${item.printingId}`);
+      if (new Set(targetKeys).size !== targetKeys.length) {
+        throw new ConflictException("The confirmed batch contains the same card target more than once.");
+      }
+
+      // Complete target/game/finish validation for every row before the first write.
+      for (const item of input.items) {
+        await this.validateWishlistTargetExists(
+          item.canonicalCardId ?? null,
+          item.printingId ?? null,
+          item.desiredFinish ?? null,
+          wishlist.game_id,
+          transaction,
+        );
+      }
+
+      const canonicalIds = input.items.flatMap((item) => item.canonicalCardId ? [item.canonicalCardId] : []);
+      const printingIds = input.items.flatMap((item) => item.printingId ? [item.printingId] : []);
+      const duplicates = await transaction.wishlist_items.findMany({
+        where: {
+          wishlist_id: wishlistId,
+          status: { in: ["active", "paused"] },
+          OR: [
+            ...(canonicalIds.length ? [{ canonical_card_id: { in: canonicalIds } }] : []),
+            ...(printingIds.length ? [{ printing_id: { in: printingIds } }] : []),
+          ],
+        },
+        select: { canonical_card_id: true, printing_id: true },
+      });
+      if (duplicates.length) {
+        throw new ConflictException("This wishlist already contains an active item for a confirmed card target.");
+      }
+
+      const result = await transaction.wishlist_items.createMany({
+        data: input.items.map((item) => ({
+          game_id: wishlist.game_id,
+          wishlist_id: wishlistId,
+          canonical_card_id: item.canonicalCardId ?? null,
+          printing_id: item.printingId ?? null,
+          desired_finish: item.desiredFinish ?? null,
+          desired_condition: item.desiredCondition ?? null,
+          language_code: item.languageCode ?? null,
+          quantity_desired: item.quantityDesired,
+          priority: item.priority,
+          notes: item.notes ?? null,
+          status: "active" as const,
+          willing_to_pay_cash: item.willingToPayCash,
+          willing_to_trade_cards: item.willingToTradeCards,
+          max_cash_amount: item.willingToPayCash ? item.maxCashAmount ?? null : null,
+          currency_code: item.willingToPayCash ? item.currencyCode ?? null : null,
+          trade_notes: item.tradeNotes ?? null,
+        })),
+      });
+      return { requested_items: input.items.length, created_items: result.count, skipped_already_in_wishlist: 0 };
+    });
   }
 
   async updateWishlistItem(

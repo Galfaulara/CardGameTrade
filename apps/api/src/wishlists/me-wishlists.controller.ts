@@ -11,6 +11,7 @@ import {
 import {
   createUserWishlistSchema,
   createWishlistItemSchema,
+  bulkCreateWishlistItemsSchema,
   gameScopedListQuerySchema,
   updateUserWishlistSchema,
   updateWishlistItemSchema,
@@ -19,6 +20,7 @@ import type { AuthenticatedPrincipal } from "../auth/auth.types";
 import type {
   CreateUserWishlistInput,
   CreateWishlistItemInput,
+  BulkCreateWishlistItemsInput,
   GameScopedListQuery,
   UpdateUserWishlistInput,
   UpdateWishlistItemInput,
@@ -96,6 +98,16 @@ export class MeWishlistsController {
       principal.deckdealUserId!,
       wishlistId,
       input,
+    );
+  }
+  @Post(":wishlistId/items/bulk") async addItemsBulk(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param("wishlistId", new ParseUUIDPipe({ version: "4" })) wishlistId: string,
+    @Query("gameSlug") gameSlug: string,
+    @Body(new ZodValidationPipe(bulkCreateWishlistItemsSchema)) input: BulkCreateWishlistItemsInput,
+  ) {
+    return this.wishlists.createWishlistItemsBulk(
+      principal.deckdealUserId!, wishlistId, gameSlug, input,
     );
   }
   @Patch(":wishlistId/items/:itemId") async updateItem(

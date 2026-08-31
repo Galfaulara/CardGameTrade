@@ -74,15 +74,14 @@ export function BulkWantsDialog({ game, wishlist, onClose, onSaved }: {
     busyRef.current = true; setBusy("confirm"); setError(null);
     try {
       const creates = rows.filter((row) => row.status === "READY");
-      const responses = await Promise.all(creates.map((row) => fetch(`/api/me/wishlists/${encodeURIComponent(wishlist.id)}/items?gameSlug=${encodeURIComponent(game.slug)}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      const response = await fetch(`/api/me/wishlists/${encodeURIComponent(wishlist.id)}/items/bulk?gameSlug=${encodeURIComponent(game.slug)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: creates.map((row) => ({
           canonicalCardId: row.mode === "general" ? row.card!.id : null, printingId: row.mode === "printing" ? row.printingId : null,
           quantityDesired: row.quantity, willingToPayCash: row.cash, willingToTradeCards: row.trade, priority: row.priority,
           desiredFinish: row.mode === "printing" ? row.finish : null,
-        }),
-      })));
-      const failed = responses.find((response) => !response.ok);
-      if (failed) throw new Error((await failed.json().catch(() => ({})) as { message?: string }).message ?? "Bulk add failed.");
+        })) }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({})) as { message?: string }).message ?? "Bulk add failed.");
       await onSaved();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Bulk add failed."); }
     finally { busyRef.current = false; setBusy(null); }

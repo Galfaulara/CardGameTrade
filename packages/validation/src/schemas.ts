@@ -1047,6 +1047,10 @@ export const createWishlistItemSchema =
       },
     );
 
+export const bulkCreateWishlistItemsSchema = z.object({
+  items: z.array(createWishlistItemSchema).min(1).max(500),
+}).strict();
+
 export const updateWishlistItemSchema =
   z
     .object({
@@ -1636,6 +1640,8 @@ export type CreateWishlistItemInput =
   z.infer<
     typeof createWishlistItemSchema
   >;
+
+export type BulkCreateWishlistItemsInput = z.infer<typeof bulkCreateWishlistItemsSchema>;
 
 export type UpdateWishlistItemInput =
   z.infer<
