@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const manager = readFileSync("app/(public)/account/wants/wants-manager.tsx", "utf8");
+const page = readFileSync("app/(public)/account/wants/page.tsx", "utf8");
+const shell = readFileSync("features/account/account-shell.tsx", "utf8");
+const routes = ["app/api/me/wishlists/route.ts", "app/api/me/wishlists/[wishlistId]/route.ts", "app/api/me/wishlists/[wishlistId]/items/route.ts", "app/api/me/wishlists/[wishlistId]/items/[itemId]/route.ts"].map((path) => readFileSync(path, "utf8")).join("\n");
+assert(shell.includes('href: "/account/wants"'), "Account navigation must expose My Wants.");
+assert(page.includes("getMyWishlists(game.slug)"), "Owner Wishlists must load for the active game.");
+assert(manager.includes("No wishlists yet") && manager.includes("Create wishlist"), "Empty state must expose Wishlist creation.");
+assert(manager.includes("No wants in this wishlist yet") && manager.includes("Add want"), "Empty Wishlist must expose Add want.");
+assert(manager.includes("Any acceptable printing") && manager.includes("Exact printing"), "Add Want must support general and exact targets.");
+assert(manager.includes("canonicalCardId: mode === \"general\"") && manager.includes("printingId: mode === \"printing\""), "Target mode must reach the commit payload.");
+assert(manager.includes("willingToPayCash") && manager.includes("willingToTradeCards") && manager.includes("maxCashAmount"), "Acquisition preferences must reach the commit payload.");
+assert(routes.includes("authenticatedApiRequest") && manager.includes("?gameSlug="), "Wishlist BFF routes must forward authentication and owner requests must carry game scope.");
+console.log("Owner Wants regression passed.");

@@ -164,6 +164,24 @@ export async function getMyCollectionOptions(userId: string, gameSlug?: string) 
   }>>;
 }
 
+export type MyWishlistItem = {
+  id: string; status: "active" | "fulfilled" | "paused" | "removed"; quantity_desired: number;
+  desired_finish: string | null; desired_condition: string | null; language_code: string | null;
+  priority: "low" | "normal" | "high" | "urgent"; notes: string | null;
+  willing_to_pay_cash: boolean; willing_to_trade_cards: boolean; max_cash_amount: string | null;
+  currency_code: string | null; trade_notes: string | null;
+  target: { type: "canonical_card"; canonical_card: { id: string; name: string } | null } |
+    { type: "printing"; printing: { id: string; collector_number: string; language_code: string; image_small_uri: string | null; canonical_cards: { id: string; name: string }; card_sets: { code: string; name: string } } | null };
+};
+export type MyWishlist = {
+  id: string; game_id: string; name: string; description: string | null;
+  visibility: "private" | "unlisted" | "public"; status: "active" | "archived";
+  preferred_store: { id: string; name: string } | null; items: MyWishlistItem[];
+};
+export async function getMyWishlists(gameSlug: string) {
+  return (await authenticatedApiFetch(`/me/wishlists?gameSlug=${encodeURIComponent(gameSlug)}`)).json() as Promise<MyWishlist[]>;
+}
+
 export async function tryGetAuthenticatedCurrentUser() {
   try {
     return await getAuthenticatedCurrentUser();

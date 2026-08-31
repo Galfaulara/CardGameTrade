@@ -1,0 +1,220 @@
+.page {
+  display: grid;
+  gap: var(--space-5);
+}
+.toolbar,
+.toolbar > div,
+.detail > header,
+.actions,
+.itemActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.toolbar > div {
+  align-items: start;
+  flex-direction: column;
+  gap: 0;
+}
+.toolbar span,
+.list span,
+.items span,
+.detail header p,
+.detail header span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.primary {
+  min-height: 2.75rem;
+  padding-inline: var(--space-4);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-action);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-bold);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(13rem, 18rem) 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+.list {
+  display: grid;
+  gap: var(--space-2);
+}
+.list button {
+  display: grid;
+  gap: var(--space-1);
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.list button[aria-current="page"] {
+  border-color: var(--color-action);
+  background: var(--color-action-subtle);
+}
+.detail {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+}
+.detail header > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+.items {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+}
+.items li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.items li > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+.itemActions {
+  justify-content: end;
+  flex-wrap: wrap;
+}
+.itemActions button {
+  border: 0;
+  background: transparent;
+  color: var(--color-action);
+  font-weight: var(--font-weight-bold);
+}
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-muted);
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgba(8, 20, 48, 0.72);
+}
+.dialog {
+  display: grid;
+  gap: var(--space-4);
+  width: min(46rem, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+}
+.dialog header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.dialog header button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.dialog label {
+  display: grid;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+.dialog input,
+.dialog select,
+.dialog textarea,
+.actions select,
+.search input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.dialog textarea {
+  min-height: 5rem;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.checks {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.checks label {
+  display: flex;
+  align-items: center;
+}
+.checks input {
+  width: auto;
+  min-height: auto;
+}
+.search {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
+}
+.results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.results button {
+  padding: var(--space-2);
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.error {
+  color: var(--color-danger);
+}
+@media (max-width: 48rem) {
+  .layout,
+  .fields {
+    grid-template-columns: 1fr;
+  }
+  .toolbar,
+  .detail > header,
+  .items li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .backdrop {
+    padding: 0;
+    place-items: end;
+  }
+  .dialog {
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+}

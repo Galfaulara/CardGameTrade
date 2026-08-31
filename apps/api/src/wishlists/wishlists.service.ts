@@ -34,6 +34,16 @@ export class WishlistsService {
     return game.id;
   }
 
+  async assertOwnedWishlistGame(userId: string, wishlistId: string, gameSlug: string) {
+    if (!gameSlug?.trim()) throw new BadRequestException("A game is required.");
+    const gameId = await this.resolveGameId(gameSlug);
+    const wishlist = await this.database.client.wishlists.findFirst({
+      where: { id: wishlistId, user_id: userId, game_id: gameId, status: { not: "deleted" } },
+      select: { id: true },
+    });
+    if (!wishlist) throw new NotFoundException("Wishlist was not found or does not belong to this user and game.");
+  }
+
   private async requireActiveUser(
     userId: string,
   ) {
@@ -1010,8 +1020,9 @@ export class WishlistsService {
         input.preferredStoreId,
       );
 
-    const wishlist =
-      await this.database.client.wishlists.create({
+    let wishlist: { id: string };
+    try {
+      wishlist = await this.database.client.wishlists.create({
         data: {
           game_id:
             game.id,
@@ -1040,6 +1051,14 @@ export class WishlistsService {
           id: true,
         },
       });
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") {
+        throw new ConflictException(
+          "You already have a wishlist with that name for this game.",
+        );
+      }
+      throw error;
+    }
 
     return this.getUserWishlist(
       userId,

@@ -900,7 +900,7 @@ export const createUserWishlistSchema =
         .uuid()
         .nullable()
         .optional(),
-  });
+  }).strict();
 
 export const updateUserWishlistSchema =
   z
@@ -936,6 +936,7 @@ export const updateUserWishlistSchema =
           .nullable()
           .optional(),
     })
+    .strict()
     .refine(
       (value) =>
         Object.keys(
@@ -1028,6 +1029,7 @@ export const createWishlistItemSchema =
           .nullable()
           .optional(),
     })
+    .strict()
     .superRefine(
       (
         value,
@@ -1135,6 +1137,7 @@ export const updateWishlistItemSchema =
           .nullable()
           .optional(),
     })
+    .strict()
     .refine(
       (value) =>
         Object.keys(

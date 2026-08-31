@@ -19,6 +19,11 @@ const sections = [
     href: "/account/listings",
   },
   {
+    id: "wants",
+    label: "Wants",
+    href: "/account/wants",
+  },
+  {
     id: "offers",
     label: "Offers",
     href: "/account/offers?view=sent",

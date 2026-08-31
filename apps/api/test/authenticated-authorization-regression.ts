@@ -102,13 +102,31 @@ export async function runAuthenticatedAuthorizationRegression() {
     await harness.as(user2).patch(`/api/offers/${rejectOffer}/users/${USER_2_ID}/reject`).expect(404);
     await harness.as(user1).patch(`/api/offers/${rejectOffer}/users/${USER_1_ID}/reject`).expect(200);
 
-    const wishlist = await harness.as(user1).post(`/api/wishlists/users/${USER_1_ID}`).send({ gameSlug: "mtg", name: marker, visibility: "public", preferredStoreId: staff.store_id }).expect(201);
+    await harness.as(null).post("/api/me/wishlists").send({ gameSlug: "mtg", name: "Rejected", visibility: "private" }).expect(401);
+    await harness.as(user1).post("/api/me/wishlists").send({ gameSlug: "mtg", name: `${marker} spoof`, visibility: "private", user_id: USER_2_ID }).expect(400);
+    await harness.as(user1).post("/api/me/wishlists").send({ gameSlug: `missing-${marker.slice(0, 6)}`, name: "Wrong game", visibility: "private" }).expect(400);
+    const wishlist = await harness.as(user1).post("/api/me/wishlists").send({ gameSlug: "mtg", name: marker, visibility: "public", preferredStoreId: staff.store_id }).expect(201);
     cleanup.wishlists.push(wishlist.body.id);
+    await harness.as(user1).post("/api/me/wishlists").send({ gameSlug: "mtg", name: marker, visibility: "private" }).expect(409);
+    const ownerWishlists = await harness.as(user1).get("/api/me/wishlists?gameSlug=mtg").expect(200);
+    assert(ownerWishlists.body.some((value: any) => value.id === wishlist.body.id), "A new Wishlist must immediately appear in the owner list.");
     await harness.as(user1).get(`/api/wishlists/${wishlist.body.id}/users/${USER_1_ID}`).expect(200);
     await harness.as(user2).get(`/api/wishlists/${wishlist.body.id}/users/${USER_1_ID}`).expect(403);
-    const wishlistItem = await harness.as(user1).post(`/api/wishlists/${wishlist.body.id}/users/${USER_1_ID}/items`).send({
+    const wishlistItem = await harness.as(user1).post(`/api/me/wishlists/${wishlist.body.id}/items?gameSlug=mtg`).send({
       printingId: physical.printing_id, quantityDesired: 1, willingToPayCash: false, willingToTradeCards: true,
     }).expect(201);
+    const canonicalWant = await harness.as(user1).post(`/api/me/wishlists/${wishlist.body.id}/items?gameSlug=mtg`).send({
+      canonicalCardId: physical.card_printings.canonical_card_id, quantityDesired: 2, willingToPayCash: true, willingToTradeCards: true, maxCashAmount: 25, currencyCode: "usd", priority: "high",
+    }).expect(201);
+    assert(canonicalWant.body.target.type === "canonical_card", "A general-card Want must persist canonical-card semantics.");
+    await harness.as(user1).post(`/api/me/wishlists/${wishlist.body.id}/items?gameSlug=mtg`).send({ canonicalCardId: physical.card_printings.canonical_card_id, quantityDesired: 1, willingToPayCash: true, willingToTradeCards: false }).expect(409);
+    await harness.as(user1).post(`/api/me/wishlists/${wishlist.body.id}/items?gameSlug=mtg`).send({ canonicalCardId: randomUUID(), quantityDesired: 0, willingToPayCash: true, willingToTradeCards: false }).expect(400);
+    await harness.as(user1).post(`/api/me/wishlists/${wishlist.body.id}/items?gameSlug=mtg`).send({ canonicalCardId: randomUUID(), quantityDesired: 1, willingToPayCash: false, willingToTradeCards: false }).expect(400);
+    await harness.as(user1).post(`/api/me/wishlists/${wishlist.body.id}/items?gameSlug=mtg`).send({ canonicalCardId: randomUUID(), quantityDesired: 1, willingToPayCash: true, willingToTradeCards: false, maxCashAmount: 5 }).expect(400);
+    await harness.as(user2).patch(`/api/me/wishlists/${wishlist.body.id}/items/${wishlistItem.body.id}?gameSlug=mtg`).send({ status: "paused" }).expect(404);
+    await harness.as(user1).patch(`/api/me/wishlists/${wishlist.body.id}/items/${wishlistItem.body.id}?gameSlug=mtg`).send({ priority: "high" }).expect(200);
+    const publicWants = await harness.as(null).get(`/api/discovery/users/${USER_1_ID}/wishlists?page=1&pageSize=6&previewLimit=6`).expect(200);
+    assert(publicWants.body.items.some((value: any) => value.id === wishlist.body.id && value.preview_items.some((item: any) => item.id === wishlistItem.body.id)), "Owner-created public Wants must appear through the existing public read path.");
     const makeWishlistOffer = async (offeredInventoryId: string) => {
       const response = await harness.as(user2).post(`/api/wishlists/items/${wishlistItem.body.id}/offers/users/${USER_2_ID}`).send({
         items: [{ inventoryItemId: offeredInventoryId, quantity: 1 }], requestsCash: false, requestsTrade: true,
