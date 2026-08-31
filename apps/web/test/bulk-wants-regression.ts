@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { parseBulkInventoryLine } from "@repo/validation";
+
+const bulk = readFileSync("app/(public)/account/wants/bulk-wants-dialog.tsx", "utf8");
+const manager = readFileSync("app/(public)/account/wants/wants-manager.tsx", "utf8");
+const css = readFileSync("app/(public)/account/wants/page.module.css", "utf8");
+assert.equal(parseBulkInventoryLine("1 Lightning Bolt (M11) 149")?.collectorNumber, "149");
+assert.equal(parseBulkInventoryLine("2 Sol Ring [CMM]")?.set, "CMM");
+assert.equal(parseBulkInventoryLine("1 Agadeem's Awakening (ZNR) 90")?.name, "Agadeem's Awakening");
+assert.ok(manager.includes("Bulk add wants") && manager.includes("BulkWantsDialog"), "Owned Wishlist must expose first-class Bulk Add Wants.");
+assert.ok(bulk.includes("parseBulkInventoryLine") && bulk.includes("parseBulkInventoryCsv"), "Bulk Wants must reuse the shared parser.");
+assert.ok(bulk.includes("/api/me/wishlists/") && !bulk.includes("/api/me/inventory"), "Bulk Wants must create wishlist_items, never inventory_items.");
+assert.ok(bulk.includes('mode: input.set ? "printing"') && bulk.includes('"general"'), "Name-only rows must remain canonical-card Wants while set rows resolve exact versions.");
+assert.ok(bulk.includes("groupPrintingVersions") && bulk.includes("Choose a language"), "Exact Wants must preserve version-family then language selection.");
+assert.ok(bulk.includes("ALREADY_IN_WISHLIST") && bulk.includes("NEEDS_SELECTION") && bulk.includes("INVALID"), "Review statuses must be explicit.");
+assert.ok(manager.includes("representative_printing") && manager.includes("resultArt"), "Catalog results must render existing card images.");
+assert.match(css, /\.resultCard/);
+assert.match(css, /\.metadataForm label\{display:grid/);
+console.log("Bulk Wants and Add Want visual regression passed.");

@@ -1,14 +1,17 @@
 "use client";
+import Image from "next/image";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MyWishlist } from "../../../../features/auth/authenticated-api";
 import type {
   CatalogCard,
   CatalogPrinting,
+  CatalogPrintingFinish,
   CatalogSearchResult,
 } from "../../../../features/marketplace/api";
 import type { DeckDealGame } from "../../../../features/games/active-game";
 import { groupPrintingVersions } from "../../../../features/catalog/version-families";
+import { BulkWantsDialog } from "./bulk-wants-dialog";
 import styles from "./page.module.css";
 
 const parse = async (response: Response) =>
@@ -29,7 +32,9 @@ export function WantsManager({
   const [selectedId, setSelectedId] = useState(initialWishlistId ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [itemAction, setItemAction] = useState<{ id: string; status: string; label: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selected = wishlists.find((value) => value.id === selectedId);
   const reload = async (preferredId = selectedId) => {
@@ -92,6 +97,7 @@ export function WantsManager({
   const updateItem = async (itemId: string, status: string) => {
     if (!selected) return;
     setBusy(true);
+    setItemAction({ id: itemId, status, label: status === "active" ? "Resuming" : status === "fulfilled" ? "Fulfilling" : status === "removed" ? "Removing" : "Pausing" });
     const response = await fetch(
       `/api/me/wishlists/${encodeURIComponent(selected.id)}/items/${encodeURIComponent(itemId)}?gameSlug=${encodeURIComponent(game.slug)}`,
       {
@@ -104,6 +110,7 @@ export function WantsManager({
       setError((await parse(response)).message ?? "Want update failed.");
     else await reload(selected.id);
     setBusy(false);
+    setItemAction(null);
   };
   return (
     <div className={styles.page}>
@@ -184,6 +191,13 @@ export function WantsManager({
                   >
                     + Add want
                   </button>
+                  <button
+                    className={styles.secondary}
+                    disabled={selected.status !== "active"}
+                    onClick={() => setBulkOpen(true)}
+                  >
+                    Bulk add wants
+                  </button>
                 </div>
               </header>
               <WishlistMetadataForm
@@ -247,34 +261,38 @@ export function WantsManager({
                             <>
                               <button
                                 disabled={busy}
+                                aria-busy={itemAction?.id === item.id && itemAction.status === "paused"}
                                 onClick={() =>
                                   void updateItem(item.id, "paused")
                                 }
                               >
-                                Pause
+                                {itemAction?.id === item.id && itemAction.status === "paused" ? `${itemAction.label}…` : "Pause"}
                               </button>
                               <button
                                 disabled={busy}
+                                aria-busy={itemAction?.id === item.id && itemAction.status === "fulfilled"}
                                 onClick={() =>
                                   void updateItem(item.id, "fulfilled")
                                 }
                               >
-                                Fulfill
+                                {itemAction?.id === item.id && itemAction.status === "fulfilled" ? `${itemAction.label}…` : "Fulfill"}
                               </button>
                             </>
                           ) : item.status === "paused" ? (
                             <button
                               disabled={busy}
+                              aria-busy={itemAction?.id === item.id && itemAction.status === "active"}
                               onClick={() => void updateItem(item.id, "active")}
                             >
-                              Resume
+                              {itemAction?.id === item.id && itemAction.status === "active" ? `${itemAction.label}…` : "Resume"}
                             </button>
                           ) : null}
                           <button
                             disabled={busy}
+                            aria-busy={itemAction?.id === item.id && itemAction.status === "removed"}
                             onClick={() => void updateItem(item.id, "removed")}
                           >
-                            Remove
+                            {itemAction?.id === item.id && itemAction.status === "removed" ? `${itemAction.label}…` : "Remove"}
                           </button>
                         </div>
                       </li>
@@ -341,6 +359,17 @@ export function WantsManager({
           }}
         />
       ) : null}
+      {bulkOpen && selected ? (
+        <BulkWantsDialog
+          game={game}
+          wishlist={selected}
+          onClose={() => setBulkOpen(false)}
+          onSaved={async () => {
+            setBulkOpen(false);
+            await reload(selected.id);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -356,7 +385,7 @@ function WishlistMetadataForm({
 }) {
   return (
     <form
-      className={styles.fields}
+      className={styles.metadataForm}
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
@@ -378,7 +407,7 @@ function WishlistMetadataForm({
       </label>
       <label>
         Description
-        <input
+        <textarea
           name="description"
           defaultValue={wishlist.description ?? ""}
           maxLength={1000}
@@ -411,38 +440,57 @@ function AddWantDialog({
   onSaved: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
-  const [cards, setCards] = useState<CatalogCard[]>([]);
+  const [cards, setCards] = useState<CatalogSearchResult["items"]>([]);
   const [card, setCard] = useState<CatalogCard | null>(null);
   const [mode, setMode] = useState<"general" | "printing">("general");
   const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
   const [printingId, setPrintingId] = useState("");
   const [versionKey, setVersionKey] = useState("");
+  const [finishes, setFinishes] = useState<CatalogPrintingFinish[]>([]);
+  const [finish, setFinish] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const versionFamilies = useMemo(() => groupPrintingVersions(printings), [printings]);
   const selectedFamily = versionFamilies.find((value) => value.key === versionKey);
-  const search = async (event: FormEvent) => {
-    event.preventDefault();
+  const search = async () => {
+    if (busy || !query.trim()) return;
     setBusy(true);
-    const response = await fetch(
-      `/api/catalog/search?q=${encodeURIComponent(query)}&game=${encodeURIComponent(game.slug)}`,
-    );
-    if (response.ok)
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/catalog/search?q=${encodeURIComponent(query)}&game=${encodeURIComponent(game.slug)}`,
+      );
+      if (!response.ok) throw new Error();
       setCards(((await response.json()) as CatalogSearchResult).items);
-    else setError("Catalog search failed.");
-    setBusy(false);
+    } catch {
+      setError("Catalog search failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
   const choose = async (value: CatalogCard) => {
     setCard(value);
-    setCards([]);
     setPrintingId("");
     setVersionKey("");
+    setFinishes([]);
+    setFinish("");
     const response = await fetch(
       `/api/catalog/cards/${encodeURIComponent(value.id)}/printings`,
     );
     setPrintings(
       response.ok ? ((await response.json()) as CatalogPrinting[]) : [],
     );
+  };
+  const choosePrinting = async (id: string) => {
+    setPrintingId(id);
+    setFinishes([]);
+    setFinish("");
+    if (!id) return;
+    const response = await fetch(`/api/catalog/printings/${encodeURIComponent(id)}/finishes`);
+    if (!response.ok) return setError("Finishes are unavailable for this printing.");
+    const values = (await response.json()) as CatalogPrintingFinish[];
+    setFinishes(values);
+    if (values.length === 1) setFinish(values[0]!.finish);
   };
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -467,9 +515,11 @@ function AddWantDialog({
           quantityDesired: Number(data.get("quantity")),
           willingToPayCash: cash,
           willingToTradeCards: trade,
-          desiredFinish: data.get("finish") || null,
+          desiredFinish: mode === "printing" ? finish || null : data.get("finish") || null,
           desiredCondition: data.get("condition") || null,
-          languageCode: data.get("language") || null,
+          languageCode: mode === "printing"
+            ? printings.find((value) => value.id === printingId)?.language_code ?? null
+            : data.get("language") || null,
           priority: data.get("priority"),
           notes: data.get("notes") || null,
           maxCashAmount: cash && max ? Number(max) : null,
@@ -501,17 +551,25 @@ function AddWantDialog({
           </button>
         </header>
         <div className={styles.search}>
+          <span className={styles.searchIcon} aria-hidden="true">⌕</span>
           <input
             aria-label="Search cards"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search DeckDeal catalog"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void search();
+              }
+            }}
           />
           <button
+            className={styles.searchButton}
             type="button"
             disabled={busy}
             aria-busy={busy}
-            onClick={(event) => void search(event as unknown as FormEvent)}
+            onClick={() => void search()}
           >
             {busy ? "Searching…" : "Search"}
           </button>
@@ -520,11 +578,24 @@ function AddWantDialog({
           <div className={styles.results}>
             {cards.slice(0, 12).map((value) => (
               <button
+                className={styles.resultCard}
                 type="button"
                 key={value.id}
+                aria-pressed={card?.id === value.id}
                 onClick={() => void choose(value)}
               >
-                {value.name}
+                <span className={styles.resultArt}>
+                  {value.representative_printing?.image_normal_uri || value.representative_printing?.image_small_uri ? (
+                    <Image
+                      src={value.representative_printing.image_normal_uri ?? value.representative_printing.image_small_uri!}
+                      alt={`${value.name} card artwork`}
+                      fill
+                      sizes="(max-width: 36rem) 42vw, 150px"
+                      unoptimized
+                    />
+                  ) : <span>Image unavailable</span>}
+                </span>
+                <strong>{value.name}</strong>
               </button>
             ))}
           </div>
@@ -557,7 +628,7 @@ function AddWantDialog({
                   <select value={versionKey} onChange={(event) => {
                     const family = versionFamilies.find((value) => value.key === event.target.value);
                     setVersionKey(event.target.value);
-                    setPrintingId(family?.printings.length === 1 ? family.printings[0]!.id : "");
+                    void choosePrinting(family?.printings.length === 1 ? family.printings[0]!.id : "");
                   }} required>
                     <option value="">Choose version</option>
                     {versionFamilies.map((family) => {
@@ -571,11 +642,20 @@ function AddWantDialog({
                 {selectedFamily && selectedFamily.printings.length > 1 ? (
                   <label>
                     Language
-                    <select value={printingId} onChange={(event) => setPrintingId(event.target.value)} required>
+                    <select value={printingId} onChange={(event) => void choosePrinting(event.target.value)} required>
                       <option value="">Choose language</option>
                       {selectedFamily.printings.map((value) => (
                         <option key={value.id} value={value.id}>{value.language_code.toUpperCase()}</option>
                       ))}
+                    </select>
+                  </label>
+                ) : null}
+                {printingId ? (
+                  <label>
+                    Finish
+                    <select value={finish} onChange={(event) => setFinish(event.target.value)} required>
+                      <option value="">Choose finish</option>
+                      {finishes.map((value) => <option key={value.finish}>{value.finish}</option>)}
                     </select>
                   </label>
                 ) : null}
@@ -602,10 +682,12 @@ function AddWantDialog({
                   <option value="urgent">Urgent</option>
                 </select>
               </label>
-              <label>
-                Desired finish
-                <input name="finish" placeholder="Optional" />
-              </label>
+              {mode === "general" ? (
+                <label>
+                  Desired finish
+                  <input name="finish" placeholder="Optional" />
+                </label>
+              ) : null}
               <label>
                 Desired condition
                 <select name="condition" defaultValue="">
@@ -624,10 +706,12 @@ function AddWantDialog({
                   ))}
                 </select>
               </label>
-              <label>
-                Language
-                <input name="language" placeholder="Any" maxLength={10} />
-              </label>
+              {mode === "general" ? (
+                <label>
+                  Language
+                  <input name="language" placeholder="Any" maxLength={10} />
+                </label>
+              ) : null}
               <label>
                 Max cash
                 <input name="maxCash" type="number" min="0" step="0.01" />
