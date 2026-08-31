@@ -19,7 +19,8 @@
     "test:optional-game-filter": "node --experimental-strip-types test/optional-game-filter-regression.ts",
     "test:bulk-inventory": "node --experimental-strip-types test/bulk-inventory-regression.ts",
     "test:owner-wants": "node --experimental-strip-types test/owner-wants-regression.ts",
-    "test:ux-hardening": "node --experimental-strip-types test/ux-hardening-regression.ts"
+    "test:ux-hardening": "node --experimental-strip-types test/ux-hardening-regression.ts",
+    "test:public-profile-banner": "node --experimental-strip-types test/public-profile-banner-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

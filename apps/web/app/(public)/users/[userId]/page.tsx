@@ -30,6 +30,10 @@ const selectedView = (value: string | string[] | undefined): View => {
   const raw = Array.isArray(value) ? value[0] : value;
   return views.some((item) => item.id === raw) ? (raw as View) : "overview";
 };
+const collectorInitials = (displayName: string | null, username: string | null) => {
+  const source = displayName?.trim() || username?.trim() || "DeckDeal collector";
+  return source.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
+};
 function Pagination({
   userId,
   view,
@@ -91,9 +95,8 @@ export default async function UserPage({
     );
   const { user, summary } = profile.data,
     name = publicUserLabel(user) ?? "DeckDeal collector",
-    headingName =
-      user.display_name ??
-      (user.username ? `@${user.username}` : "DeckDeal collector");
+    headingName = user.display_name ?? user.username ?? "DeckDeal collector",
+    initials = collectorInitials(user.display_name, user.username);
   const resources =
     view === "overview"
       ? await Promise.all([
@@ -134,30 +137,35 @@ export default async function UserPage({
     <main className={styles.main}>
       <NavigationBack fallback="/discover" />
       <header className={styles.profileHeader}>
-        <p className={styles.eyebrow}>Collector</p>
-        <div className={styles.identity}>
-          <h1>{headingName}</h1>
-          {user.display_name && user.username && <span>@{user.username}</span>}
+        <div className={styles.avatar} aria-label={`${headingName} avatar fallback`}>
+          <span aria-hidden="true">{initials}</span>
         </div>
-        {user.preferred_store && (
-          <p className={styles.store}>
-            <span>Preferred store</span>
-            <PublicStoreLink store={user.preferred_store} />{" "}
-            <b aria-label="verified DeckDeal mediation store">✓</b>
-          </p>
-        )}
+        <div className={styles.identityBlock}>
+          <p className={styles.eyebrow}>Collector</p>
+          <div className={styles.identity}>
+            <h1>{headingName}</h1>
+            {user.username && <span>@{user.username}</span>}
+          </div>
+          {user.preferred_store && (
+            <p className={styles.store}>
+              <span>Preferred store</span>
+              <PublicStoreLink store={user.preferred_store} />{" "}
+              <b aria-label="verified DeckDeal mediation store">✓</b>
+            </p>
+          )}
+        </div>
         <dl className={styles.summary}>
           <div>
-            <dt>Public collections</dt>
             <dd>{summary.public_collection_count.toLocaleString()}</dd>
+            <dt>Public collections</dt>
           </div>
           <div>
-            <dt>Cards available</dt>
             <dd>{summary.active_listing_count.toLocaleString()}</dd>
+            <dt>Cards available</dt>
           </div>
           <div>
-            <dt>Public wishlists</dt>
             <dd>{summary.public_wishlist_count.toLocaleString()}</dd>
+            <dt>Public wishlists</dt>
           </div>
         </dl>
       </header>
