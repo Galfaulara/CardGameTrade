@@ -26,6 +26,7 @@ import {
 } from "../../../../../features/auth/authenticated-api";
 import { ResourceGameSync } from "../../../../../features/games/resource-game-sync";
 import styles from "./page.module.css";
+import { MessageContextAction } from "../../../../../components/message-context-action/message-context-action";
 
 const signInRedirect = (
   transactionId: string,
@@ -199,6 +200,7 @@ export default async function TradeDetailPage({
               items={perspective.receive}
             />
 
+            <MessageContextAction contextType="transaction" contextId={transactionId} label="Message trade partner" />
             <section className={styles.nextStep}>
               <p className={styles.kicker}>
                 Next step

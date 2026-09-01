@@ -33,6 +33,8 @@ const sections = [
     label: "Trades",
     href: "/account/trades",
   },
+  { id: "friends", label: "Friends", href: "/account/friends" },
+  { id: "messages", label: "Messages", href: "/account/messages" },
 ] as const;
 
 export type AccountSection =

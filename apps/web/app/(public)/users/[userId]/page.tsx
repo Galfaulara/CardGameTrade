@@ -14,6 +14,7 @@ import {
   getPublicUserWishlists,
 } from "../../../../features/marketplace/api";
 import styles from "./page.module.css";
+import { ProfileSocialActions } from "../../../../components/profile-social-actions/profile-social-actions";
 
 type View = "overview" | "collections" | "available" | "wants";
 const views: Array<{ id: View; label: string }> = [
@@ -153,6 +154,7 @@ export default async function UserPage({
               <b aria-label="verified DeckDeal mediation store">✓</b>
             </p>
           )}
+          <ProfileSocialActions userId={userId} />
         </div>
         <dl className={styles.summary}>
           <div>

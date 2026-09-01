@@ -21,6 +21,7 @@ import {
 } from "../../../../features/marketplace/market-prices";
 import { TradeOfferBuilder } from "./trade-offer-builder";
 import styles from "./page.module.css";
+import { MessageContextAction } from "../../../../components/message-context-action/message-context-action";
 import { ResourceGameSync } from "../../../../features/games/resource-game-sync";
 import { loadGames } from "../../../../features/games/games.server";
 
@@ -269,6 +270,7 @@ export default async function TradePage({
                 </p>
                 <p>Offered by {sellerLabel(listing)}</p>
                 <span className={styles.intent}>TRADE</span>
+                <MessageContextAction contextType="listing" contextId={listing.id} label="Message seller" />
                 <div className={styles.targetMarket}>
                   <MarketPrices
                     prices={

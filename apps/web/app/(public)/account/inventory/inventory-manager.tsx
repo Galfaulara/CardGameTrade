@@ -14,6 +14,7 @@ import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import styles from "./page.module.css";
 import { CollectionActions } from "./collection-actions";
 import { custodyStatusLabel } from "../../../../features/account/trade-types";
+import { MessageContextAction } from "../../../../components/message-context-action/message-context-action";
 
 type Status = "all" | "available" | "not_for_trade" | "reserved" | "in_trade";
 type Condition =
@@ -54,7 +55,7 @@ type ActivityData = {
   } | null;
   people: Array<{
     user: PublicIdentity;
-    interest: { type: string; message: string | null } | null;
+    interest: { id: string; type: string; message: string | null } | null;
     publicWantIds: string[];
   }>;
   offers: {
@@ -649,6 +650,7 @@ function ActivityDialog({
                     {person.interest?.message ? (
                       <blockquote>{person.interest.message}</blockquote>
                     ) : null}
+                    {person.interest ? <MessageContextAction contextType="inventory_interest" contextId={person.interest.id} /> : null}
                   </article>
                 ))
               ) : (
@@ -693,6 +695,7 @@ function ActivityDialog({
                         {offer.transactionId ? (
                           <p>Accepted into trade {offer.transactionId}</p>
                         ) : null}
+                        <MessageContextAction contextType="listing_offer" contextId={offer.id} />
                       </article>
                     );
                   })}
@@ -758,6 +761,7 @@ function ActivityDialog({
                           : "No custody record"}
                       </p>
                       <Link href="/account/trades">View trade</Link>
+                      <MessageContextAction contextType="transaction" contextId={relation.transaction.id} />
                     </article>
                   ))}
                 </div>
