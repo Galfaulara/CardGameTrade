@@ -1,9 +1,34 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import styles from "./interest-action.module.css";
-export function InterestAction({inventoryItemId,cardName,imageUrl}:{inventoryItemId:string;cardName:string;imageUrl:string|null}){
-  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[sent,setSent]=useState(false),[error,setError]=useState<string|null>(null);
-  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError(null);const form=new FormData(event.currentTarget);try{const response=await fetch(`/api/me/interests/inventory/${inventoryItemId}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({interestType:form.get("interestType"),message:String(form.get("message")||"").trim()||null})});const body=await response.json();if(!response.ok)throw new Error(body.message||"Interest could not be sent.");setSent(true);setOpen(false)}catch(value){setError(value instanceof Error?value.message:"Interest could not be sent.")}finally{setBusy(false)}}
-  return <>{<button className={styles.launch} type="button" onClick={()=>setOpen(true)}>{sent?"Interested ✓":"I'm interested"}</button>}{open?<div className={styles.backdrop}><section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="interest-title"><header><div><p>Interest in</p><h2 id="interest-title">{cardName}</h2></div><button type="button" aria-label="Close" onClick={()=>setOpen(false)}>×</button></header>{imageUrl?<img src={imageUrl} alt={`${cardName} card`} />:null}<form onSubmit={submit}><fieldset><legend>What are you interested in?</legend>{[["buy","Buying"],["trade","Trading"],["buy_or_trade","Buy or trade"],["watch","Watching"]].map(([value,label])=><label key={value}><input type="radio" name="interestType" value={value} defaultChecked={value==="buy_or_trade"}/><span>{label}</span></label>)}</fieldset><label className={styles.message}><span>Message (optional)</span><textarea name="message" maxLength={1000}/></label>{error?<p role="alert" className={styles.error}>{error}</p>:null}<div className={styles.actions}><button type="button" onClick={()=>setOpen(false)}>Cancel</button><button disabled={busy} aria-busy={busy}>{busy?"Sending…":"Send interest"}</button></div></form></section></div>:null}</>;
+import { useInterestDialog } from "./interest-dialog-provider";
+export function InterestAction({
+  inventoryItemId,
+  cardName,
+  imageUrl,
+}: {
+  inventoryItemId: string;
+  cardName: string;
+  imageUrl: string | null;
+}) {
+  const [sent, setSent] = useState(false),
+    open = useInterestDialog();
+  return (
+    <button
+      className={styles.launch}
+      type="button"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        open({
+          inventoryItemId,
+          cardName,
+          imageUrl,
+          onSent: () => setSent(true),
+        });
+      }}
+    >
+      {sent ? "Interested ✓" : "I'm interested"}
+    </button>
+  );
 }

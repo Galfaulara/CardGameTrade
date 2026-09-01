@@ -10,9 +10,12 @@ import styles from "./app-shell.module.css";
 import { PrimaryNavigation } from "./primary-navigation";
 import { NotificationBell } from "../notification-bell/notification-bell";
 import { MessagesIndicator } from "../messages-indicator/messages-indicator";
+import { InterestDialogProvider } from "../interest-action/interest-dialog-provider";
 
 export async function AppShell({ children }: { children: ReactNode }) {
-  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkConfigured = Boolean(
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  );
   const session = clerkConfigured ? await auth() : null;
   const signedIn = Boolean(session?.userId);
   let currentUser = null;
@@ -32,24 +35,73 @@ export async function AppShell({ children }: { children: ReactNode }) {
       </a>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <div className={styles.topRow}><Brand />
-          <PrimaryNavigation />
-          <div className={styles.auth}>{clerkConfigured ? signedIn ? <>
-            {currentUser && !currentUser.onboarded && <Link className={styles.finishSetup} href="/onboarding">Finish setup</Link>}
-            {currentUser?.onboarded && currentUser.account_status === "active" && <Link className={styles.accountLink} href="/account/profile">DeckDeal profile</Link>}
-            {currentUser?.onboarded && currentUser.account_status === "active" && <NotificationBell />}
-            {currentUser?.onboarded && currentUser.account_status === "active" && <MessagesIndicator />}
-            {currentUser?.onboarded && currentUser.account_status === "active" && currentUser.store_workspaces.length > 0 && <Link className={styles.accountLink} href="/store">Store Workspace</Link>}
-            <UserButton />
-          </> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></>}</div>
+          <div className={styles.topRow}>
+            <Brand />
+            <PrimaryNavigation />
+            <div className={styles.auth}>
+              {clerkConfigured ? (
+                signedIn ? (
+                  <>
+                    {currentUser && !currentUser.onboarded && (
+                      <Link className={styles.finishSetup} href="/onboarding">
+                        Finish setup
+                      </Link>
+                    )}
+                    {currentUser?.onboarded &&
+                      currentUser.account_status === "active" && (
+                        <Link
+                          className={styles.accountLink}
+                          href="/account/profile"
+                        >
+                          DeckDeal profile
+                        </Link>
+                      )}
+                    {currentUser?.onboarded &&
+                      currentUser.account_status === "active" && (
+                        <NotificationBell />
+                      )}
+                    {currentUser?.onboarded &&
+                      currentUser.account_status === "active" && (
+                        <MessagesIndicator />
+                      )}
+                    {currentUser?.onboarded &&
+                      currentUser.account_status === "active" &&
+                      currentUser.store_workspaces.length > 0 && (
+                        <Link className={styles.accountLink} href="/store">
+                          Store Workspace
+                        </Link>
+                      )}
+                    <UserButton />
+                  </>
+                ) : (
+                  <>
+                    <Link href="/sign-in">Sign in</Link>
+                    <Link className={styles.createAccount} href="/sign-up">
+                      Create account
+                    </Link>
+                  </>
+                )
+              ) : (
+                <>
+                  <Link href="/sign-in">Sign in</Link>
+                  <Link className={styles.createAccount} href="/sign-up">
+                    Create account
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
           <div className={styles.searchTools}>
             <ActiveGameSelector />
-            <div className={styles.search}><SearchForm /></div>
+            <div className={styles.search}>
+              <SearchForm />
+            </div>
           </div>
         </div>
       </header>
-      <main id="main-content">{children}</main>
+      <InterestDialogProvider>
+        <main id="main-content">{children}</main>
+      </InterestDialogProvider>
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           <Brand />
