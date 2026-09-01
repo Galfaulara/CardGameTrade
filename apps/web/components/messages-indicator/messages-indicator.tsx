@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import styles from "./messages-indicator.module.css";
+import { MessageIcon } from "../header-icons/header-icons";
 
 export function MessagesIndicator() {
   const [unread, setUnread] = useState(0);
@@ -31,9 +32,13 @@ export function MessagesIndicator() {
       className={styles.link}
       href="/account/messages"
       aria-label={unread ? `Messages, ${unread} unread` : "Messages"}
+      aria-busy={loading}
     >
-      {loading ? "…" : "💬"}
-      {unread > 0 ? <span>{unread > 99 ? "99+" : unread}</span> : null}
+      <MessageIcon />
+      {loading ? <span className={styles.loader} aria-hidden="true" /> : null}
+      {unread > 0 ? (
+        <span className={styles.badge}>{unread > 99 ? "99+" : unread}</span>
+      ) : null}
     </Link>
   );
 }

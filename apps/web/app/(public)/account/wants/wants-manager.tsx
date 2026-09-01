@@ -12,10 +12,15 @@ import type {
 } from "../../../../features/marketplace/api";
 import type { DeckDealGame } from "../../../../features/games/active-game";
 import { groupPrintingVersions } from "../../../../features/catalog/version-families";
-import { ADD_WANT_SEARCH_PAGE_SIZE, addWantQueryChanged, addWantSearchHref } from "../../../../features/catalog/add-want-search";
+import {
+  ADD_WANT_SEARCH_PAGE_SIZE,
+  addWantQueryChanged,
+  addWantSearchHref,
+} from "../../../../features/catalog/add-want-search";
 import { BulkWantsDialog } from "./bulk-wants-dialog";
 import styles from "./page.module.css";
 import { MessageContextAction } from "../../../../components/message-context-action/message-context-action";
+import { PageModal } from "../../../../components/page-modal/page-modal";
 
 const parse = async (response: Response) =>
   response.json().catch(() => ({})) as Promise<{ message?: string }>;
@@ -37,9 +42,14 @@ export function WantsManager({
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [itemAction, setItemAction] = useState<{ id: string; status: string; label: string } | null>(null);
+  const [itemAction, setItemAction] = useState<{
+    id: string;
+    status: string;
+    label: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [availability,setAvailability]=useState<any|null>(null); const [availabilityBusy,setAvailabilityBusy]=useState(false);
+  const [availability, setAvailability] = useState<any | null>(null);
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const selected = wishlists.find((value) => value.id === selectedId);
   const reload = async (preferredId = selectedId) => {
     const response = await fetch(
@@ -101,7 +111,18 @@ export function WantsManager({
   const updateItem = async (itemId: string, status: string) => {
     if (!selected) return;
     setBusy(true);
-    setItemAction({ id: itemId, status, label: status === "active" ? "Resuming" : status === "fulfilled" ? "Fulfilling" : status === "removed" ? "Removing" : "Pausing" });
+    setItemAction({
+      id: itemId,
+      status,
+      label:
+        status === "active"
+          ? "Resuming"
+          : status === "fulfilled"
+            ? "Fulfilling"
+            : status === "removed"
+              ? "Removing"
+              : "Pausing",
+    });
     const response = await fetch(
       `/api/me/wishlists/${encodeURIComponent(selected.id)}/items/${encodeURIComponent(itemId)}?gameSlug=${encodeURIComponent(game.slug)}`,
       {
@@ -116,7 +137,20 @@ export function WantsManager({
     setBusy(false);
     setItemAction(null);
   };
-  const showAvailability=async(itemId:string)=>{if(!selected)return;setAvailabilityBusy(true);setError(null);const response=await fetch(`/api/me/wishlists/${selected.id}/items/${itemId}/availability?gameSlug=${encodeURIComponent(game.slug)}`);if(response.ok)setAvailability(await response.json());else setError((await parse(response)).message??"Availability could not be loaded.");setAvailabilityBusy(false)};
+  const showAvailability = async (itemId: string) => {
+    if (!selected) return;
+    setAvailabilityBusy(true);
+    setError(null);
+    const response = await fetch(
+      `/api/me/wishlists/${selected.id}/items/${itemId}/availability?gameSlug=${encodeURIComponent(game.slug)}`,
+    );
+    if (response.ok) setAvailability(await response.json());
+    else
+      setError(
+        (await parse(response)).message ?? "Availability could not be loaded.",
+      );
+    setAvailabilityBusy(false);
+  };
   return (
     <div className={styles.page}>
       <header className={styles.toolbar}>
@@ -261,44 +295,75 @@ export function WantsManager({
                           </span>
                         </div>
                         <div className={styles.itemActions}>
-                          <button disabled={availabilityBusy} onClick={()=>void showAvailability(item.id)}>{availabilityBusy?"Checking…":"Available from collectors"}</button>
+                          <button
+                            disabled={availabilityBusy}
+                            onClick={() => void showAvailability(item.id)}
+                          >
+                            {availabilityBusy
+                              ? "Checking…"
+                              : "Available from collectors"}
+                          </button>
                           <span>{item.status}</span>
                           {item.status === "active" ? (
                             <>
                               <button
                                 disabled={busy}
-                                aria-busy={itemAction?.id === item.id && itemAction.status === "paused"}
+                                aria-busy={
+                                  itemAction?.id === item.id &&
+                                  itemAction.status === "paused"
+                                }
                                 onClick={() =>
                                   void updateItem(item.id, "paused")
                                 }
                               >
-                                {itemAction?.id === item.id && itemAction.status === "paused" ? `${itemAction.label}…` : "Pause"}
+                                {itemAction?.id === item.id &&
+                                itemAction.status === "paused"
+                                  ? `${itemAction.label}…`
+                                  : "Pause"}
                               </button>
                               <button
                                 disabled={busy}
-                                aria-busy={itemAction?.id === item.id && itemAction.status === "fulfilled"}
+                                aria-busy={
+                                  itemAction?.id === item.id &&
+                                  itemAction.status === "fulfilled"
+                                }
                                 onClick={() =>
                                   void updateItem(item.id, "fulfilled")
                                 }
                               >
-                                {itemAction?.id === item.id && itemAction.status === "fulfilled" ? `${itemAction.label}…` : "Fulfill"}
+                                {itemAction?.id === item.id &&
+                                itemAction.status === "fulfilled"
+                                  ? `${itemAction.label}…`
+                                  : "Fulfill"}
                               </button>
                             </>
                           ) : item.status === "paused" ? (
                             <button
                               disabled={busy}
-                              aria-busy={itemAction?.id === item.id && itemAction.status === "active"}
+                              aria-busy={
+                                itemAction?.id === item.id &&
+                                itemAction.status === "active"
+                              }
                               onClick={() => void updateItem(item.id, "active")}
                             >
-                              {itemAction?.id === item.id && itemAction.status === "active" ? `${itemAction.label}…` : "Resume"}
+                              {itemAction?.id === item.id &&
+                              itemAction.status === "active"
+                                ? `${itemAction.label}…`
+                                : "Resume"}
                             </button>
                           ) : null}
                           <button
                             disabled={busy}
-                            aria-busy={itemAction?.id === item.id && itemAction.status === "removed"}
+                            aria-busy={
+                              itemAction?.id === item.id &&
+                              itemAction.status === "removed"
+                            }
                             onClick={() => void updateItem(item.id, "removed")}
                           >
-                            {itemAction?.id === item.id && itemAction.status === "removed" ? `${itemAction.label}…` : "Remove"}
+                            {itemAction?.id === item.id &&
+                            itemAction.status === "removed"
+                              ? `${itemAction.label}…`
+                              : "Remove"}
                           </button>
                         </div>
                       </li>
@@ -315,7 +380,71 @@ export function WantsManager({
           {error}
         </p>
       ) : null}
-      {availability?<div className={styles.backdrop}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="availability-title"><header><h2 id="availability-title">Available from collectors</h2><button type="button" onClick={()=>setAvailability(null)} aria-label="Close">×</button></header><p>{availability.availableCount} matching active listing{availability.availableCount===1?"":"s"}</p>{availability.listings.length?<ul className={styles.items}>{availability.listings.map((listing:any)=>{const inventory=listing.inventory_items_listings_inventory_item_id_game_idToinventory_items;const seller=inventory.user_profiles;return <li key={listing.id}><div><strong>{seller.display_name??seller.username??"Collector"}</strong><span>@{seller.username??"collector"}</span><span>{inventory.card_printings.card_sets.name} · #{inventory.card_printings.collector_number}</span><span>{pretty(inventory.condition)} · {inventory.language_code.toUpperCase()} · {pretty(inventory.finish)}</span><span>{listing.accepts_trade?"Trade":""}{listing.accepts_cash?`${listing.accepts_trade?" or ":""}For sale${listing.asking_price?` · ${listing.asking_price} ${listing.currency_code}`:""}`:""}</span><MessageContextAction contextType="listing" contextId={listing.id} label="Message seller" /></div></li>})}</ul>:<p>No matching Listings are available right now.</p>}<h3>Offers sent to this Want</h3><p>{availability.formalWishlistOffers.length?`${availability.formalWishlistOffers.length} formal offer${availability.formalWishlistOffers.length===1?"":"s"}`:"No formal Wishlist Offers yet."}</p></section></div>:null}
+      {availability ? (
+        <PageModal
+          title="Available from collectors"
+          onClose={() => setAvailability(null)}
+          className={styles.availabilityDialog}
+        >
+          <div className={styles.availabilityContent}>
+            <p>
+              {availability.availableCount} matching active listing
+              {availability.availableCount === 1 ? "" : "s"}
+            </p>
+            {availability.listings.length ? (
+              <ul className={styles.items}>
+                {availability.listings.map((listing: any) => {
+                  const inventory =
+                    listing.inventory_items_listings_inventory_item_id_game_idToinventory_items;
+                  const seller = inventory.user_profiles;
+                  return (
+                    <li key={listing.id}>
+                      <div>
+                        <strong>
+                          {seller.display_name ??
+                            seller.username ??
+                            "Collector"}
+                        </strong>
+                        <span>@{seller.username ?? "collector"}</span>
+                        <span>
+                          {inventory.card_printings.card_sets.name} · #
+                          {inventory.card_printings.collector_number}
+                        </span>
+                        <span>
+                          {pretty(inventory.condition)} ·{" "}
+                          {inventory.language_code.toUpperCase()} ·{" "}
+                          {pretty(inventory.finish)}
+                        </span>
+                        <span>
+                          {listing.accepts_trade ? "Trade" : ""}
+                          {listing.accepts_cash
+                            ? `${listing.accepts_trade ? " or " : ""}For sale${listing.asking_price ? ` · ${listing.asking_price} ${listing.currency_code}` : ""}`
+                            : ""}
+                        </span>
+                        <MessageContextAction
+                          contextType="listing"
+                          contextId={listing.id}
+                          label="Message seller"
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p>No matching Listings are available right now.</p>
+            )}
+            <section className={styles.availabilityOffers}>
+              <h3>Offers sent to this Want</h3>
+              <p>
+                {availability.formalWishlistOffers.length
+                  ? `${availability.formalWishlistOffers.length} formal offer${availability.formalWishlistOffers.length === 1 ? "" : "s"}`
+                  : "No formal Wishlist Offers yet."}
+              </p>
+            </section>
+          </div>
+        </PageModal>
+      ) : null}
       {createOpen ? (
         <div className={styles.backdrop}>
           <form className={styles.dialog} onSubmit={create}>
@@ -449,7 +578,9 @@ function AddWantDialog({
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState<CatalogSearchResult["items"]>([]);
   const [searchPage, setSearchPage] = useState(1);
-  const [searchPageSize, setSearchPageSize] = useState(ADD_WANT_SEARCH_PAGE_SIZE);
+  const [searchPageSize, setSearchPageSize] = useState(
+    ADD_WANT_SEARCH_PAGE_SIZE,
+  );
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchTotalPages, setSearchTotalPages] = useState(0);
   const [searchedQuery, setSearchedQuery] = useState("");
@@ -463,17 +594,20 @@ function AddWantDialog({
   const [busy, setBusy] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const versionFamilies = useMemo(() => groupPrintingVersions(printings), [printings]);
-  const selectedFamily = versionFamilies.find((value) => value.key === versionKey);
+  const versionFamilies = useMemo(
+    () => groupPrintingVersions(printings),
+    [printings],
+  );
+  const selectedFamily = versionFamilies.find(
+    (value) => value.key === versionKey,
+  );
   const search = async (page = 1) => {
     const term = query.trim();
     if (searching || !term) return;
     setSearching(true);
     setError(null);
     try {
-      const response = await fetch(
-        addWantSearchHref(term, game.slug, page),
-      );
+      const response = await fetch(addWantSearchHref(term, game.slug, page));
       if (!response.ok) throw new Error();
       const result = (await response.json()) as CatalogSearchResult;
       setCards(result.items);
@@ -506,8 +640,11 @@ function AddWantDialog({
     setFinishes([]);
     setFinish("");
     if (!id) return;
-    const response = await fetch(`/api/catalog/printings/${encodeURIComponent(id)}/finishes`);
-    if (!response.ok) return setError("Finishes are unavailable for this printing.");
+    const response = await fetch(
+      `/api/catalog/printings/${encodeURIComponent(id)}/finishes`,
+    );
+    if (!response.ok)
+      return setError("Finishes are unavailable for this printing.");
     const values = (await response.json()) as CatalogPrintingFinish[];
     setFinishes(values);
     if (values.length === 1) setFinish(values[0]!.finish);
@@ -535,11 +672,14 @@ function AddWantDialog({
           quantityDesired: Number(data.get("quantity")),
           willingToPayCash: cash,
           willingToTradeCards: trade,
-          desiredFinish: mode === "printing" ? finish || null : data.get("finish") || null,
+          desiredFinish:
+            mode === "printing" ? finish || null : data.get("finish") || null,
           desiredCondition: data.get("condition") || null,
-          languageCode: mode === "printing"
-            ? printings.find((value) => value.id === printingId)?.language_code ?? null
-            : data.get("language") || null,
+          languageCode:
+            mode === "printing"
+              ? (printings.find((value) => value.id === printingId)
+                  ?.language_code ?? null)
+              : data.get("language") || null,
           priority: data.get("priority"),
           notes: data.get("notes") || null,
           maxCashAmount: cash && max ? Number(max) : null,
@@ -571,7 +711,9 @@ function AddWantDialog({
           </button>
         </header>
         <div className={styles.search}>
-          <span className={styles.searchIcon} aria-hidden="true">⌕</span>
+          <span className={styles.searchIcon} aria-hidden="true">
+            ⌕
+          </span>
           <input
             aria-label="Search cards"
             value={query}
@@ -614,15 +756,21 @@ function AddWantDialog({
                 onClick={() => void choose(value)}
               >
                 <span className={styles.resultArt}>
-                  {value.representative_printing?.image_normal_uri || value.representative_printing?.image_small_uri ? (
+                  {value.representative_printing?.image_normal_uri ||
+                  value.representative_printing?.image_small_uri ? (
                     <Image
-                      src={value.representative_printing.image_normal_uri ?? value.representative_printing.image_small_uri!}
+                      src={
+                        value.representative_printing.image_normal_uri ??
+                        value.representative_printing.image_small_uri!
+                      }
                       alt={`${value.name} card artwork`}
                       fill
                       sizes="(max-width: 36rem) 42vw, 150px"
                       unoptimized
                     />
-                  ) : <span>Image unavailable</span>}
+                  ) : (
+                    <span>Image unavailable</span>
+                  )}
                 </span>
                 <strong>{value.name}</strong>
               </button>
@@ -630,15 +778,34 @@ function AddWantDialog({
           </div>
         ) : null}
         {searchTotal > 0 ? (
-          <nav className={styles.resultPagination} aria-label="Add Want search result pages" aria-busy={searching}>
+          <nav
+            className={styles.resultPagination}
+            aria-label="Add Want search result pages"
+            aria-busy={searching}
+          >
             <p>
-              Showing {(searchPage - 1) * searchPageSize + 1}–{Math.min(searchPage * searchPageSize, searchTotal)} of {searchTotal.toLocaleString()} cards · Page {searchPage} of {searchTotalPages}
+              Showing {(searchPage - 1) * searchPageSize + 1}–
+              {Math.min(searchPage * searchPageSize, searchTotal)} of{" "}
+              {searchTotal.toLocaleString()} cards · Page {searchPage} of{" "}
+              {searchTotalPages}
             </p>
             <div>
-              <button className={styles.secondary} type="button" disabled={searching || searchPage <= 1} onClick={() => void search(searchPage - 1)} aria-label="Previous card search page">
+              <button
+                className={styles.secondary}
+                type="button"
+                disabled={searching || searchPage <= 1}
+                onClick={() => void search(searchPage - 1)}
+                aria-label="Previous card search page"
+              >
                 {searching ? "Loading…" : "Previous"}
               </button>
-              <button className={styles.secondary} type="button" disabled={searching || searchPage >= searchTotalPages} onClick={() => void search(searchPage + 1)} aria-label="Next card search page">
+              <button
+                className={styles.secondary}
+                type="button"
+                disabled={searching || searchPage >= searchTotalPages}
+                onClick={() => void search(searchPage + 1)}
+                aria-label="Next card search page"
+              >
                 {searching ? "Loading…" : "Next"}
               </button>
             </div>
@@ -669,27 +836,50 @@ function AddWantDialog({
               <>
                 <label>
                   Version
-                  <select value={versionKey} onChange={(event) => {
-                    const family = versionFamilies.find((value) => value.key === event.target.value);
-                    setVersionKey(event.target.value);
-                    void choosePrinting(family?.printings.length === 1 ? family.printings[0]!.id : "");
-                  }} required>
+                  <select
+                    value={versionKey}
+                    onChange={(event) => {
+                      const family = versionFamilies.find(
+                        (value) => value.key === event.target.value,
+                      );
+                      setVersionKey(event.target.value);
+                      void choosePrinting(
+                        family?.printings.length === 1
+                          ? family.printings[0]!.id
+                          : "",
+                      );
+                    }}
+                    required
+                  >
                     <option value="">Choose version</option>
                     {versionFamilies.map((family) => {
                       const value = family.representative;
-                      return <option key={family.key} value={family.key}>
-                        {value.card_sets.name} · {value.card_sets.code.toUpperCase()} #{value.collector_number} · {family.printings.length} language{family.printings.length === 1 ? "" : "s"}
-                      </option>;
+                      return (
+                        <option key={family.key} value={family.key}>
+                          {value.card_sets.name} ·{" "}
+                          {value.card_sets.code.toUpperCase()} #
+                          {value.collector_number} · {family.printings.length}{" "}
+                          language{family.printings.length === 1 ? "" : "s"}
+                        </option>
+                      );
                     })}
                   </select>
                 </label>
                 {selectedFamily && selectedFamily.printings.length > 1 ? (
                   <label>
                     Language
-                    <select value={printingId} onChange={(event) => void choosePrinting(event.target.value)} required>
+                    <select
+                      value={printingId}
+                      onChange={(event) =>
+                        void choosePrinting(event.target.value)
+                      }
+                      required
+                    >
                       <option value="">Choose language</option>
                       {selectedFamily.printings.map((value) => (
-                        <option key={value.id} value={value.id}>{value.language_code.toUpperCase()}</option>
+                        <option key={value.id} value={value.id}>
+                          {value.language_code.toUpperCase()}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -697,9 +887,15 @@ function AddWantDialog({
                 {printingId ? (
                   <label>
                     Finish
-                    <select value={finish} onChange={(event) => setFinish(event.target.value)} required>
+                    <select
+                      value={finish}
+                      onChange={(event) => setFinish(event.target.value)}
+                      required
+                    >
                       <option value="">Choose finish</option>
-                      {finishes.map((value) => <option key={value.finish}>{value.finish}</option>)}
+                      {finishes.map((value) => (
+                        <option key={value.finish}>{value.finish}</option>
+                      ))}
                     </select>
                   </label>
                 ) : null}
@@ -792,7 +988,11 @@ function AddWantDialog({
             {error}
           </p>
         ) : null}
-        <button className={styles.primary} disabled={busy || !card} aria-busy={busy}>
+        <button
+          className={styles.primary}
+          disabled={busy || !card}
+          aria-busy={busy}
+        >
           {busy ? "Saving…" : "Save want"}
         </button>
       </form>

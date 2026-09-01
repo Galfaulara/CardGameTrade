@@ -1,24 +1,36 @@
 .link {
   position: relative;
   display: grid;
-  min-width: 2.5rem;
-  height: 2.5rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
   place-items: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-surface);
-  font-size: 1.1rem;
+  color: var(--color-text);
   cursor: pointer;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+.link svg {
+  display: block;
 }
 .link:hover {
+  color: var(--color-action);
   border-color: var(--color-action);
   background: var(--color-action-subtle);
+}
+.link:active {
+  transform: scale(0.96);
 }
 .link:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
-.link > span {
+.badge {
   position: absolute;
   top: -0.35rem;
   right: -0.35rem;
@@ -32,4 +44,25 @@
   background: var(--color-action);
   font-size: 0.65rem;
   font-weight: 800;
+}
+.loader {
+  position: absolute;
+  right: 0.2rem;
+  bottom: 0.2rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-action);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loader {
+    animation: none;
+  }
 }

@@ -25,7 +25,9 @@
     "test:add-want-pagination": "node --experimental-strip-types test/add-want-pagination-regression.ts",
     "test:card-face-viewer": "node --experimental-strip-types test/card-face-viewer-regression.ts",
     "test:search-request-state": "node --experimental-strip-types test/catalog-search-request-state-regression.ts",
-    "test:interest-modal": "node --experimental-strip-types test/interest-single-modal-regression.ts"
+    "test:interest-modal": "node --experimental-strip-types test/interest-single-modal-regression.ts",
+    "test:wishlist-availability-modal": "node --experimental-strip-types test/wishlist-availability-modal-regression.ts",
+    "test:header-icons": "node --experimental-strip-types test/header-icons-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",
