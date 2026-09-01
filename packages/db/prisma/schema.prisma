@@ -147,6 +147,7 @@ model inventory_item_interests {
   user_profiles               user_profiles?       @relation(fields: [interested_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_user")
   wishlist_offers             wishlist_offers?     @relation(fields: [converted_wishlist_offer_id, game_id], references: [id, game_id], onDelete: SetNull, onUpdate: NoAction, map: "fk_inventory_item_interests_wishlist_offer_same_game")
   user_notifications          user_notifications[]
+  conversation_contexts       conversation_contexts[]
 
   @@unique([inventory_item_id, interested_store_id], map: "uq_inventory_item_interests_active_store", where: raw("((status = 'active'::text) AND (interested_store_id IS NOT NULL))"))
   @@unique([inventory_item_id, interested_user_id], map: "uq_inventory_item_interests_active_user", where: raw("((status = 'active'::text) AND (interested_user_id IS NOT NULL))"))
@@ -258,6 +259,7 @@ model listing_offers {
   offer_items_offer_items_offer_id_offerer_user_idTolisting_offers    offer_items[]              @relation("offer_items_offer_id_offerer_user_idTolisting_offers")
   transactions_transactions_accepted_offer_id_game_idTolisting_offers transactions[]             @relation("transactions_accepted_offer_id_game_idTolisting_offers")
   transactions                                                        transactions?
+  conversation_contexts                                              conversation_contexts[]
 
   @@unique([id, listing_id], map: "uq_listing_offers_id_listing")
   @@unique([id, offerer_store_id], map: "uq_listing_offers_id_offerer_store")
@@ -289,6 +291,7 @@ model listings {
   updated_at                                                                  DateTime         @default(now()) @db.Timestamptz(6)
   game_id                                                                     String           @db.Uuid
   listing_offers                                                              listing_offers[]
+  conversation_contexts                                                       conversation_contexts[]
   listing_offers_listing_offers_listing_id_game_idTolistings                  listing_offers[] @relation("listing_offers_listing_id_game_idTolistings")
   inventory_items_listings_inventory_item_id_game_idToinventory_items         inventory_items  @relation("listings_inventory_item_id_game_idToinventory_items", fields: [inventory_item_id, game_id], references: [id, game_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listings_inventory_same_game")
   inventory_items_listings_inventory_item_id_seller_store_idToinventory_items inventory_items? @relation("listings_inventory_item_id_seller_store_idToinventory_items", fields: [inventory_item_id, seller_store_id], references: [id, owner_store_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listings_inventory_store_owner")
@@ -603,6 +606,7 @@ model transactions {
   game_id                                                               String                 @db.Uuid
   store_trade_handoffs                                                  store_trade_handoffs[]
   transaction_items                                                     transaction_items[]
+  conversation_contexts                                                 conversation_contexts[]
   listing_offers_transactions_accepted_offer_id_game_idTolisting_offers listing_offers?        @relation("transactions_accepted_offer_id_game_idTolisting_offers", fields: [accepted_offer_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_accepted_offer_same_game")
   listing_offers                                                        listing_offers?        @relation(fields: [accepted_offer_id, listing_id], references: [id, listing_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_accepted_offer_same_listing")
   wishlist_offers                                                       wishlist_offers?       @relation(fields: [accepted_wishlist_offer_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_accepted_wishlist_offer_same_game")
@@ -652,6 +656,14 @@ model user_profiles {
   stores_verification_reviewed_by                                 stores[]                   @relation("stores_verification_reviewed_by_user")
   notifications_received                                          user_notifications[]       @relation("user_notifications_recipient")
   notifications_acted                                             user_notifications[]       @relation("user_notifications_actor")
+  friendships_low                                                 user_friendships[]         @relation("user_friendships_low")
+  friendships_high                                                user_friendships[]         @relation("user_friendships_high")
+  friendships_requested                                           user_friendships[]         @relation("user_friendships_requester")
+  blocks_created                                                  user_blocks[]              @relation("user_blocks_blocker")
+  blocks_received                                                 user_blocks[]              @relation("user_blocks_blocked")
+  conversations_created                                           conversations[]            @relation("conversations_created_by")
+  conversation_participants                                       conversation_participants[]
+  messages_sent                                                   messages[]
 
   @@unique([auth_provider, auth_user_id], map: "uq_user_profiles_auth")
   @@index([preferred_store_id], map: "idx_user_profiles_preferred_store_id")
@@ -664,14 +676,112 @@ model user_notifications {
   type                       String
   inventory_item_id          String?                   @db.Uuid
   inventory_item_interest_id String?                   @unique @db.Uuid
+  user_friendship_id         String?                   @db.Uuid
   read_at                    DateTime?                 @db.Timestamptz(6)
   created_at                 DateTime                  @default(now()) @db.Timestamptz(6)
   recipient                  user_profiles             @relation("user_notifications_recipient", fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_notifications_recipient")
   actor                      user_profiles?            @relation("user_notifications_actor", fields: [actor_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_actor")
   inventory_item             inventory_items?          @relation(fields: [inventory_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_inventory_item")
   inventory_item_interest    inventory_item_interests? @relation(fields: [inventory_item_interest_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_inventory_interest")
+  user_friendship            user_friendships?         @relation(fields: [user_friendship_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_friendship")
 
   @@index([recipient_user_id, read_at, created_at(sort: Desc)], map: "idx_user_notifications_recipient_unread_newest")
+  @@index([user_friendship_id], map: "idx_user_notifications_friendship")
+}
+
+model user_friendships {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_low_id       String             @db.Uuid
+  user_high_id      String             @db.Uuid
+  requester_user_id String             @db.Uuid
+  status            String             @default("pending")
+  requested_at      DateTime           @default(now()) @db.Timestamptz(6)
+  responded_at      DateTime?          @db.Timestamptz(6)
+  removed_at        DateTime?          @db.Timestamptz(6)
+  updated_at        DateTime           @default(now()) @db.Timestamptz(6)
+  user_low          user_profiles      @relation("user_friendships_low", fields: [user_low_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user_high         user_profiles      @relation("user_friendships_high", fields: [user_high_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  requester         user_profiles      @relation("user_friendships_requester", fields: [requester_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  notifications     user_notifications[]
+
+  @@unique([user_low_id, user_high_id], map: "uq_user_friendships_pair")
+  @@index([requester_user_id, status], map: "idx_user_friendships_requester_status")
+  @@index([user_low_id, status], map: "idx_user_friendships_low_status")
+  @@index([user_high_id, status], map: "idx_user_friendships_high_status")
+}
+
+model user_blocks {
+  blocker_user_id String        @db.Uuid
+  blocked_user_id String        @db.Uuid
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  blocker         user_profiles @relation("user_blocks_blocker", fields: [blocker_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  blocked         user_profiles @relation("user_blocks_blocked", fields: [blocked_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([blocker_user_id, blocked_user_id])
+  @@index([blocked_user_id], map: "idx_user_blocks_blocked")
+}
+
+model conversations {
+  id                 String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind               String
+  user_low_id        String                      @db.Uuid
+  user_high_id       String                      @db.Uuid
+  created_by_user_id String                      @db.Uuid
+  created_at         DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                    @default(now()) @db.Timestamptz(6)
+  last_message_at    DateTime?                   @db.Timestamptz(6)
+  created_by         user_profiles               @relation("conversations_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  participants       conversation_participants[]
+  messages           messages[]
+  context            conversation_contexts?
+
+  @@index([last_message_at(sort: Desc)], map: "idx_conversations_last_message")
+  @@index([user_low_id, user_high_id], map: "idx_conversations_pair")
+}
+
+model conversation_participants {
+  conversation_id String         @db.Uuid
+  user_id         String         @db.Uuid
+  joined_at       DateTime       @default(now()) @db.Timestamptz(6)
+  last_read_at    DateTime?      @db.Timestamptz(6)
+  archived_at     DateTime?      @db.Timestamptz(6)
+  conversation    conversations  @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user            user_profiles  @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  messages         messages[]
+
+  @@id([conversation_id, user_id])
+  @@index([user_id, archived_at], map: "idx_conversation_participants_inbox")
+}
+
+model messages {
+  id              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String                    @db.Uuid
+  sender_user_id  String                    @db.Uuid
+  body            String
+  created_at      DateTime                  @default(now()) @db.Timestamptz(6)
+  edited_at       DateTime?                 @db.Timestamptz(6)
+  deleted_at      DateTime?                 @db.Timestamptz(6)
+  conversation    conversations             @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sender          user_profiles             @relation(fields: [sender_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  participant     conversation_participants @relation(fields: [conversation_id, sender_user_id], references: [conversation_id, user_id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([conversation_id, created_at], map: "idx_messages_conversation_created")
+  @@index([sender_user_id], map: "idx_messages_sender")
+}
+
+model conversation_contexts {
+  conversation_id           String                    @id @db.Uuid
+  listing_id                String?                   @unique @db.Uuid
+  inventory_item_interest_id String?                  @unique @db.Uuid
+  listing_offer_id          String?                   @unique @db.Uuid
+  wishlist_offer_id         String?                   @unique @db.Uuid
+  transaction_id            String?                   @unique @db.Uuid
+  conversation              conversations             @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  listing                   listings?                 @relation(fields: [listing_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  inventory_item_interest   inventory_item_interests? @relation(fields: [inventory_item_interest_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  listing_offer             listing_offers?           @relation(fields: [listing_offer_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  wishlist_offer            wishlist_offers?          @relation(fields: [wishlist_offer_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  transaction               transactions?             @relation(fields: [transaction_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -782,6 +892,7 @@ model wishlist_offers {
   wishlist_offer_items_wishlist_offer_items_wishlist_offer_id_offerer_store_idTowishlist_offers wishlist_offer_items[]           @relation("wishlist_offer_items_wishlist_offer_id_offerer_store_idTowishlist_offers")
   wishlist_offer_items_wishlist_offer_items_wishlist_offer_id_offerer_user_idTowishlist_offers  wishlist_offer_items[]           @relation("wishlist_offer_items_wishlist_offer_id_offerer_user_idTowishlist_offers")
   wishlist_offer_requested_items                                                                wishlist_offer_requested_items[]
+  conversation_contexts                                                                         conversation_contexts[]
   stores                                                                                        stores?                          @relation(fields: [offerer_store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_wishlist_offers_offer_store")
   store_games                                                                                   store_games?                     @relation(fields: [offerer_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_wishlist_offers_offer_store_game")
   user_profiles                                                                                 user_profiles?                   @relation(fields: [offerer_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_wishlist_offers_offer_user")

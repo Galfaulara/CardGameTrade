@@ -12,6 +12,7 @@ export class NotificationsService {
         select: { id: true, type: true, read_at: true, created_at: true, inventory_item_id: true,
           actor: { select: { id: true, username: true, display_name: true } },
           inventory_item_interest: { select: { interest_type: true } },
+          user_friendship: { select: { id: true, status: true } },
           inventory_item: { select: { card_printings: { select: { canonical_cards: { select: { name: true } } } } } },
         },
       }),
@@ -22,6 +23,7 @@ export class NotificationsService {
       createdAt: item.created_at.toISOString(), inventoryItemId: item.inventory_item_id,
       actor: item.actor ? { id: item.actor.id, username: item.actor.username, displayName: item.actor.display_name } : null,
       interestType: item.inventory_item_interest?.interest_type ?? null,
+      friendshipId: item.user_friendship?.id ?? null,
       cardName: item.inventory_item?.card_printings.canonical_cards.name ?? "card",
     })) };
   }

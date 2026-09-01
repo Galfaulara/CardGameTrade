@@ -25,6 +25,7 @@ import { StoreHandoffsModule } from "./store-handoffs/store-handoffs.module";
 import { TransactionsModule } from "./transactions/transactions.module";
 import { WishlistsModule } from "./wishlists/wishlists.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { SocialModule } from "./social/social.module";
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     TransactionsModule,
     WishlistsModule,
     NotificationsModule,
+    SocialModule,
   ],
 
   controllers: [
