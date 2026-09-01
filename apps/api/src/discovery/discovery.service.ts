@@ -4,9 +4,9 @@ import type { DiscoveryCollectionFeedQuery, DiscoveryCollectionListQuery, Discov
   DiscoveryListingFeedQuery, DiscoveryStoreFeedQuery, DiscoveryStoreListQuery,
   DiscoveryUserCollectionQuery, DiscoveryUserListingQuery, DiscoveryUserWishlistQuery } from "@repo/validation";
 import { DatabaseService } from "../database/database.service";
+import { activePublicListingWhere as activeListing } from "../marketplace/active-public-listing";
 
 const available = { status: "available" } as const;
-const activeListing = { status: "active", OR: [{ accepts_trade: true }, { accepts_cash: true }] };
 const eligibleStore = { status: "active", verification_status: "verified", trade_mediation_enabled: true } as const;
 const inventorySelect = {
   id: true, quantity: true, condition: true, finish: true, language_code: true, status: true,

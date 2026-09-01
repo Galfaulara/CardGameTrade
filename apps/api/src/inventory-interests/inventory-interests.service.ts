@@ -12,6 +12,10 @@ import type {
 } from "@repo/validation";
 
 import { DatabaseService } from "../database/database.service";
+import {
+  activePublicListingWhere,
+  isVisibleInterestTarget,
+} from "../marketplace/active-public-listing";
 
 @Injectable()
 export class InventoryInterestsService {
@@ -298,6 +302,11 @@ export class InventoryInterestsService {
               visibility: true,
             },
           },
+
+          listings_listings_inventory_item_id_seller_user_idToinventory_items: {
+            where: activePublicListingWhere,
+            select: { id: true },
+          },
         },
       });
 
@@ -325,21 +334,15 @@ export class InventoryInterestsService {
       );
     }
 
-    if (
-      !inventoryItem.collection_id ||
-      !inventoryItem.collections
-    ) {
+    if (!isVisibleInterestTarget({
+      collectionVisibility: inventoryItem.collections?.visibility ?? null,
+      activeListingCount:
+        inventoryItem
+          .listings_listings_inventory_item_id_seller_user_idToinventory_items
+          .length,
+    })) {
       throw new ForbiddenException(
-        "The card must belong to a visible user collection before another user can express interest in it.",
-      );
-    }
-
-    if (
-      inventoryItem.collections.visibility ===
-      "private"
-    ) {
-      throw new ForbiddenException(
-        "Interest cannot be created for a card in a private collection.",
+        "Interest can only be expressed in a card that is publicly available through a Collection or active Listing.",
       );
     }
 
