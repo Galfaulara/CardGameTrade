@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type {
+  CardRelationshipContextInput,
   MyProfileStoreOptionsQuery,
   UpdateMyProfileInput,
 } from "@repo/validation";
@@ -334,5 +335,27 @@ export class MeService {
             query.limit,
         }),
     };
+  }
+
+  async getCardRelationshipContext(userId: string, input: CardRelationshipContextInput) {
+    const game = await this.database.client.games.findUnique({ where: { slug: input.gameSlug }, select: { id: true } });
+    if (!game) throw new BadRequestException("The active game was not found.");
+    const [inventory, wants] = await Promise.all([
+      this.database.client.inventory_items.findMany({
+        where: { owner_user_id: userId, owner_store_id: null, game_id: game.id, status: { in: ["available", "not_for_trade", "reserved", "in_trade"] },
+          OR: [{ printing_id: { in: input.printingIds } }, { card_printings: { canonical_card_id: { in: input.canonicalCardIds } } }],
+        }, select: { printing_id: true, quantity: true, card_printings: { select: { canonical_card_id: true } } },
+      }),
+      this.database.client.wishlist_items.findMany({
+        where: { game_id: game.id, status: "active", wishlists: { user_id: userId, status: "active" },
+          OR: [{ printing_id: { in: input.printingIds } }, { canonical_card_id: { in: input.canonicalCardIds } }],
+        }, select: { printing_id: true, canonical_card_id: true, card_printings: { select: { canonical_card_id: true } } },
+      }),
+    ]);
+    const canonicalOwned: Record<string,number> = {}, printingOwned: Record<string,number> = {};
+    for (const row of inventory) { printingOwned[row.printing_id]=(printingOwned[row.printing_id]??0)+row.quantity; const id=row.card_printings.canonical_card_id; canonicalOwned[id]=(canonicalOwned[id]??0)+row.quantity; }
+    const canonicalWants = [...new Set(wants.map((row)=>row.canonical_card_id??row.card_printings?.canonical_card_id).filter(Boolean))];
+    const printingWants = [...new Set(wants.map((row)=>row.printing_id).filter(Boolean))];
+    return { canonicalOwned, printingOwned, canonicalWants, printingWants };
   }
 }

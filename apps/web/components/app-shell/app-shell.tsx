@@ -8,6 +8,7 @@ import { SearchForm } from "../search-form/search-form";
 import { ActiveGameSelector } from "../active-game-selector/active-game-selector";
 import styles from "./app-shell.module.css";
 import { PrimaryNavigation } from "./primary-navigation";
+import { NotificationBell } from "../notification-bell/notification-bell";
 
 export async function AppShell({ children }: { children: ReactNode }) {
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
@@ -35,6 +36,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
           <div className={styles.auth}>{clerkConfigured ? signedIn ? <>
             {currentUser && !currentUser.onboarded && <Link className={styles.finishSetup} href="/onboarding">Finish setup</Link>}
             {currentUser?.onboarded && currentUser.account_status === "active" && <Link className={styles.accountLink} href="/account/profile">DeckDeal profile</Link>}
+            {currentUser?.onboarded && currentUser.account_status === "active" && <NotificationBell />}
             {currentUser?.onboarded && currentUser.account_status === "active" && currentUser.store_workspaces.length > 0 && <Link className={styles.accountLink} href="/store">Store Workspace</Link>}
             <UserButton />
           </> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></> : <><Link href="/sign-in">Sign in</Link><Link className={styles.createAccount} href="/sign-up">Create account</Link></>}</div>

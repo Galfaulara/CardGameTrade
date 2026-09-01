@@ -92,6 +92,8 @@ export async function requireActiveDeckDealUser() {
 export async function getMyProfile() {
   return (await authenticatedApiFetch("/me/profile")).json() as Promise<MyProfile>;
 }
+export type CardRelationshipContext={canonicalOwned:Record<string,number>;printingOwned:Record<string,number>;canonicalWants:string[];printingWants:string[]};
+export async function getMyCardRelationshipContext(gameSlug:string,canonicalCardIds:string[],printingIds:string[]=[]){return (await authenticatedApiFetch("/me/card-context",{method:"POST",body:JSON.stringify({gameSlug,canonicalCardIds,printingIds})})).json() as Promise<CardRelationshipContext>}
 
 export async function getMyInventory(
   query: string,

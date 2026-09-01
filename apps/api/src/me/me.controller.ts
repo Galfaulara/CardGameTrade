@@ -3,11 +3,13 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import {
   myProfileStoreOptionsQuerySchema,
   updateMyProfileSchema,
+  cardRelationshipContextSchema,
 } from "@repo/validation";
 import type {
   AuthenticatedPrincipal,
@@ -15,6 +17,7 @@ import type {
 import type {
   MyProfileStoreOptionsQuery,
   UpdateMyProfileInput,
+  CardRelationshipContextInput,
 } from "@repo/validation";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
@@ -72,4 +75,10 @@ export class MeController {
       query,
     );
   }
+
+  @Post("card-context")
+  cardContext(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Body(new ZodValidationPipe(cardRelationshipContextSchema)) input: CardRelationshipContextInput,
+  ) { return this.meService.getCardRelationshipContext(principal.deckdealUserId!, input); }
 }

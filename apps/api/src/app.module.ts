@@ -24,6 +24,7 @@ import { StoresModule } from "./stores/stores.module";
 import { StoreHandoffsModule } from "./store-handoffs/store-handoffs.module";
 import { TransactionsModule } from "./transactions/transactions.module";
 import { WishlistsModule } from "./wishlists/wishlists.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WishlistsModule } from "./wishlists/wishlists.module";
     StoreHandoffsModule,
     TransactionsModule,
     WishlistsModule,
+    NotificationsModule,
   ],
 
   controllers: [

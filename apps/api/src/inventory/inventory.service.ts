@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@repo/db";
 import type {
+  BulkMoveCollectionItemsInput,
   CreateInventoryPhotoInput,
   CreateUserCollectionInput,
   CreateUserInventoryItemInput,
@@ -540,12 +541,29 @@ export class InventoryService {
     const filteredCount =
       filteredAggregate._count._all;
 
+    const itemIds=items.map((item)=>item.id);
+    const canonicalIds=[...new Set(items.map((item)=>item.printing_finishes.card_printings.canonical_card_id))];
+    const printingIds=[...new Set(items.map((item)=>item.printing_id))];
+    const [interestGroups,publicWants,listingOfferGroups,offeredGroups,wishlistOfferGroups,requestedGroups]=itemIds.length?await Promise.all([
+      this.database.client.inventory_item_interests.groupBy({by:["inventory_item_id"],where:{inventory_item_id:{in:itemIds},status:"active"},_count:{_all:true}}),
+      this.database.client.wishlist_items.findMany({where:{game_id:gameId,status:"active",wishlists:{visibility:"public",user_id:{not:userId}},OR:[{canonical_card_id:{in:canonicalIds}},{printing_id:{in:printingIds}}]},select:{canonical_card_id:true,printing_id:true,desired_finish:true,desired_condition:true,language_code:true,wishlists:{select:{user_id:true}}}}),
+      this.database.client.listing_offers.groupBy({by:["listing_id"],where:{listing_id:{in:items.flatMap((item)=>item.listings_listings_inventory_item_id_seller_user_idToinventory_items.map((listing)=>listing.id))},status:"pending"},_count:{_all:true}}),
+      this.database.client.offer_items.groupBy({by:["inventory_item_id"],where:{inventory_item_id:{in:itemIds},listing_offers_offer_items_offer_idTolisting_offers:{status:"pending"}},_count:{_all:true}}),
+      this.database.client.wishlist_offer_items.groupBy({by:["inventory_item_id"],where:{inventory_item_id:{in:itemIds},wishlist_offers_wishlist_offer_items_wishlist_offer_idTowishlist_offers:{status:"pending"}},_count:{_all:true}}),
+      this.database.client.wishlist_offer_requested_items.groupBy({by:["requested_inventory_item_id"],where:{requested_inventory_item_id:{in:itemIds},wishlist_offers:{status:"pending"}},_count:{_all:true}}),
+    ]):[[],[],[],[],[],[]];
+    const interested=new Map(interestGroups.map((row)=>[row.inventory_item_id,row._count._all]));
+    const listingOffers=new Map(listingOfferGroups.map((row)=>[row.listing_id,row._count._all]));
+    const exactOffers=new Map<string,number>();
+    for(const row of [...offeredGroups,...wishlistOfferGroups])exactOffers.set(row.inventory_item_id,(exactOffers.get(row.inventory_item_id)??0)+row._count._all);
+    for(const row of requestedGroups)if(row.requested_inventory_item_id)exactOffers.set(row.requested_inventory_item_id,(exactOffers.get(row.requested_inventory_item_id)??0)+row._count._all);
+
     return {
-      items: items.map((item) =>
-        this.mapMyInventoryItem(
-          item,
-        ),
-      ),
+      items: items.map((item) => {
+        const wantedBy=new Set(publicWants.filter((want)=>(want.printing_id?want.printing_id===item.printing_id:want.canonical_card_id===item.printing_finishes.card_printings.canonical_card_id)&&(!want.desired_finish||want.desired_finish===item.finish)&&(!want.desired_condition||want.desired_condition===item.condition)&&(!want.language_code||want.language_code===item.language_code)).map((want)=>want.wishlists.user_id)).size;
+        const listingId=item.listings_listings_inventory_item_id_seller_user_idToinventory_items[0]?.id;
+        return {...this.mapMyInventoryItem(item),relationship_summary:{interested:interested.get(item.id)??0,wanted_by:wantedBy,offers:(listingId?listingOffers.get(listingId)??0:0)+(exactOffers.get(item.id)??0)}};
+      }),
       summary: {
         total_inventory_row_count:
           totalAggregate._count._all,
@@ -1535,6 +1553,96 @@ export class InventoryService {
       userId,
       inventoryItemId,
     );
+  }
+
+  async moveCollectionItems(userId: string, sourceCollectionId: string, input: BulkMoveCollectionItemsInput) {
+    const game = await this.database.client.games.findUnique({ where: { slug: input.gameSlug }, select: { id: true } });
+    if (!game) throw new BadRequestException("The active game was not found.");
+
+    const source = await this.database.client.collections.findFirst({
+      where: { id: sourceCollectionId, user_id: userId, game_id: game.id }, select: { id: true },
+    });
+    if (!source) throw new NotFoundException("Source collection was not found.");
+
+    if (input.destinationCollectionId === sourceCollectionId) {
+      throw new BadRequestException("Choose a different destination collection.");
+    }
+    if (input.destinationCollectionId) {
+      const destination = await this.database.client.collections.findFirst({
+        where: { id: input.destinationCollectionId, user_id: userId, game_id: game.id }, select: { id: true },
+      });
+      if (!destination) throw new BadRequestException("Destination collection was not found or belongs to another account or game.");
+    }
+
+    const rows = await this.database.client.inventory_items.findMany({
+      where: { id: { in: input.inventoryItemIds } },
+      select: { id: true, owner_user_id: true, owner_store_id: true, collection_id: true, game_id: true, status: true },
+    });
+    const valid = rows.length === input.inventoryItemIds.length && rows.every((row) =>
+      row.owner_user_id === userId && row.owner_store_id === null && row.collection_id === sourceCollectionId &&
+      row.game_id === game.id && currentInventoryStatuses.includes(row.status as typeof currentInventoryStatuses[number]));
+    if (!valid) throw new BadRequestException("Every selected card must be current Inventory in the source Collection and active game.");
+
+    const moved = await this.database.client.$transaction(async (transaction) => {
+      const result = await transaction.inventory_items.updateMany({
+        where: { id: { in: input.inventoryItemIds }, owner_user_id: userId, owner_store_id: null, collection_id: sourceCollectionId, game_id: game.id },
+        data: { collection_id: input.destinationCollectionId, updated_at: new Date() },
+      });
+      if (result.count !== input.inventoryItemIds.length) throw new ConflictException("Inventory changed while the move was being confirmed. No cards were moved.");
+      return result.count;
+    });
+    return { requestedItems: input.inventoryItemIds.length, movedItems: moved, sourceCollectionId, destinationCollectionId: input.destinationCollectionId };
+  }
+
+  async getInventoryActivity(userId: string, inventoryItemId: string) {
+    const item = await this.database.client.inventory_items.findFirst({
+      where: { id: inventoryItemId, owner_user_id: userId, owner_store_id: null },
+      select: { id: true, game_id: true, printing_id: true, finish: true, condition: true, language_code: true, collection_id: true,
+        collections: { select: { id: true, name: true } },
+        card_printings: { select: { canonical_card_id: true } },
+      },
+    });
+    if (!item) throw this.getInventoryItemNotFoundError();
+
+    const [interests, wants, listing, offered, wishlistOffered, requested] = await Promise.all([
+      this.database.client.inventory_item_interests.findMany({
+        where: { inventory_item_id: item.id, status: "active" }, orderBy: { created_at: "desc" },
+        select: { id: true, interested_user_id: true, interest_type: true, message: true, status: true, created_at: true,
+          user_profiles: { select: { id: true, username: true, display_name: true } },
+        },
+      }),
+      this.database.client.wishlist_items.findMany({
+        where: { game_id: item.game_id, status: "active", wishlists: { visibility: "public", user_id: { not: userId } },
+          OR: [{ printing_id: item.printing_id }, { canonical_card_id: item.card_printings.canonical_card_id }],
+          AND: [{ OR: [{ desired_finish: null }, { desired_finish: item.finish }] }, { OR: [{ desired_condition: null }, { desired_condition: item.condition }] }, { OR: [{ language_code: null }, { language_code: item.language_code }] }],
+        },
+        select: { id: true, wishlist_id: true, wishlists: { select: { user_id: true, user_profiles: { select: { id: true, username: true, display_name: true } } } } },
+      }),
+      this.database.client.listings.findFirst({
+        where: { inventory_item_id: item.id }, orderBy: { created_at: "desc" },
+        select: { id: true, status: true, accepts_cash: true, accepts_trade: true, asking_price: true, currency_code: true },
+      }),
+      this.database.client.offer_items.findMany({ where: { inventory_item_id: item.id }, select: { offer_id: true, listing_offers_offer_items_offer_idTolisting_offers: { select: { id: true, status: true, created_at: true } } } }),
+      this.database.client.wishlist_offer_items.findMany({ where: { inventory_item_id: item.id }, select: { wishlist_offer_id: true, wishlist_offers_wishlist_offer_items_wishlist_offer_idTowishlist_offers: { select: { id: true, status: true, created_at: true } } } }),
+      this.database.client.wishlist_offer_requested_items.findMany({ where: { requested_inventory_item_id: item.id }, select: { wishlist_offer_id: true, wishlist_offers: { select: { id: true, status: true, created_at: true } } } }),
+    ]);
+
+    const people = new Map<string, any>();
+    for (const interest of interests.filter((value) => value.interested_user_id && value.user_profiles)) {
+      people.set(interest.interested_user_id!, { user: interest.user_profiles, interest: { id: interest.id, type: interest.interest_type, message: interest.message, status: interest.status, createdAt: interest.created_at.toISOString() }, publicWantIds: [] });
+    }
+    for (const want of wants) {
+      const id = want.wishlists.user_id;
+      const current = people.get(id) ?? { user: want.wishlists.user_profiles, interest: null, publicWantIds: [] };
+      current.publicWantIds.push(want.id); people.set(id, current);
+    }
+    return {
+      inventoryItemId: item.id, collection: item.collections,
+      summary: { interested: interests.filter((value) => value.status === "active").length, wantedBy: new Set(wants.map((value) => value.wishlists.user_id)).size, offers: offered.length + wishlistOffered.length + requested.length },
+      people: [...people.values()],
+      listing: listing ? { ...listing, asking_price: listing.asking_price?.toString() ?? null } : null,
+      offers: { listingOfferItems: offered, wishlistOfferItems: wishlistOffered, requestedItems: requested },
+    };
   }
 
   async uploadUserInventoryPhoto(

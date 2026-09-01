@@ -2697,6 +2697,40 @@ export class WishlistsService {
     }
   }
 
+  async getWishlistItemAvailability(userId: string, wishlistId: string, itemId: string) {
+    const item = await this.database.client.wishlist_items.findFirst({
+      where: { id: itemId, wishlist_id: wishlistId, wishlists: { user_id: userId } },
+      select: { id: true, game_id: true, canonical_card_id: true, printing_id: true, desired_finish: true, desired_condition: true, language_code: true },
+    });
+    if (!item) throw new NotFoundException("Wishlist item was not found.");
+    const listings = await this.database.client.listings.findMany({
+      where: { game_id: item.game_id, status: "active", seller_store_id: null, seller_user_id: { not: userId },
+        inventory_items_listings_inventory_item_id_game_idToinventory_items: {
+          status: "available", owner_store_id: null,
+          ...(item.printing_id ? { printing_id: item.printing_id } : { card_printings: { canonical_card_id: item.canonical_card_id! } }),
+          ...(item.desired_finish ? { finish: item.desired_finish } : {}),
+          ...(item.desired_condition ? { condition: item.desired_condition } : {}),
+          ...(item.language_code ? { language_code: item.language_code } : {}),
+        },
+      },
+      select: { id: true, accepts_cash: true, accepts_trade: true, asking_price: true, currency_code: true, created_at: true,
+        inventory_items_listings_inventory_item_id_game_idToinventory_items: { select: { id: true, finish: true, condition: true, language_code: true, quantity: true,
+          user_profiles: { select: { id: true, username: true, display_name: true } },
+          card_printings: { select: { id: true, collector_number: true, image_small_uri: true, canonical_cards: { select: { name: true } }, card_sets: { select: { code: true, name: true } } } },
+        } },
+      }, orderBy: { created_at: "desc" }, take: 100,
+    });
+    const formalOffers = await this.database.client.wishlist_offers.findMany({
+      where: { wishlist_item_id: itemId }, select: { id: true, status: true, requests_cash: true, requests_trade: true, cash_ask_amount: true, currency_code: true, created_at: true,
+        user_profiles: { select: { id: true, username: true, display_name: true } },
+      }, orderBy: { created_at: "desc" },
+    });
+    return { availableCount: listings.length,
+      listings: listings.map((listing) => ({ ...listing, asking_price: listing.asking_price?.toString() ?? null })),
+      formalWishlistOffers: formalOffers.map((offer) => ({ ...offer, cash_ask_amount: offer.cash_ask_amount?.toString() ?? null })),
+    };
+  }
+
   private async validateRequestedTradeItems(
     wishlistOwnerUserId: string,
     requestedItems:

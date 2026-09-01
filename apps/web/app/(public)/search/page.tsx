@@ -10,6 +10,7 @@ import {
 import { loadGames } from "../../../features/games/games.server";
 import { searchCatalog } from "../../../features/marketplace/api";
 import styles from "./page.module.css";
+import { getMyCardRelationshipContext } from "../../../features/auth/authenticated-api";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export default async function SearchPage({
         total_pages: 0,
         cards: [],
       };
+  const relationship=game?await getMyCardRelationshipContext(game.slug,result.cards.flatMap(card=>card.canonicalCardId?[card.canonicalCardId]:[])).catch(()=>null):null;
   const start = result.total_results
     ? (result.page - 1) * result.page_size + 1
     : 0;
@@ -65,7 +67,7 @@ export default async function SearchPage({
           <ul className={styles.grid}>
             {result.cards.map((card) => (
               <li key={card.canonicalCardId}>
-                <CardTile card={card} layout="grid" canonicalAdd />
+                <CardTile card={card} layout="grid" canonicalAdd relationship={card.canonicalCardId&&relationship?{owned:relationship.canonicalOwned[card.canonicalCardId]??0,inWants:relationship.canonicalWants.includes(card.canonicalCardId)}:undefined} />
               </li>
             ))}
           </ul>

@@ -65,6 +65,7 @@ export type MyInventoryItem = {
   collection: MyInventoryCollection | null;
   active_listing: MyInventoryListing | null;
   printing: MyInventoryPrinting;
+  relationship_summary?: { interested: number; wanted_by: number; offers: number };
 };
 
 export type MyInventoryListResult = {

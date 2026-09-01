@@ -19,6 +19,8 @@ import type {
 } from "@repo/validation";
 
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
+import type { AuthenticatedPrincipal } from "../auth/auth.types";
+import { CurrentUser } from "../auth/current-user.decorator";
 import { InventoryInterestsService } from "./inventory-interests.service";
 
 @Controller(
@@ -29,6 +31,26 @@ export class InventoryInterestsController {
     private readonly inventoryInterestsService:
       InventoryInterestsService,
   ) {}
+
+  @Post("me/inventory/:inventoryItemId")
+  createMyInterest(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param("inventoryItemId", new ParseUUIDPipe({ version: "4" })) inventoryItemId: string,
+    @Body(new ZodValidationPipe(createInventoryItemInterestSchema)) input: CreateInventoryItemInterestInput,
+  ) {
+    return this.inventoryInterestsService.createUserInterest(principal.deckdealUserId!, inventoryItemId, input);
+  }
+
+  @Get("me/sent")
+  getMySent(@CurrentUser() principal: AuthenticatedPrincipal) {
+    return this.inventoryInterestsService.getUserSentInterests(principal.deckdealUserId!);
+  }
+
+  @Patch("me/:interestId")
+  updateMine(@CurrentUser() principal: AuthenticatedPrincipal, @Param("interestId",new ParseUUIDPipe({version:"4"})) interestId:string,@Body(new ZodValidationPipe(updateInventoryItemInterestSchema)) input:UpdateInventoryItemInterestInput){return this.inventoryInterestsService.updateUserInterest(principal.deckdealUserId!,interestId,input)}
+
+  @Patch("me/:interestId/withdraw")
+  withdrawMine(@CurrentUser() principal:AuthenticatedPrincipal,@Param("interestId",new ParseUUIDPipe({version:"4"})) interestId:string){return this.inventoryInterestsService.withdrawUserInterest(principal.deckdealUserId!,interestId)}
 
   @Post(
     "inventory/:inventoryItemId/users/:userId",

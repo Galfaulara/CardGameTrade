@@ -396,8 +396,8 @@ export class InventoryInterestsService {
     }
 
     try {
-      const interest =
-        await this.database.client.inventory_item_interests.create({
+      const interest = await this.database.client.$transaction(async (transaction) => {
+        const created = await transaction.inventory_item_interests.create({
           data: {
             game_id:
               inventoryItem.game_id,
@@ -431,10 +431,20 @@ export class InventoryInterestsService {
               null,
           },
 
-          select: {
-            id: true,
+          select: { id: true },
+        });
+
+        await transaction.user_notifications.create({
+          data: {
+            recipient_user_id: inventoryItem.owner_user_id!,
+            actor_user_id: userId,
+            type: "inventory_interest_created",
+            inventory_item_id: inventoryItemId,
+            inventory_item_interest_id: created.id,
           },
         });
+        return created;
+      });
 
       return this.loadInterest(
         interest.id,

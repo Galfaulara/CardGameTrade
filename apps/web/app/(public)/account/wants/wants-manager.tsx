@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -37,6 +38,7 @@ export function WantsManager({
   const [busy, setBusy] = useState(false);
   const [itemAction, setItemAction] = useState<{ id: string; status: string; label: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [availability,setAvailability]=useState<any|null>(null); const [availabilityBusy,setAvailabilityBusy]=useState(false);
   const selected = wishlists.find((value) => value.id === selectedId);
   const reload = async (preferredId = selectedId) => {
     const response = await fetch(
@@ -113,6 +115,7 @@ export function WantsManager({
     setBusy(false);
     setItemAction(null);
   };
+  const showAvailability=async(itemId:string)=>{if(!selected)return;setAvailabilityBusy(true);setError(null);const response=await fetch(`/api/me/wishlists/${selected.id}/items/${itemId}/availability?gameSlug=${encodeURIComponent(game.slug)}`);if(response.ok)setAvailability(await response.json());else setError((await parse(response)).message??"Availability could not be loaded.");setAvailabilityBusy(false)};
   return (
     <div className={styles.page}>
       <header className={styles.toolbar}>
@@ -257,6 +260,7 @@ export function WantsManager({
                           </span>
                         </div>
                         <div className={styles.itemActions}>
+                          <button disabled={availabilityBusy} onClick={()=>void showAvailability(item.id)}>{availabilityBusy?"Checking…":"Available from collectors"}</button>
                           <span>{item.status}</span>
                           {item.status === "active" ? (
                             <>
@@ -310,6 +314,7 @@ export function WantsManager({
           {error}
         </p>
       ) : null}
+      {availability?<div className={styles.backdrop}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="availability-title"><header><h2 id="availability-title">Available from collectors</h2><button type="button" onClick={()=>setAvailability(null)} aria-label="Close">×</button></header><p>{availability.availableCount} matching active listing{availability.availableCount===1?"":"s"}</p>{availability.listings.length?<ul className={styles.items}>{availability.listings.map((listing:any)=>{const inventory=listing.inventory_items_listings_inventory_item_id_game_idToinventory_items;const seller=inventory.user_profiles;return <li key={listing.id}><div><strong>{seller.display_name??seller.username??"Collector"}</strong><span>@{seller.username??"collector"}</span><span>{inventory.card_printings.card_sets.name} · #{inventory.card_printings.collector_number}</span><span>{pretty(inventory.condition)} · {inventory.language_code.toUpperCase()} · {pretty(inventory.finish)}</span><span>{listing.accepts_trade?"Trade":""}{listing.accepts_cash?`${listing.accepts_trade?" or ":""}For sale${listing.asking_price?` · ${listing.asking_price} ${listing.currency_code}`:""}`:""}</span></div></li>})}</ul>:<p>No matching Listings are available right now.</p>}<h3>Offers sent to this Want</h3><p>{availability.formalWishlistOffers.length?`${availability.formalWishlistOffers.length} formal offer${availability.formalWishlistOffers.length===1?"":"s"}`:"No formal Wishlist Offers yet."}</p></section></div>:null}
       {createOpen ? (
         <div className={styles.backdrop}>
           <form className={styles.dialog} onSubmit={create}>

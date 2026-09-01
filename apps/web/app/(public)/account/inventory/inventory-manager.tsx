@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
@@ -37,6 +38,7 @@ type Collection = {
   visibility: string;
   _count: { inventory_items: number };
 };
+type ActivityData={summary:{interested:number;wantedBy:number;offers:number};collection:{name:string}|null;listing:{status:string;accepts_trade:boolean;accepts_cash:boolean}|null;people:Array<{user:{id:string;username:string|null;display_name:string|null};interest:{type:string;message:string|null}|null;publicWantIds:string[]}>};
 const pretty = (value: string) => value.replaceAll("_", " ");
 const cardHref = (item: MyInventoryItem) =>
   `/cards/${item.printing.canonical_cards.id}?printing=${item.printing.id}`;
@@ -82,10 +84,12 @@ const parseBody = async (response: Response) => {
 
 function EditDialog({
   item,
+  collections,
   onClose,
   onChanged,
 }: {
   item: MyInventoryItem;
+  collections: Collection[];
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -99,6 +103,7 @@ function EditDialog({
   );
   const [acquiredPrice, setAcquiredPrice] = useState(item.acquired_price ?? "");
   const [notes, setNotes] = useState(item.notes ?? "");
+  const [collectionId, setCollectionId] = useState(item.collection_id ?? "");
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +150,10 @@ function EditDialog({
       );
       setSaving(false);
       return;
+    }
+    if (collectionId !== (item.collection_id ?? "")) {
+      const move = await fetch(`/api/me/inventory/${encodeURIComponent(item.id)}/collection`, { method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({collectionId:collectionId||null}) });
+      if (!move.ok) { setError((await parseBody(move)).message ?? "The card could not be moved."); setSaving(false); return; }
     }
     onChanged();
   };
@@ -194,6 +203,7 @@ function EditDialog({
         </header>
         <form onSubmit={submit} className={styles.editForm}>
           <div className={styles.editFields}>
+            <label><span>Collection</span><select value={collectionId} onChange={(event)=>setCollectionId(event.target.value)}><option value="">No collection</option>{collections.filter(value=>value.game_id===item.game_id).map(value=><option key={value.id} value={value.id}>{value.name}</option>)}</select></label>
             <label>
               <span>Condition</span>
               <select
@@ -456,6 +466,12 @@ function ListForTradeDialog({
   );
 }
 
+function ActivityDialog({item,onClose}:{item:MyInventoryItem;onClose:()=>void}){
+  const [data,setData]=useState<ActivityData|null>(null),[error,setError]=useState<string|null>(null);
+  useEffect(()=>{void fetch(`/api/me/inventory/${item.id}/activity`).then(async response=>{if(!response.ok)throw new Error((await parseBody(response)).message);setData(await response.json())}).catch(value=>setError(value.message??"Activity could not be loaded."))},[item.id]);
+  return <div className={styles.backdrop}><section className={styles.editDialog} role="dialog" aria-modal="true" aria-labelledby="activity-title"><header><div><p className={styles.kicker}>Exact owned card</p><h2 id="activity-title">Card activity · {item.printing.canonical_cards.name}</h2></div><button className={styles.iconButton} onClick={onClose} aria-label="Close activity">×</button></header>{error?<p className={styles.error}>{error}</p>:!data?<p>Loading activity…</p>:<div className={styles.tradeDialogCopy}><div className={styles.tags}><span>{data.summary.interested} Interested</span><span>Wanted by {data.summary.wantedBy}</span><span>{data.summary.offers} Offers</span></div><section><h3>Interest & demand</h3>{data.people.length?data.people.map((person:any)=><article key={person.user.id}><strong>{person.user.display_name??person.user.username??"Collector"}</strong>{person.user.username?<span> @{person.user.username}</span>:null}<p>{person.interest?`Interested: ${pretty(person.interest.type)}`:""}{person.publicWantIds.length?`${person.interest?" · ":""}In public Wishlist`:""}</p>{person.interest?.message?<blockquote>{person.interest.message}</blockquote>:null}</article>):<p>No collector activity yet.</p>}</section><section><h3>Listing</h3><p>{data.listing?`${pretty(data.listing.status)} · ${data.listing.accepts_trade?"Trade":""}${data.listing.accepts_cash?`${data.listing.accepts_trade?" or ":""}sale`:""}`:"No Listing"}</p></section><section><h3>Collection</h3><p>{data.collection?.name??"No Collection"}</p></section></div>}</section></div>
+}
+
 export function InventoryManager({
   initialData,
   initialFilters,
@@ -470,7 +486,10 @@ export function InventoryManager({
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<MyInventoryItem | null>(null);
   const [listingItem, setListingItem] = useState<MyInventoryItem | null>(null);
+  const [activityItem, setActivityItem] = useState<MyInventoryItem | null>(null);
+  const [moveOpen,setMoveOpen]=useState(false),[moveBusy,setMoveBusy]=useState(false),[moveIds,setMoveIds]=useState<string[]>([]),[moveDestination,setMoveDestination]=useState("");
   const [q, setQ] = useState(initialFilters.q);
+  const [managerError,setError]=useState<string|null>(null);
   const [status, setStatus] = useState(initialFilters.status);
   const [condition, setCondition] = useState(initialFilters.condition);
   const filterDirty = q.trim() !== initialFilters.q || status !== initialFilters.status || condition !== initialFilters.condition;
@@ -494,6 +513,8 @@ export function InventoryManager({
     router.refresh();
   };
   const openAdd = () => openAddToCollection({ onAdded: changed });
+  const sourceCollection=collections.find(value=>value.id===initialFilters.collection);
+  const moveCards=async()=>{if(!sourceCollection||!moveIds.length)return;setMoveBusy(true);setError(null);const response=await fetch(`/api/me/collections/${sourceCollection.id}/items/move`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gameSlug:initialFilters.game,destinationCollectionId:moveDestination||null,inventoryItemIds:moveIds})});if(response.ok){setMoveOpen(false);setMoveIds([]);router.refresh()}else setError((await parseBody(response)).message??"Cards could not be moved.");setMoveBusy(false)};
   return (
     <div className={styles.page}>
       <section className={styles.inventoryHeader}>
@@ -511,6 +532,7 @@ export function InventoryManager({
           gameSlug={initialFilters.game}
           collectionId={collections.some((value) => value.id === initialFilters.collection) ? initialFilters.collection : undefined}
         />
+        {sourceCollection?<button className={styles.secondaryButton} type="button" onClick={()=>{setMoveIds(initialData.items.map(item=>item.id));setMoveOpen(true)}}>Move cards</button>:null}
         <Link className={styles.secondaryButton} href={`/account/inventory/bulk-add${initialFilters.game ? `?game=${encodeURIComponent(initialFilters.game)}` : ""}`}>
           Bulk add cards
         </Link>
@@ -523,6 +545,7 @@ export function InventoryManager({
         </button>
         </div>
       </section>
+      {managerError?<p className={styles.error} role="alert">{managerError}</p>:null}
       <nav className={styles.binders} aria-label="Collections and binders">
         <Link
           href={href({ ...initialFilters, page: 1, collection: "all" })}
@@ -664,6 +687,7 @@ export function InventoryManager({
                       {pretty(item.condition)} · {pretty(item.finish)}
                       {item.quantity > 1 ? ` · ×${item.quantity}` : ""}
                     </p>
+                    {item.relationship_summary&&(item.relationship_summary.interested||item.relationship_summary.wanted_by||item.relationship_summary.offers)?<div className={styles.tags}>{item.relationship_summary.interested?<span>{item.relationship_summary.interested} Interested</span>:null}{item.relationship_summary.wanted_by?<span>Wanted by {item.relationship_summary.wanted_by}</span>:null}{item.relationship_summary.offers?<span>{item.relationship_summary.offers} Offer{item.relationship_summary.offers===1?"":"s"}</span>:null}</div>:null}
                     <div className={styles.locationRow}>
                       <span className={styles.location}>
                         ▱ {item.collection?.name ?? "Unsorted"}
@@ -685,6 +709,7 @@ export function InventoryManager({
                         >
                           Edit
                         </button>
+                        <button className={styles.editButton} type="button" onClick={()=>setActivityItem(item)}>Activity</button>
                       </div>
                     </div>
                   </div>
@@ -733,10 +758,13 @@ export function InventoryManager({
       {editing && (
         <EditDialog
           item={editing}
+          collections={collections}
           onClose={() => setEditing(null)}
           onChanged={changed}
         />
       )}
+      {activityItem && <ActivityDialog item={activityItem} onClose={()=>setActivityItem(null)}/>}
+      {moveOpen&&sourceCollection?<div className={styles.backdrop}><section className={styles.editDialog} role="dialog" aria-modal="true" aria-labelledby="move-title"><header><div><p className={styles.kicker}>From {sourceCollection.name}</p><h2 id="move-title">Move cards</h2></div><button className={styles.iconButton} onClick={()=>setMoveOpen(false)} aria-label="Close">×</button></header><label className={styles.notes}><span>Move to</span><select value={moveDestination} onChange={event=>setMoveDestination(event.target.value)}><option value="">No collection</option>{collections.filter(value=>value.id!==sourceCollection.id&&value.game_id===sourceCollection.game_id).map(value=><option key={value.id} value={value.id}>{value.name}</option>)}</select></label><div className={styles.dialogActions}><button className={styles.secondaryButton} type="button" onClick={()=>setMoveIds(initialData.items.map(item=>item.id))}>Select all</button><button className={styles.secondaryButton} type="button" onClick={()=>setMoveIds([])}>Clear</button></div><ul className={styles.items}>{initialData.items.map(item=><li key={item.id}><label><input type="checkbox" checked={moveIds.includes(item.id)} onChange={event=>setMoveIds(ids=>event.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>{item.printing.canonical_cards.name} ×{item.quantity}</label></li>)}</ul><div className={styles.dialogActions}><button className={styles.primaryButton} disabled={moveBusy||!moveIds.length} onClick={()=>void moveCards()}>{moveBusy?"Moving…":`Move ${moveIds.length} cards`}</button></div></section></div>:null}
       {listingItem && (
         <ListForTradeDialog
           item={listingItem}

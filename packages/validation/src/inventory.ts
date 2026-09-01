@@ -61,6 +61,22 @@ export const gameScopedListQuerySchema = z
   })
   .strict();
 
+export const bulkMoveCollectionItemsSchema = z.object({
+  gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
+  destinationCollectionId: z.string().uuid().nullable(),
+  inventoryItemIds: z.array(z.string().uuid()).min(1).max(500)
+    .refine((ids) => new Set(ids).size === ids.length, "Inventory item IDs must be unique."),
+}).strict();
+
+export type BulkMoveCollectionItemsInput = z.infer<typeof bulkMoveCollectionItemsSchema>;
+
+export const cardRelationshipContextSchema = z.object({
+  gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
+  canonicalCardIds: z.array(z.string().uuid()).max(200).default([]),
+  printingIds: z.array(z.string().uuid()).max(200).default([]),
+}).strict();
+export type CardRelationshipContextInput = z.infer<typeof cardRelationshipContextSchema>;
+
 export type MyInventoryStatusFilter = z.infer<
   typeof myInventoryStatusFilterSchema
 >;

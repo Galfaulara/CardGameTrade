@@ -22,6 +22,7 @@ import {
 import styles from "./page.module.css";
 import { CardFaceViewer } from "../../../../components/card-face-viewer/card-face-viewer";
 import { trueDfcFaces } from "../../../../features/cards/card-faces";
+import { getMyCardRelationshipContext } from "../../../../features/auth/authenticated-api";
 
 export const dynamic = "force-dynamic";
 const value = (input: unknown) =>
@@ -71,6 +72,7 @@ export default async function CardPage({
     } = result.detail,
     listings = result.listings;
   const cardGameSlug = resolveResourceGame(games, card.game_id)?.slug ?? null;
+  const relationship=cardGameSlug?await getMyCardRelationshipContext(cardGameSlug,[canonicalCardId],selected?[selected.id]:[]).catch(()=>null):null;
   const isMtg = isMtgGame(cardGameSlug);
   const typeLine = (subject: any) =>
     subject.type_line ? <p className={styles.type}>{subject.type_line}</p> : null;
@@ -133,6 +135,7 @@ export default async function CardPage({
         <div className={styles.info}>
           <p className={styles.eyebrow}>DeckDeal card catalog</p>
           <h1>{card.name}</h1>
+          {relationship&&((selected&&(relationship.printingOwned[selected.id]??0)>0)||relationship.canonicalWants.includes(canonicalCardId))?<div className={styles.tags}>{selected&&(relationship.printingOwned[selected.id]??0)>0?<span>Owned ×{relationship.printingOwned[selected.id]}</span>:null}{relationship.canonicalWants.includes(canonicalCardId)?<span>In Wants</span>:null}</div>:null}
           {dfcFaces ? null : isMtg && card.faces?.length
             ? card.faces.map((face: any, index: number) => (
                 <section className={styles.face} key={`${face.name}-${index}`}>

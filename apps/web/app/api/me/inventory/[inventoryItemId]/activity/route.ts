@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server"; import { authenticatedApiRequest } from "../../../../../../features/auth/authenticated-api";
+export async function GET(_:Request,{params}:{params:Promise<{inventoryItemId:string}>}){const {inventoryItemId}=await params;try{const response=await authenticatedApiRequest(`/me/inventory/${encodeURIComponent(inventoryItemId)}/activity`);return new NextResponse(await response.text(),{status:response.status,headers:{"content-type":"application/json"}})}catch{return NextResponse.json({message:"Authentication is required."},{status:401})}}

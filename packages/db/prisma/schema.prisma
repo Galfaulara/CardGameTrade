@@ -73,18 +73,18 @@ model card_printings {
 }
 
 model card_sets {
-  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  game_id        String           @db.Uuid
-  code           String
-  name           String
-  source         String
-  source_id      String?
-  release_date   DateTime?        @db.Date
-  set_type       String?
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  card_printings card_printings[]
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  game_id               String                  @db.Uuid
+  code                  String
+  name                  String
+  source                String
+  source_id             String?
+  release_date          DateTime?               @db.Date
+  set_type              String?
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  card_printings        card_printings[]
   store_sealed_products store_sealed_products[]
-  games          games            @relation(fields: [game_id], references: [id], onUpdate: NoAction, map: "fk_card_sets_game")
+  games                 games                   @relation(fields: [game_id], references: [id], onUpdate: NoAction, map: "fk_card_sets_game")
 
   @@unique([game_id, code], map: "uq_card_sets_game_code")
   @@unique([id, game_id], map: "uq_card_sets_id_game")
@@ -127,25 +127,26 @@ model games {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model inventory_item_interests {
-  id                          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  inventory_item_id           String           @db.Uuid
-  interested_user_id          String?          @db.Uuid
-  interested_store_id         String?          @db.Uuid
-  interest_type               String           @default("buy_or_trade")
+  id                          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inventory_item_id           String               @db.Uuid
+  interested_user_id          String?              @db.Uuid
+  interested_store_id         String?              @db.Uuid
+  interest_type               String               @default("buy_or_trade")
   message                     String?
-  status                      String           @default("active")
-  converted_listing_offer_id  String?          @db.Uuid
-  converted_wishlist_offer_id String?          @db.Uuid
-  converted_at                DateTime?        @db.Timestamptz(6)
-  created_at                  DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime         @default(now()) @db.Timestamptz(6)
-  game_id                     String           @db.Uuid
-  inventory_items             inventory_items  @relation(fields: [inventory_item_id, game_id], references: [id, game_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_inventory_same_game")
-  listing_offers              listing_offers?  @relation(fields: [converted_listing_offer_id, game_id], references: [id, game_id], onDelete: SetNull, onUpdate: NoAction, map: "fk_inventory_item_interests_listing_offer_same_game")
-  stores                      stores?          @relation(fields: [interested_store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_store")
-  store_games                 store_games?     @relation(fields: [interested_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_inventory_item_interests_store_game")
-  user_profiles               user_profiles?   @relation(fields: [interested_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_user")
-  wishlist_offers             wishlist_offers? @relation(fields: [converted_wishlist_offer_id, game_id], references: [id, game_id], onDelete: SetNull, onUpdate: NoAction, map: "fk_inventory_item_interests_wishlist_offer_same_game")
+  status                      String               @default("active")
+  converted_listing_offer_id  String?              @db.Uuid
+  converted_wishlist_offer_id String?              @db.Uuid
+  converted_at                DateTime?            @db.Timestamptz(6)
+  created_at                  DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime             @default(now()) @db.Timestamptz(6)
+  game_id                     String               @db.Uuid
+  inventory_items             inventory_items      @relation(fields: [inventory_item_id, game_id], references: [id, game_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_inventory_same_game")
+  listing_offers              listing_offers?      @relation(fields: [converted_listing_offer_id, game_id], references: [id, game_id], onDelete: SetNull, onUpdate: NoAction, map: "fk_inventory_item_interests_listing_offer_same_game")
+  stores                      stores?              @relation(fields: [interested_store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_store")
+  store_games                 store_games?         @relation(fields: [interested_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_inventory_item_interests_store_game")
+  user_profiles               user_profiles?       @relation(fields: [interested_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_item_interests_user")
+  wishlist_offers             wishlist_offers?     @relation(fields: [converted_wishlist_offer_id, game_id], references: [id, game_id], onDelete: SetNull, onUpdate: NoAction, map: "fk_inventory_item_interests_wishlist_offer_same_game")
+  user_notifications          user_notifications[]
 
   @@unique([inventory_item_id, interested_store_id], map: "uq_inventory_item_interests_active_store", where: raw("((status = 'active'::text) AND (interested_store_id IS NOT NULL))"))
   @@unique([inventory_item_id, interested_user_id], map: "uq_inventory_item_interests_active_user", where: raw("((status = 'active'::text) AND (interested_user_id IS NOT NULL))"))
@@ -203,9 +204,9 @@ model inventory_items {
   user_profiles                                                                                 user_profiles?                   @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_inventory_items_owner_user")
   printing_finishes                                                                             printing_finishes                @relation(fields: [printing_id, finish], references: [printing_id, finish], onUpdate: NoAction, map: "fk_inventory_items_printing_finish")
   card_printings                                                                                card_printings                   @relation(fields: [printing_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_inventory_items_printing_same_game")
-  listings_listings_inventory_item_id_game_idToinventory_items                                  listings[]                        @relation("listings_inventory_item_id_game_idToinventory_items")
-  listings_listings_inventory_item_id_seller_store_idToinventory_items                          listings[]                        @relation("listings_inventory_item_id_seller_store_idToinventory_items")
-  listings_listings_inventory_item_id_seller_user_idToinventory_items                           listings[]                        @relation("listings_inventory_item_id_seller_user_idToinventory_items")
+  listings_listings_inventory_item_id_game_idToinventory_items                                  listings[]                       @relation("listings_inventory_item_id_game_idToinventory_items")
+  listings_listings_inventory_item_id_seller_store_idToinventory_items                          listings[]                       @relation("listings_inventory_item_id_seller_store_idToinventory_items")
+  listings_listings_inventory_item_id_seller_user_idToinventory_items                           listings[]                       @relation("listings_inventory_item_id_seller_user_idToinventory_items")
   offer_items_offer_items_inventory_item_id_game_idToinventory_items                            offer_items[]                    @relation("offer_items_inventory_item_id_game_idToinventory_items")
   offer_items_offer_items_inventory_item_id_offerer_store_idToinventory_items                   offer_items[]                    @relation("offer_items_inventory_item_id_offerer_store_idToinventory_items")
   offer_items_offer_items_inventory_item_id_offerer_user_idToinventory_items                    offer_items[]                    @relation("offer_items_inventory_item_id_offerer_user_idToinventory_items")
@@ -215,6 +216,7 @@ model inventory_items {
   wishlist_offer_items_wishlist_offer_items_inventory_item_id_offerer_store_idToinventory_items wishlist_offer_items[]           @relation("wishlist_offer_items_inventory_item_id_offerer_store_idToinventory_items")
   wishlist_offer_items_wishlist_offer_items_inventory_item_id_offerer_user_idToinventory_items  wishlist_offer_items[]           @relation("wishlist_offer_items_inventory_item_id_offerer_user_idToinventory_items")
   wishlist_offer_requested_items                                                                wishlist_offer_requested_items[]
+  user_notifications                                                                            user_notifications[]
 
   @@unique([id, owner_store_id], map: "uq_inventory_items_id_owner_store")
   @@unique([id, owner_user_id], map: "uq_inventory_items_id_owner_user")
@@ -230,31 +232,31 @@ model inventory_items {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model listing_offers {
-  id                                                                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  listing_id                                                          String                    @db.Uuid
-  offerer_user_id                                                     String?                   @db.Uuid
-  offerer_store_id                                                    String?                   @db.Uuid
-  cash_amount                                                         Decimal                   @default(0) @db.Decimal(12, 2)
-  currency_code                                                       String                    @default("USD")
+  id                                                                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id                                                          String                     @db.Uuid
+  offerer_user_id                                                     String?                    @db.Uuid
+  offerer_store_id                                                    String?                    @db.Uuid
+  cash_amount                                                         Decimal                    @default(0) @db.Decimal(12, 2)
+  currency_code                                                       String                     @default("USD")
   message                                                             String?
-  visibility                                                          String                    @default("owner_only")
-  status                                                              String                    @default("pending")
-  expires_at                                                          DateTime?                 @db.Timestamptz(6)
-  responded_at                                                        DateTime?                 @db.Timestamptz(6)
-  created_at                                                          DateTime                  @default(now()) @db.Timestamptz(6)
-  updated_at                                                          DateTime                  @default(now()) @db.Timestamptz(6)
-  game_id                                                             String                    @db.Uuid
+  visibility                                                          String                     @default("owner_only")
+  status                                                              String                     @default("pending")
+  expires_at                                                          DateTime?                  @db.Timestamptz(6)
+  responded_at                                                        DateTime?                  @db.Timestamptz(6)
+  created_at                                                          DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                          DateTime                   @default(now()) @db.Timestamptz(6)
+  game_id                                                             String                     @db.Uuid
   inventory_item_interests                                            inventory_item_interests[]
-  listings                                                            listings                  @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_listing")
-  listings_listing_offers_listing_id_game_idTolistings                listings                  @relation("listing_offers_listing_id_game_idTolistings", fields: [listing_id, game_id], references: [id, game_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_listing_same_game")
-  stores                                                              stores?                   @relation(fields: [offerer_store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_offer_store")
-  store_games                                                         store_games?              @relation(fields: [offerer_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_listing_offers_offer_store_game")
-  user_profiles                                                       user_profiles?            @relation(fields: [offerer_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_offer_user")
-  offer_items_offer_items_offer_idTolisting_offers                    offer_items[]             @relation("offer_items_offer_idTolisting_offers")
-  offer_items_offer_items_offer_id_game_idTolisting_offers            offer_items[]             @relation("offer_items_offer_id_game_idTolisting_offers")
-  offer_items_offer_items_offer_id_offerer_store_idTolisting_offers   offer_items[]             @relation("offer_items_offer_id_offerer_store_idTolisting_offers")
-  offer_items_offer_items_offer_id_offerer_user_idTolisting_offers    offer_items[]             @relation("offer_items_offer_id_offerer_user_idTolisting_offers")
-  transactions_transactions_accepted_offer_id_game_idTolisting_offers transactions[]            @relation("transactions_accepted_offer_id_game_idTolisting_offers")
+  listings                                                            listings                   @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_listing")
+  listings_listing_offers_listing_id_game_idTolistings                listings                   @relation("listing_offers_listing_id_game_idTolistings", fields: [listing_id, game_id], references: [id, game_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_listing_same_game")
+  stores                                                              stores?                    @relation(fields: [offerer_store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_offer_store")
+  store_games                                                         store_games?               @relation(fields: [offerer_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_listing_offers_offer_store_game")
+  user_profiles                                                       user_profiles?             @relation(fields: [offerer_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_listing_offers_offer_user")
+  offer_items_offer_items_offer_idTolisting_offers                    offer_items[]              @relation("offer_items_offer_idTolisting_offers")
+  offer_items_offer_items_offer_id_game_idTolisting_offers            offer_items[]              @relation("offer_items_offer_id_game_idTolisting_offers")
+  offer_items_offer_items_offer_id_offerer_store_idTolisting_offers   offer_items[]              @relation("offer_items_offer_id_offerer_store_idTolisting_offers")
+  offer_items_offer_items_offer_id_offerer_user_idTolisting_offers    offer_items[]              @relation("offer_items_offer_id_offerer_user_idTolisting_offers")
+  transactions_transactions_accepted_offer_id_game_idTolisting_offers transactions[]             @relation("transactions_accepted_offer_id_game_idTolisting_offers")
   transactions                                                        transactions?
 
   @@unique([id, listing_id], map: "uq_listing_offers_id_listing")
@@ -378,8 +380,8 @@ model store_staff {
   transaction_item_custody_transaction_item_custody_received_by_staff_id_store_idTostore_staff transaction_item_custody[] @relation("transaction_item_custody_received_by_staff_id_store_idTostore_staff")
   transaction_item_custody_transaction_item_custody_released_by_staff_id_store_idTostore_staff transaction_item_custody[] @relation("transaction_item_custody_released_by_staff_id_store_idTostore_staff")
   transaction_item_custody_transaction_item_custody_verified_by_staff_id_store_idTostore_staff transaction_item_custody[] @relation("transaction_item_custody_verified_by_staff_id_store_idTostore_staff")
-  store_sealed_products_created_by_staff_id_store_idTostore_staff                              store_sealed_products[] @relation("store_sealed_products_created_by_staff_id_store_idTostore_staff")
-  store_sealed_products_updated_by_staff_id_store_idTostore_staff                              store_sealed_products[] @relation("store_sealed_products_updated_by_staff_id_store_idTostore_staff")
+  store_sealed_products_created_by_staff_id_store_idTostore_staff                              store_sealed_products[]    @relation("store_sealed_products_created_by_staff_id_store_idTostore_staff")
+  store_sealed_products_updated_by_staff_id_store_idTostore_staff                              store_sealed_products[]    @relation("store_sealed_products_updated_by_staff_id_store_idTostore_staff")
 
   @@unique([id, store_id], map: "uq_store_staff_id_store")
   @@unique([store_id, user_id], map: "uq_store_staff_store_user")
@@ -415,40 +417,40 @@ model store_trade_handoffs {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model stores {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String
-  slug                     String                     @unique(map: "uq_stores_slug")
-  description              String?
-  logo_url                 String?
-  banner_url               String?
-  email                    String?
-  phone                    String?
-  website_url              String?
-  address_line1            String?
-  address_line2            String?
-  city                     String?
-  state_region             String?
-  postal_code              String?
-  country_code             String?
-  verification_status      String                     @default("unverified")
-  status                   String                     @default("active")
-  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  trade_mediation_enabled  Boolean                    @default(false)
-  verification_submitted_at DateTime?                 @db.Timestamptz(6)
-  verification_reviewed_at DateTime?                  @db.Timestamptz(6)
-  verification_reviewed_by_user_id String?            @db.Uuid
-  verification_review_notes String?
-  inventory_item_interests inventory_item_interests[]
-  inventory_items          inventory_items[]
-  listing_offers           listing_offers[]
-  store_games              store_games[]
-  store_staff              store_staff[]
-  user_preferences         user_preferences[]
-  preferred_by_users       user_profiles[]            @relation("user_profiles_preferred_store")
-  wishlist_offers          wishlist_offers[]
-  verification_reviewed_by user_profiles?             @relation("stores_verification_reviewed_by_user", fields: [verification_reviewed_by_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_stores_verification_reviewed_by_user")
-  store_sealed_products    store_sealed_products[]
+  id                               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                             String
+  slug                             String                     @unique(map: "uq_stores_slug")
+  description                      String?
+  logo_url                         String?
+  banner_url                       String?
+  email                            String?
+  phone                            String?
+  website_url                      String?
+  address_line1                    String?
+  address_line2                    String?
+  city                             String?
+  state_region                     String?
+  postal_code                      String?
+  country_code                     String?
+  verification_status              String                     @default("unverified")
+  status                           String                     @default("active")
+  created_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  trade_mediation_enabled          Boolean                    @default(false)
+  verification_submitted_at        DateTime?                  @db.Timestamptz(6)
+  verification_reviewed_at         DateTime?                  @db.Timestamptz(6)
+  verification_reviewed_by_user_id String?                    @db.Uuid
+  verification_review_notes        String?
+  inventory_item_interests         inventory_item_interests[]
+  inventory_items                  inventory_items[]
+  listing_offers                   listing_offers[]
+  store_games                      store_games[]
+  store_staff                      store_staff[]
+  user_preferences                 user_preferences[]
+  preferred_by_users               user_profiles[]            @relation("user_profiles_preferred_store")
+  wishlist_offers                  wishlist_offers[]
+  verification_reviewed_by         user_profiles?             @relation("stores_verification_reviewed_by_user", fields: [verification_reviewed_by_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_stores_verification_reviewed_by_user")
+  store_sealed_products            store_sealed_products[]
 
   @@index([name], map: "idx_stores_trade_mediation_eligible", where: raw("((trade_mediation_enabled = true) AND (status = 'active'::text) AND (verification_status = 'verified'::text))"))
   @@index([verification_reviewed_by_user_id], map: "idx_stores_verification_reviewed_by_user_id")
@@ -456,30 +458,30 @@ model stores {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model store_sealed_products {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_id            String   @db.Uuid
-  game_id             String   @db.Uuid
-  name                String
-  description         String?
-  product_type        String
-  card_set_id         String?  @db.Uuid
-  sku                 String?
-  upc                 String?
-  price               Decimal  @db.Decimal(12, 2)
-  currency_code       String
-  quantity_on_hand    Int      @default(0)
-  status              String   @default("draft")
-  featured            Boolean  @default(false)
-  display_order       Int      @default(0)
-  created_by_staff_id String   @db.Uuid
-  updated_by_staff_id String   @db.Uuid
-  created_at          DateTime @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime @default(now()) @db.Timestamptz(6)
-  stores              stores   @relation(fields: [store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_store_sealed_products_store")
-  store_games         store_games @relation(fields: [store_id, game_id], references: [store_id, game_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_store_sealed_products_store_game")
-  card_sets           card_sets? @relation(fields: [card_set_id, game_id], references: [id, game_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_set_game")
-  created_by_staff    store_staff @relation("store_sealed_products_created_by_staff_id_store_idTostore_staff", fields: [created_by_staff_id, store_id], references: [id, store_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_created_staff")
-  updated_by_staff    store_staff @relation("store_sealed_products_updated_by_staff_id_store_idTostore_staff", fields: [updated_by_staff_id, store_id], references: [id, store_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_updated_staff")
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  store_id                    String                        @db.Uuid
+  game_id                     String                        @db.Uuid
+  name                        String
+  description                 String?
+  product_type                String
+  card_set_id                 String?                       @db.Uuid
+  sku                         String?
+  upc                         String?
+  price                       Decimal                       @db.Decimal(12, 2)
+  currency_code               String
+  quantity_on_hand            Int                           @default(0)
+  status                      String                        @default("draft")
+  featured                    Boolean                       @default(false)
+  display_order               Int                           @default(0)
+  created_by_staff_id         String                        @db.Uuid
+  updated_by_staff_id         String                        @db.Uuid
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  stores                      stores                        @relation(fields: [store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_store_sealed_products_store")
+  store_games                 store_games                   @relation(fields: [store_id, game_id], references: [store_id, game_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_store_sealed_products_store_game")
+  card_sets                   card_sets?                    @relation(fields: [card_set_id, game_id], references: [id, game_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_set_game")
+  created_by_staff            store_staff                   @relation("store_sealed_products_created_by_staff_id_store_idTostore_staff", fields: [created_by_staff_id, store_id], references: [id, store_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_created_staff")
+  updated_by_staff            store_staff                   @relation("store_sealed_products_updated_by_staff_id_store_idTostore_staff", fields: [updated_by_staff_id, store_id], references: [id, store_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_store_sealed_products_updated_staff")
   store_sealed_product_images store_sealed_product_images[]
 
   @@unique([store_id, sku], map: "uq_store_sealed_products_store_sku", where: raw("(sku IS NOT NULL)"))
@@ -492,14 +494,14 @@ model store_sealed_products {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model store_sealed_product_images {
-  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  store_sealed_product_id String   @db.Uuid
-  storage_provider        String   @default("supabase")
+  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  store_sealed_product_id String                @db.Uuid
+  storage_provider        String                @default("supabase")
   storage_key             String
-  sort_order              Int      @default(0)
-  is_primary              Boolean  @default(false)
+  sort_order              Int                   @default(0)
+  is_primary              Boolean               @default(false)
   alt_text                String?
-  created_at              DateTime @default(now()) @db.Timestamptz(6)
+  created_at              DateTime              @default(now()) @db.Timestamptz(6)
   store_sealed_products   store_sealed_products @relation(fields: [store_sealed_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_store_sealed_product_images_product")
 
   @@unique([store_sealed_product_id, storage_key], map: "uq_store_sealed_product_images_storage_key")
@@ -582,33 +584,33 @@ model transaction_items {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model transactions {
-  id                                                                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  listing_id                                                            String?               @db.Uuid
-  accepted_offer_id                                                     String?               @unique(map: "uq_transactions_accepted_offer") @db.Uuid
-  seller_user_id                                                        String?               @db.Uuid
-  seller_store_id                                                       String?               @db.Uuid
-  counterparty_user_id                                                  String?               @db.Uuid
-  counterparty_store_id                                                 String?               @db.Uuid
+  id                                                                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id                                                            String?                @db.Uuid
+  accepted_offer_id                                                     String?                @unique(map: "uq_transactions_accepted_offer") @db.Uuid
+  seller_user_id                                                        String?                @db.Uuid
+  seller_store_id                                                       String?                @db.Uuid
+  counterparty_user_id                                                  String?                @db.Uuid
+  counterparty_store_id                                                 String?                @db.Uuid
   transaction_type                                                      String
-  cash_amount                                                           Decimal               @default(0) @db.Decimal(12, 2)
-  currency_code                                                         String                @default("USD")
-  status                                                                String                @default("agreed")
-  agreed_at                                                             DateTime              @default(now()) @db.Timestamptz(6)
-  completed_at                                                          DateTime?             @db.Timestamptz(6)
-  created_at                                                            DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at                                                            DateTime              @default(now()) @db.Timestamptz(6)
-  accepted_wishlist_offer_id                                            String?               @unique(map: "uq_transactions_accepted_wishlist_offer") @db.Uuid
-  game_id                                                               String                @db.Uuid
+  cash_amount                                                           Decimal                @default(0) @db.Decimal(12, 2)
+  currency_code                                                         String                 @default("USD")
+  status                                                                String                 @default("agreed")
+  agreed_at                                                             DateTime               @default(now()) @db.Timestamptz(6)
+  completed_at                                                          DateTime?              @db.Timestamptz(6)
+  created_at                                                            DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                                                            DateTime               @default(now()) @db.Timestamptz(6)
+  accepted_wishlist_offer_id                                            String?                @unique(map: "uq_transactions_accepted_wishlist_offer") @db.Uuid
+  game_id                                                               String                 @db.Uuid
   store_trade_handoffs                                                  store_trade_handoffs[]
   transaction_items                                                     transaction_items[]
-  listing_offers_transactions_accepted_offer_id_game_idTolisting_offers listing_offers?       @relation("transactions_accepted_offer_id_game_idTolisting_offers", fields: [accepted_offer_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_accepted_offer_same_game")
-  listing_offers                                                        listing_offers?       @relation(fields: [accepted_offer_id, listing_id], references: [id, listing_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_accepted_offer_same_listing")
-  wishlist_offers                                                       wishlist_offers?      @relation(fields: [accepted_wishlist_offer_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_accepted_wishlist_offer_same_game")
-  store_games_transactions_counterparty_store_id_game_idTostore_games   store_games?          @relation("transactions_counterparty_store_id_game_idTostore_games", fields: [counterparty_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_transactions_counterparty_store_game")
-  user_profiles_transactions_counterparty_user_idTouser_profiles        user_profiles?        @relation("transactions_counterparty_user_idTouser_profiles", fields: [counterparty_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_counterparty_user")
-  listings                                                              listings?             @relation(fields: [listing_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_listing_same_game")
-  store_games_transactions_seller_store_id_game_idTostore_games         store_games?          @relation("transactions_seller_store_id_game_idTostore_games", fields: [seller_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_transactions_seller_store_game")
-  user_profiles_transactions_seller_user_idTouser_profiles              user_profiles?        @relation("transactions_seller_user_idTouser_profiles", fields: [seller_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_seller_user")
+  listing_offers_transactions_accepted_offer_id_game_idTolisting_offers listing_offers?        @relation("transactions_accepted_offer_id_game_idTolisting_offers", fields: [accepted_offer_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_accepted_offer_same_game")
+  listing_offers                                                        listing_offers?        @relation(fields: [accepted_offer_id, listing_id], references: [id, listing_id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_accepted_offer_same_listing")
+  wishlist_offers                                                       wishlist_offers?       @relation(fields: [accepted_wishlist_offer_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_accepted_wishlist_offer_same_game")
+  store_games_transactions_counterparty_store_id_game_idTostore_games   store_games?           @relation("transactions_counterparty_store_id_game_idTostore_games", fields: [counterparty_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_transactions_counterparty_store_game")
+  user_profiles_transactions_counterparty_user_idTouser_profiles        user_profiles?         @relation("transactions_counterparty_user_idTouser_profiles", fields: [counterparty_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_counterparty_user")
+  listings                                                              listings?              @relation(fields: [listing_id, game_id], references: [id, game_id], onUpdate: NoAction, map: "fk_transactions_listing_same_game")
+  store_games_transactions_seller_store_id_game_idTostore_games         store_games?           @relation("transactions_seller_store_id_game_idTostore_games", fields: [seller_store_id, game_id], references: [store_id, game_id], onUpdate: NoAction, map: "fk_transactions_seller_store_game")
+  user_profiles_transactions_seller_user_idTouser_profiles              user_profiles?         @relation("transactions_seller_user_idTouser_profiles", fields: [seller_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_transactions_seller_user")
 
   @@unique([accepted_offer_id, listing_id], map: "uq_transactions_accepted_offer_listing")
   @@unique([id, game_id], map: "uq_transactions_id_game")
@@ -648,9 +650,28 @@ model user_profiles {
   wishlist_offers                                                 wishlist_offers[]
   wishlists                                                       wishlists[]
   stores_verification_reviewed_by                                 stores[]                   @relation("stores_verification_reviewed_by_user")
+  notifications_received                                          user_notifications[]       @relation("user_notifications_recipient")
+  notifications_acted                                             user_notifications[]       @relation("user_notifications_actor")
 
   @@unique([auth_provider, auth_user_id], map: "uq_user_profiles_auth")
   @@index([preferred_store_id], map: "idx_user_profiles_preferred_store_id")
+}
+
+model user_notifications {
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipient_user_id          String                    @db.Uuid
+  actor_user_id              String?                   @db.Uuid
+  type                       String
+  inventory_item_id          String?                   @db.Uuid
+  inventory_item_interest_id String?                   @unique @db.Uuid
+  read_at                    DateTime?                 @db.Timestamptz(6)
+  created_at                 DateTime                  @default(now()) @db.Timestamptz(6)
+  recipient                  user_profiles             @relation("user_notifications_recipient", fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_notifications_recipient")
+  actor                      user_profiles?            @relation("user_notifications_actor", fields: [actor_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_actor")
+  inventory_item             inventory_items?          @relation(fields: [inventory_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_inventory_item")
+  inventory_item_interest    inventory_item_interests? @relation(fields: [inventory_item_interest_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_user_notifications_inventory_interest")
+
+  @@index([recipient_user_id, read_at, created_at(sort: Desc)], map: "idx_user_notifications_recipient_unread_newest")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

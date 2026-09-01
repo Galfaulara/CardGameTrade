@@ -15,6 +15,7 @@ import {
   createUserInventoryItemSchema,
   myInventoryListQuerySchema,
   updateUserInventoryItemSchema,
+  setInventoryCollectionSchema,
 } from "@repo/validation";
 import type {
   AuthenticatedPrincipal,
@@ -25,6 +26,7 @@ import type {
   CreateUserInventoryItemInput,
   MyInventoryListQuery,
   UpdateUserInventoryItemInput,
+  SetInventoryCollectionInput,
 } from "@repo/validation";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
@@ -148,6 +150,23 @@ export class MeInventoryController {
       inventoryItemId,
       input,
     );
+  }
+
+  @Get(":inventoryItemId/activity")
+  getActivity(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param("inventoryItemId", new ParseUUIDPipe({ version: "4" })) inventoryItemId: string,
+  ) {
+    return this.inventoryService.getInventoryActivity(principal.deckdealUserId!, inventoryItemId);
+  }
+
+  @Patch(":inventoryItemId/collection")
+  setCollection(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param("inventoryItemId", new ParseUUIDPipe({ version: "4" })) inventoryItemId: string,
+    @Body(new ZodValidationPipe(setInventoryCollectionSchema)) input: SetInventoryCollectionInput,
+  ) {
+    return this.inventoryService.setUserInventoryCollection(principal.deckdealUserId!, inventoryItemId, input);
   }
 
   @Post(":inventoryItemId/remove")

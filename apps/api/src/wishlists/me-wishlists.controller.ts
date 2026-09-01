@@ -131,4 +131,13 @@ export class MeWishlistsController {
       input,
     );
   }
+  @Get(":wishlistId/items/:itemId/availability") async availability(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param("wishlistId", new ParseUUIDPipe({ version: "4" })) wishlistId: string,
+    @Param("itemId", new ParseUUIDPipe({ version: "4" })) itemId: string,
+    @Query("gameSlug") gameSlug: string,
+  ) {
+    await this.wishlists.assertOwnedWishlistGame(principal.deckdealUserId!, wishlistId, gameSlug);
+    return this.wishlists.getWishlistItemAvailability(principal.deckdealUserId!, wishlistId, itemId);
+  }
 }
