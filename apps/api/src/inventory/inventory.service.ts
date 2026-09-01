@@ -1604,7 +1604,7 @@ export class InventoryService {
     });
     if (!item) throw this.getInventoryItemNotFoundError();
 
-    const [interests, wants, listing, offered, wishlistOffered, requested] = await Promise.all([
+    const [interests, wants, listings, offered, wishlistOffered, requested, transactionItems] = await Promise.all([
       this.database.client.inventory_item_interests.findMany({
         where: { inventory_item_id: item.id, status: "active" }, orderBy: { created_at: "desc" },
         select: { id: true, interested_user_id: true, interest_type: true, message: true, status: true, created_at: true,
@@ -1618,13 +1618,29 @@ export class InventoryService {
         },
         select: { id: true, wishlist_id: true, wishlists: { select: { user_id: true, user_profiles: { select: { id: true, username: true, display_name: true } } } } },
       }),
-      this.database.client.listings.findFirst({
+      this.database.client.listings.findMany({
         where: { inventory_item_id: item.id }, orderBy: { created_at: "desc" },
-        select: { id: true, status: true, accepts_cash: true, accepts_trade: true, asking_price: true, currency_code: true },
+        select: { id: true, status: true, accepts_cash: true, accepts_trade: true, asking_price: true, currency_code: true, created_at: true,
+          listing_offers: { orderBy: { created_at: "desc" }, select: { id: true, listing_id: true, status: true, cash_amount: true, currency_code: true, message: true, expires_at: true, responded_at: true, created_at: true,
+            user_profiles: { select: { id: true, username: true, display_name: true } }, stores: { select: { id: true, name: true, slug: true } },
+            offer_items_offer_items_offer_idTolisting_offers: { select: { id: true, inventory_item_id: true, quantity: true } }, transactions: { select: { id: true } },
+          } },
+        },
       }),
       this.database.client.offer_items.findMany({ where: { inventory_item_id: item.id }, select: { offer_id: true, listing_offers_offer_items_offer_idTolisting_offers: { select: { id: true, status: true, created_at: true } } } }),
       this.database.client.wishlist_offer_items.findMany({ where: { inventory_item_id: item.id }, select: { wishlist_offer_id: true, wishlist_offers_wishlist_offer_items_wishlist_offer_idTowishlist_offers: { select: { id: true, status: true, created_at: true } } } }),
       this.database.client.wishlist_offer_requested_items.findMany({ where: { requested_inventory_item_id: item.id }, select: { wishlist_offer_id: true, wishlist_offers: { select: { id: true, status: true, created_at: true } } } }),
+      this.database.client.transaction_items.findMany({ where: { inventory_item_id: item.id }, orderBy: { created_at: "desc" }, select: {
+        id: true, inventory_item_id: true, transaction_id: true, item_role: true, quantity: true, from_user_id: true, from_store_id: true, to_user_id: true, to_store_id: true, created_at: true,
+        user_profiles_transaction_items_from_user_idTouser_profiles: { select: { id: true, username: true, display_name: true } },
+        user_profiles_transaction_items_to_user_idTouser_profiles: { select: { id: true, username: true, display_name: true } },
+        transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items: { select: { id: true, custody_status: true, received_at: true, verified_at: true, released_at: true, updated_at: true } },
+        transactions: { select: { id: true, status: true, transaction_type: true, accepted_offer_id: true, accepted_wishlist_offer_id: true, agreed_at: true, completed_at: true, created_at: true, updated_at: true,
+          user_profiles_transactions_seller_user_idTouser_profiles: { select: { id: true, username: true, display_name: true } },
+          user_profiles_transactions_counterparty_user_idTouser_profiles: { select: { id: true, username: true, display_name: true } },
+          store_trade_handoffs: { select: { id: true, status: true, created_at: true, updated_at: true, completed_at: true, store_games: { select: { stores: { select: { id: true, name: true, slug: true, city: true, state_region: true, country_code: true } } } } } },
+        } },
+      } }),
     ]);
 
     const people = new Map<string, any>();
@@ -1636,12 +1652,33 @@ export class InventoryService {
       const current = people.get(id) ?? { user: want.wishlists.user_profiles, interest: null, publicWantIds: [] };
       current.publicWantIds.push(want.id); people.set(id, current);
     }
+    const receivedOnListing = listings.flatMap((listing) => listing.listing_offers.map((offer) => ({
+      id: offer.id, listingId: listing.id, status: offer.status, createdAt: offer.created_at.toISOString(), respondedAt: offer.responded_at?.toISOString() ?? null,
+      expiresAt: offer.expires_at?.toISOString() ?? null, cashAmount: offer.cash_amount.toString(), currencyCode: offer.currency_code, message: offer.message,
+      offerer: offer.user_profiles ? { kind: "user", ...offer.user_profiles } : offer.stores ? { kind: "store", ...offer.stores } : null,
+      tradeItemCount: offer.offer_items_offer_items_offer_idTolisting_offers.length,
+      tradeQuantity: offer.offer_items_offer_items_offer_idTolisting_offers.reduce((sum, row) => sum + row.quantity, 0),
+      transactionId: offer.transactions?.id ?? null,
+    })));
+    const transactions = transactionItems.map((row) => {
+      const transaction = row.transactions; const handoff = transaction.store_trade_handoffs[0];
+      const direction = row.from_user_id === userId ? "outgoing" : row.to_user_id === userId ? "incoming" : "involved";
+      const counterpart = direction === "outgoing" ? row.user_profiles_transaction_items_to_user_idTouser_profiles : direction === "incoming" ? row.user_profiles_transaction_items_from_user_idTouser_profiles : transaction.user_profiles_transactions_counterparty_user_idTouser_profiles;
+      return { transactionItemId: row.id, inventoryItemId: row.inventory_item_id, itemRole: row.item_role, quantity: row.quantity, direction, counterpart,
+        transaction: { id: transaction.id, status: transaction.status, type: transaction.transaction_type, acceptedOfferId: transaction.accepted_offer_id, acceptedWishlistOfferId: transaction.accepted_wishlist_offer_id, agreedAt: transaction.agreed_at.toISOString(), completedAt: transaction.completed_at?.toISOString() ?? null, createdAt: transaction.created_at.toISOString(), updatedAt: transaction.updated_at.toISOString() },
+        handoff: handoff ? { id: handoff.id, status: handoff.status, createdAt: handoff.created_at.toISOString(), updatedAt: handoff.updated_at.toISOString(), completedAt: handoff.completed_at?.toISOString() ?? null, store: handoff.store_games.stores } : null,
+        custody: row.transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items ? { ...row.transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items, received_at: row.transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items.received_at?.toISOString() ?? null, verified_at: row.transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items.verified_at?.toISOString() ?? null, released_at: row.transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items.released_at?.toISOString() ?? null, updated_at: row.transaction_item_custody_transaction_item_custody_transaction_item_idTotransaction_items.updated_at.toISOString() } : null,
+      };
+    });
+    const listing = listings[0] ?? null;
     return {
       inventoryItemId: item.id, collection: item.collections,
-      summary: { interested: interests.filter((value) => value.status === "active").length, wantedBy: new Set(wants.map((value) => value.wishlists.user_id)).size, offers: offered.length + wishlistOffered.length + requested.length },
+      summary: { interested: interests.filter((value) => value.status === "active").length, wantedBy: new Set(wants.map((value) => value.wishlists.user_id)).size, offers: receivedOnListing.length + offered.length + wishlistOffered.length + requested.length },
       people: [...people.values()],
-      listing: listing ? { ...listing, asking_price: listing.asking_price?.toString() ?? null } : null,
-      offers: { listingOfferItems: offered, wishlistOfferItems: wishlistOffered, requestedItems: requested },
+      listing: listing ? { id: listing.id, status: listing.status, accepts_cash: listing.accepts_cash, accepts_trade: listing.accepts_trade, asking_price: listing.asking_price?.toString() ?? null, currency_code: listing.currency_code } : null,
+      listings: listings.map((value) => ({ id: value.id, status: value.status, accepts_cash: value.accepts_cash, accepts_trade: value.accepts_trade, asking_price: value.asking_price?.toString() ?? null, currency_code: value.currency_code, createdAt: value.created_at.toISOString() })),
+      offers: { receivedOnListing, inventoryOfferedElsewhere: offered, wishlistOffersUsingInventory: wishlistOffered, requestedInventoryRelations: requested },
+      transactions,
     };
   }
 

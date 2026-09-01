@@ -316,6 +316,14 @@ export const tradeStatusLabel = (
   return prettyTradeValue(trade.status);
 };
 
+export const custodyStatusLabel = (status: string) => {
+  if (status === "awaiting_delivery_to_store") return "Awaiting store receipt";
+  if (status === "in_store") return "Received by store";
+  if (status === "verified_by_store") return "Verified by store";
+  if (status === "released_to_recipient") return "Released to recipient";
+  return prettyTradeValue(status);
+};
+
 export const tradeNextStep = (
   trade: MyTrade,
 ) => {

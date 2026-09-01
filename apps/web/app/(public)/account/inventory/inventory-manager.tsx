@@ -13,6 +13,7 @@ import type { MarketPrice } from "../../../../features/marketplace/api";
 import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import styles from "./page.module.css";
 import { CollectionActions } from "./collection-actions";
+import { custodyStatusLabel } from "../../../../features/account/trade-types";
 
 type Status = "all" | "available" | "not_for_trade" | "reserved" | "in_trade";
 type Condition =
@@ -38,7 +39,72 @@ type Collection = {
   visibility: string;
   _count: { inventory_items: number };
 };
-type ActivityData={summary:{interested:number;wantedBy:number;offers:number};collection:{name:string}|null;listing:{status:string;accepts_trade:boolean;accepts_cash:boolean}|null;people:Array<{user:{id:string;username:string|null;display_name:string|null};interest:{type:string;message:string|null}|null;publicWantIds:string[]}>};
+type PublicIdentity = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+};
+type ActivityData = {
+  summary: { interested: number; wantedBy: number; offers: number };
+  collection: { name: string } | null;
+  listing: {
+    status: string;
+    accepts_trade: boolean;
+    accepts_cash: boolean;
+  } | null;
+  people: Array<{
+    user: PublicIdentity;
+    interest: { type: string; message: string | null } | null;
+    publicWantIds: string[];
+  }>;
+  offers: {
+    receivedOnListing: Array<{
+      id: string;
+      listingId: string;
+      status: string;
+      cashAmount: string;
+      currencyCode: string;
+      tradeItemCount: number;
+      offerer:
+        | (PublicIdentity & { kind: "user" })
+        | { kind: "store"; id: string; name: string; slug: string }
+        | null;
+      transactionId: string | null;
+    }>;
+    inventoryOfferedElsewhere: Array<{
+      offer_id: string;
+      listing_offers_offer_items_offer_idTolisting_offers: { status: string };
+    }>;
+    wishlistOffersUsingInventory: Array<{
+      wishlist_offer_id: string;
+      wishlist_offers_wishlist_offer_items_wishlist_offer_idTowishlist_offers: {
+        status: string;
+      };
+    }>;
+    requestedInventoryRelations: Array<{
+      wishlist_offer_id: string;
+      wishlist_offers: { status: string };
+    }>;
+  };
+  transactions: Array<{
+    transactionItemId: string;
+    direction: "incoming" | "outgoing" | "involved";
+    counterpart: PublicIdentity | null;
+    transaction: {
+      id: string;
+      status: string;
+      type: string;
+      acceptedOfferId: string | null;
+      acceptedWishlistOfferId: string | null;
+    };
+    handoff: {
+      id: string;
+      status: string;
+      store: { id: string; name: string; slug: string };
+    } | null;
+    custody: { id: string; custody_status: string } | null;
+  }>;
+};
 const pretty = (value: string) => value.replaceAll("_", " ");
 const cardHref = (item: MyInventoryItem) =>
   `/cards/${item.printing.canonical_cards.id}?printing=${item.printing.id}`;
@@ -152,8 +218,21 @@ function EditDialog({
       return;
     }
     if (collectionId !== (item.collection_id ?? "")) {
-      const move = await fetch(`/api/me/inventory/${encodeURIComponent(item.id)}/collection`, { method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({collectionId:collectionId||null}) });
-      if (!move.ok) { setError((await parseBody(move)).message ?? "The card could not be moved."); setSaving(false); return; }
+      const move = await fetch(
+        `/api/me/inventory/${encodeURIComponent(item.id)}/collection`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ collectionId: collectionId || null }),
+        },
+      );
+      if (!move.ok) {
+        setError(
+          (await parseBody(move)).message ?? "The card could not be moved.",
+        );
+        setSaving(false);
+        return;
+      }
     }
     onChanged();
   };
@@ -203,7 +282,22 @@ function EditDialog({
         </header>
         <form onSubmit={submit} className={styles.editForm}>
           <div className={styles.editFields}>
-            <label><span>Collection</span><select value={collectionId} onChange={(event)=>setCollectionId(event.target.value)}><option value="">No collection</option>{collections.filter(value=>value.game_id===item.game_id).map(value=><option key={value.id} value={value.id}>{value.name}</option>)}</select></label>
+            <label>
+              <span>Collection</span>
+              <select
+                value={collectionId}
+                onChange={(event) => setCollectionId(event.target.value)}
+              >
+                <option value="">No collection</option>
+                {collections
+                  .filter((value) => value.game_id === item.game_id)
+                  .map((value) => (
+                    <option key={value.id} value={value.id}>
+                      {value.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
             <label>
               <span>Condition</span>
               <select
@@ -351,8 +445,16 @@ function ListForTradeDialog({
   }, [onClose, saving]);
 
   useEffect(() => {
-    void fetch("/api/market-prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ printingId: item.printing.id, finish: item.finish }] }) })
-      .then((response) => response.ok ? response.json() as Promise<MarketPrice[]> : [])
+    void fetch("/api/market-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: [{ printingId: item.printing.id, finish: item.finish }],
+      }),
+    })
+      .then((response) =>
+        response.ok ? (response.json() as Promise<MarketPrice[]>) : [],
+      )
       .then(setMarketPrices);
   }, [item.finish, item.printing.id]);
 
@@ -423,7 +525,11 @@ function ListForTradeDialog({
             )}
           </div>
           <div className={styles.tradeDialogCopy}>
-            <MarketPrices prices={marketPrices} title="Market reference" compact />
+            <MarketPrices
+              prices={marketPrices}
+              title="Market reference"
+              compact
+            />
             <p>
               This card will be visible to other collectors for trade offers.
             </p>
@@ -466,10 +572,208 @@ function ListForTradeDialog({
   );
 }
 
-function ActivityDialog({item,onClose}:{item:MyInventoryItem;onClose:()=>void}){
-  const [data,setData]=useState<ActivityData|null>(null),[error,setError]=useState<string|null>(null);
-  useEffect(()=>{void fetch(`/api/me/inventory/${item.id}/activity`).then(async response=>{if(!response.ok)throw new Error((await parseBody(response)).message);setData(await response.json())}).catch(value=>setError(value.message??"Activity could not be loaded."))},[item.id]);
-  return <div className={styles.backdrop}><section className={styles.editDialog} role="dialog" aria-modal="true" aria-labelledby="activity-title"><header><div><p className={styles.kicker}>Exact owned card</p><h2 id="activity-title">Card activity · {item.printing.canonical_cards.name}</h2></div><button className={styles.iconButton} onClick={onClose} aria-label="Close activity">×</button></header>{error?<p className={styles.error}>{error}</p>:!data?<p>Loading activity…</p>:<div className={styles.tradeDialogCopy}><div className={styles.tags}><span>{data.summary.interested} Interested</span><span>Wanted by {data.summary.wantedBy}</span><span>{data.summary.offers} Offers</span></div><section><h3>Interest & demand</h3>{data.people.length?data.people.map((person:any)=><article key={person.user.id}><strong>{person.user.display_name??person.user.username??"Collector"}</strong>{person.user.username?<span> @{person.user.username}</span>:null}<p>{person.interest?`Interested: ${pretty(person.interest.type)}`:""}{person.publicWantIds.length?`${person.interest?" · ":""}In public Wishlist`:""}</p>{person.interest?.message?<blockquote>{person.interest.message}</blockquote>:null}</article>):<p>No collector activity yet.</p>}</section><section><h3>Listing</h3><p>{data.listing?`${pretty(data.listing.status)} · ${data.listing.accepts_trade?"Trade":""}${data.listing.accepts_cash?`${data.listing.accepts_trade?" or ":""}sale`:""}`:"No Listing"}</p></section><section><h3>Collection</h3><p>{data.collection?.name??"No Collection"}</p></section></div>}</section></div>
+function ActivityDialog({
+  item,
+  onClose,
+}: {
+  item: MyInventoryItem;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<ActivityData | null>(null),
+    [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    void fetch(`/api/me/inventory/${item.id}/activity`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error((await parseBody(response)).message);
+        setData(await response.json());
+      })
+      .catch((value) =>
+        setError(value.message ?? "Activity could not be loaded."),
+      );
+  }, [item.id]);
+  return (
+    <div className={styles.backdrop}>
+      <section
+        className={styles.editDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-title"
+      >
+        <header>
+          <div>
+            <p className={styles.kicker}>Exact owned card</p>
+            <h2 id="activity-title">
+              Card activity · {item.printing.canonical_cards.name}
+            </h2>
+          </div>
+          <button
+            className={styles.iconButton}
+            onClick={onClose}
+            aria-label="Close activity"
+          >
+            ×
+          </button>
+        </header>
+        {error ? (
+          <p className={styles.error}>{error}</p>
+        ) : !data ? (
+          <p>Loading activity…</p>
+        ) : (
+          <div className={styles.tradeDialogCopy}>
+            <div className={styles.tags}>
+              <span>{data.summary.interested} Interested</span>
+              <span>Wanted by {data.summary.wantedBy}</span>
+              <span>{data.summary.offers} Offers</span>
+            </div>
+            <section>
+              <h3>Interest & demand</h3>
+              {data.people.length ? (
+                data.people.map((person: any) => (
+                  <article key={person.user.id}>
+                    <strong>
+                      {person.user.display_name ??
+                        person.user.username ??
+                        "Collector"}
+                    </strong>
+                    {person.user.username ? (
+                      <span> @{person.user.username}</span>
+                    ) : null}
+                    <p>
+                      {person.interest
+                        ? `Interested: ${pretty(person.interest.type)}`
+                        : ""}
+                      {person.publicWantIds.length
+                        ? `${person.interest ? " · " : ""}In public Wishlist`
+                        : ""}
+                    </p>
+                    {person.interest?.message ? (
+                      <blockquote>{person.interest.message}</blockquote>
+                    ) : null}
+                  </article>
+                ))
+              ) : (
+                <p>No collector activity yet.</p>
+              )}
+            </section>
+            <section>
+              <h3>Listing</h3>
+              <p>
+                {data.listing
+                  ? `${pretty(data.listing.status)} · ${data.listing.accepts_trade ? "Trade" : ""}${data.listing.accepts_cash ? `${data.listing.accepts_trade ? " or " : ""}sale` : ""}`
+                  : "No Listing"}
+              </p>
+            </section>
+            <section>
+              <h3>Offers</h3>
+              {data.offers.receivedOnListing.length ? (
+                <div className={styles.activityList}>
+                  {data.offers.receivedOnListing.map((offer) => {
+                    const offerer = offer.offerer;
+                    const offererName =
+                      offerer?.kind === "store"
+                        ? offerer.name
+                        : (offerer?.display_name ??
+                          offerer?.username ??
+                          "Collector");
+                    return (
+                      <article key={offer.id}>
+                        <div className={styles.tags}>
+                          <span>Received on this card</span>
+                          <span>{pretty(offer.status)}</span>
+                        </div>
+                        <strong>Offer from {offererName}</strong>
+                        <p>
+                          {Number(offer.cashAmount) > 0
+                            ? `${offer.cashAmount} ${offer.currencyCode}`
+                            : "No cash component"}
+                          {offer.tradeItemCount
+                            ? ` · ${offer.tradeItemCount} offered card${offer.tradeItemCount === 1 ? "" : "s"}`
+                            : ""}
+                        </p>
+                        {offer.transactionId ? (
+                          <p>Accepted into trade {offer.transactionId}</p>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p>No Offers received against this card&apos;s Listing.</p>
+              )}
+              <div className={styles.tags}>
+                {data.offers.inventoryOfferedElsewhere.length ? (
+                  <span>
+                    My card included in an offer ×
+                    {data.offers.inventoryOfferedElsewhere.length}
+                  </span>
+                ) : null}
+                {data.offers.wishlistOffersUsingInventory.length ? (
+                  <span>
+                    My card included in a Wishlist Offer ×
+                    {data.offers.wishlistOffersUsingInventory.length}
+                  </span>
+                ) : null}
+                {data.offers.requestedInventoryRelations.length ? (
+                  <span>
+                    My card requested ×
+                    {data.offers.requestedInventoryRelations.length}
+                  </span>
+                ) : null}
+              </div>
+            </section>
+            <section>
+              <h3>Trade / transaction</h3>
+              {data.transactions.length ? (
+                <div className={styles.activityList}>
+                  {data.transactions.map((relation) => (
+                    <article key={relation.transactionItemId}>
+                      <div className={styles.tags}>
+                        <span>{pretty(relation.transaction.status)}</span>
+                        <span>{pretty(relation.direction)}</span>
+                      </div>
+                      <strong>
+                        {relation.direction === "outgoing"
+                          ? "Outgoing to"
+                          : relation.direction === "incoming"
+                            ? "Incoming from"
+                            : "Trade with"}{" "}
+                        {relation.counterpart?.display_name ??
+                          relation.counterpart?.username ??
+                          "collector"}
+                      </strong>
+                      {relation.handoff ? (
+                        <p>
+                          Store: {relation.handoff.store.name} · Handoff:{" "}
+                          {pretty(relation.handoff.status)}
+                        </p>
+                      ) : (
+                        <p>No store handoff</p>
+                      )}
+                      <p>
+                        This card:{" "}
+                        {relation.custody
+                          ? custodyStatusLabel(
+                              relation.custody.custody_status as any,
+                            )
+                          : "No custody record"}
+                      </p>
+                      <Link href="/account/trades">View trade</Link>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p>No active trade involving this card.</p>
+              )}
+            </section>
+            <section>
+              <h3>Collection</h3>
+              <p>{data.collection?.name ?? "No Collection"}</p>
+            </section>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
 
 export function InventoryManager({
@@ -486,13 +790,21 @@ export function InventoryManager({
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<MyInventoryItem | null>(null);
   const [listingItem, setListingItem] = useState<MyInventoryItem | null>(null);
-  const [activityItem, setActivityItem] = useState<MyInventoryItem | null>(null);
-  const [moveOpen,setMoveOpen]=useState(false),[moveBusy,setMoveBusy]=useState(false),[moveIds,setMoveIds]=useState<string[]>([]),[moveDestination,setMoveDestination]=useState("");
+  const [activityItem, setActivityItem] = useState<MyInventoryItem | null>(
+    null,
+  );
+  const [moveOpen, setMoveOpen] = useState(false),
+    [moveBusy, setMoveBusy] = useState(false),
+    [moveIds, setMoveIds] = useState<string[]>([]),
+    [moveDestination, setMoveDestination] = useState("");
   const [q, setQ] = useState(initialFilters.q);
-  const [managerError,setError]=useState<string|null>(null);
+  const [managerError, setError] = useState<string | null>(null);
   const [status, setStatus] = useState(initialFilters.status);
   const [condition, setCondition] = useState(initialFilters.condition);
-  const filterDirty = q.trim() !== initialFilters.q || status !== initialFilters.status || condition !== initialFilters.condition;
+  const filterDirty =
+    q.trim() !== initialFilters.q ||
+    status !== initialFilters.status ||
+    condition !== initialFilters.condition;
   const count = initialData.summary.total_card_quantity,
     entries = initialData.summary.total_inventory_row_count,
     hasFilters = Boolean(
@@ -513,8 +825,35 @@ export function InventoryManager({
     router.refresh();
   };
   const openAdd = () => openAddToCollection({ onAdded: changed });
-  const sourceCollection=collections.find(value=>value.id===initialFilters.collection);
-  const moveCards=async()=>{if(!sourceCollection||!moveIds.length)return;setMoveBusy(true);setError(null);const response=await fetch(`/api/me/collections/${sourceCollection.id}/items/move`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gameSlug:initialFilters.game,destinationCollectionId:moveDestination||null,inventoryItemIds:moveIds})});if(response.ok){setMoveOpen(false);setMoveIds([]);router.refresh()}else setError((await parseBody(response)).message??"Cards could not be moved.");setMoveBusy(false)};
+  const sourceCollection = collections.find(
+    (value) => value.id === initialFilters.collection,
+  );
+  const moveCards = async () => {
+    if (!sourceCollection || !moveIds.length) return;
+    setMoveBusy(true);
+    setError(null);
+    const response = await fetch(
+      `/api/me/collections/${sourceCollection.id}/items/move`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          gameSlug: initialFilters.game,
+          destinationCollectionId: moveDestination || null,
+          inventoryItemIds: moveIds,
+        }),
+      },
+    );
+    if (response.ok) {
+      setMoveOpen(false);
+      setMoveIds([]);
+      router.refresh();
+    } else
+      setError(
+        (await parseBody(response)).message ?? "Cards could not be moved.",
+      );
+    setMoveBusy(false);
+  };
   return (
     <div className={styles.page}>
       <section className={styles.inventoryHeader}>
@@ -528,24 +867,48 @@ export function InventoryManager({
           </h2>
         </div>
         <div className={styles.headerActions}>
-        <CollectionActions
-          gameSlug={initialFilters.game}
-          collectionId={collections.some((value) => value.id === initialFilters.collection) ? initialFilters.collection : undefined}
-        />
-        {sourceCollection?<button className={styles.secondaryButton} type="button" onClick={()=>{setMoveIds(initialData.items.map(item=>item.id));setMoveOpen(true)}}>Move cards</button>:null}
-        <Link className={styles.secondaryButton} href={`/account/inventory/bulk-add${initialFilters.game ? `?game=${encodeURIComponent(initialFilters.game)}` : ""}`}>
-          Bulk add cards
-        </Link>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={openAdd}
-        >
-          + Add cards
-        </button>
+          <CollectionActions
+            gameSlug={initialFilters.game}
+            collectionId={
+              collections.some(
+                (value) => value.id === initialFilters.collection,
+              )
+                ? initialFilters.collection
+                : undefined
+            }
+          />
+          {sourceCollection ? (
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => {
+                setMoveIds(initialData.items.map((item) => item.id));
+                setMoveOpen(true);
+              }}
+            >
+              Move cards
+            </button>
+          ) : null}
+          <Link
+            className={styles.secondaryButton}
+            href={`/account/inventory/bulk-add${initialFilters.game ? `?game=${encodeURIComponent(initialFilters.game)}` : ""}`}
+          >
+            Bulk add cards
+          </Link>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={openAdd}
+          >
+            + Add cards
+          </button>
         </div>
       </section>
-      {managerError?<p className={styles.error} role="alert">{managerError}</p>:null}
+      {managerError ? (
+        <p className={styles.error} role="alert">
+          {managerError}
+        </p>
+      ) : null}
       <nav className={styles.binders} aria-label="Collections and binders">
         <Link
           href={href({ ...initialFilters, page: 1, collection: "all" })}
@@ -622,7 +985,11 @@ export function InventoryManager({
             ))}
           </select>
         </label>
-        <button className={styles.secondaryButton} disabled={pending || !filterDirty} aria-busy={pending}>
+        <button
+          className={styles.secondaryButton}
+          disabled={pending || !filterDirty}
+          aria-busy={pending}
+        >
           {pending ? "Applying…" : "Apply"}
         </button>
         {hasFilters && (
@@ -642,10 +1009,7 @@ export function InventoryManager({
             Add the physical cards you own, then organize them into Collections
             and binders whenever you like.
           </p>
-          <button
-            className={styles.primaryButton}
-            onClick={openAdd}
-          >
+          <button className={styles.primaryButton} onClick={openAdd}>
             Add your first card
           </button>
         </section>
@@ -687,7 +1051,29 @@ export function InventoryManager({
                       {pretty(item.condition)} · {pretty(item.finish)}
                       {item.quantity > 1 ? ` · ×${item.quantity}` : ""}
                     </p>
-                    {item.relationship_summary&&(item.relationship_summary.interested||item.relationship_summary.wanted_by||item.relationship_summary.offers)?<div className={styles.tags}>{item.relationship_summary.interested?<span>{item.relationship_summary.interested} Interested</span>:null}{item.relationship_summary.wanted_by?<span>Wanted by {item.relationship_summary.wanted_by}</span>:null}{item.relationship_summary.offers?<span>{item.relationship_summary.offers} Offer{item.relationship_summary.offers===1?"":"s"}</span>:null}</div>:null}
+                    {item.relationship_summary &&
+                    (item.relationship_summary.interested ||
+                      item.relationship_summary.wanted_by ||
+                      item.relationship_summary.offers) ? (
+                      <div className={styles.tags}>
+                        {item.relationship_summary.interested ? (
+                          <span>
+                            {item.relationship_summary.interested} Interested
+                          </span>
+                        ) : null}
+                        {item.relationship_summary.wanted_by ? (
+                          <span>
+                            Wanted by {item.relationship_summary.wanted_by}
+                          </span>
+                        ) : null}
+                        {item.relationship_summary.offers ? (
+                          <span>
+                            {item.relationship_summary.offers} Offer
+                            {item.relationship_summary.offers === 1 ? "" : "s"}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div className={styles.locationRow}>
                       <span className={styles.location}>
                         ▱ {item.collection?.name ?? "Unsorted"}
@@ -709,7 +1095,13 @@ export function InventoryManager({
                         >
                           Edit
                         </button>
-                        <button className={styles.editButton} type="button" onClick={()=>setActivityItem(item)}>Activity</button>
+                        <button
+                          className={styles.editButton}
+                          type="button"
+                          onClick={() => setActivityItem(item)}
+                        >
+                          Activity
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -763,8 +1155,103 @@ export function InventoryManager({
           onChanged={changed}
         />
       )}
-      {activityItem && <ActivityDialog item={activityItem} onClose={()=>setActivityItem(null)}/>}
-      {moveOpen&&sourceCollection?<div className={styles.backdrop}><section className={styles.editDialog} role="dialog" aria-modal="true" aria-labelledby="move-title"><header><div><p className={styles.kicker}>From {sourceCollection.name}</p><h2 id="move-title">Move cards</h2></div><button className={styles.iconButton} onClick={()=>setMoveOpen(false)} aria-label="Close">×</button></header><label className={styles.notes}><span>Move to</span><select value={moveDestination} onChange={event=>setMoveDestination(event.target.value)}><option value="">No collection</option>{collections.filter(value=>value.id!==sourceCollection.id&&value.game_id===sourceCollection.game_id).map(value=><option key={value.id} value={value.id}>{value.name}</option>)}</select></label><div className={styles.dialogActions}><button className={styles.secondaryButton} type="button" onClick={()=>setMoveIds(initialData.items.map(item=>item.id))}>Select all</button><button className={styles.secondaryButton} type="button" onClick={()=>setMoveIds([])}>Clear</button></div><ul className={styles.items}>{initialData.items.map(item=><li key={item.id}><label><input type="checkbox" checked={moveIds.includes(item.id)} onChange={event=>setMoveIds(ids=>event.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>{item.printing.canonical_cards.name} ×{item.quantity}</label></li>)}</ul><div className={styles.dialogActions}><button className={styles.primaryButton} disabled={moveBusy||!moveIds.length} onClick={()=>void moveCards()}>{moveBusy?"Moving…":`Move ${moveIds.length} cards`}</button></div></section></div>:null}
+      {activityItem && (
+        <ActivityDialog
+          item={activityItem}
+          onClose={() => setActivityItem(null)}
+        />
+      )}
+      {moveOpen && sourceCollection ? (
+        <div className={styles.backdrop}>
+          <section
+            className={styles.editDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-title"
+          >
+            <header>
+              <div>
+                <p className={styles.kicker}>From {sourceCollection.name}</p>
+                <h2 id="move-title">Move cards</h2>
+              </div>
+              <button
+                className={styles.iconButton}
+                onClick={() => setMoveOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            <label className={styles.notes}>
+              <span>Move to</span>
+              <select
+                value={moveDestination}
+                onChange={(event) => setMoveDestination(event.target.value)}
+              >
+                <option value="">No collection</option>
+                {collections
+                  .filter(
+                    (value) =>
+                      value.id !== sourceCollection.id &&
+                      value.game_id === sourceCollection.game_id,
+                  )
+                  .map((value) => (
+                    <option key={value.id} value={value.id}>
+                      {value.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <div className={styles.dialogActions}>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() =>
+                  setMoveIds(initialData.items.map((item) => item.id))
+                }
+              >
+                Select all
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() => setMoveIds([])}
+              >
+                Clear
+              </button>
+            </div>
+            <ul className={styles.items}>
+              {initialData.items.map((item) => (
+                <li key={item.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={moveIds.includes(item.id)}
+                      onChange={(event) =>
+                        setMoveIds((ids) =>
+                          event.target.checked
+                            ? [...ids, item.id]
+                            : ids.filter((id) => id !== item.id),
+                        )
+                      }
+                    />
+                    {item.printing.canonical_cards.name} ×{item.quantity}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className={styles.dialogActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={moveBusy || !moveIds.length}
+                onClick={() => void moveCards()}
+              >
+                {moveBusy ? "Moving…" : `Move ${moveIds.length} cards`}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {listingItem && (
         <ListForTradeDialog
           item={listingItem}
