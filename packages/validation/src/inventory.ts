@@ -1,16 +1,8 @@
 import { z } from "zod";
 import { inventoryConditionSchema } from "./schemas";
 
-const boundedInteger = (
-  defaultValue: number,
-  maximum: number,
-) =>
-  z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(maximum)
-    .default(defaultValue);
+const boundedInteger = (defaultValue: number, maximum: number) =>
+  z.coerce.number().int().min(1).max(maximum).default(defaultValue);
 
 export const myInventoryStatusFilterSchema = z.enum([
   "all",
@@ -32,25 +24,13 @@ export const myInventoryListQuerySchema = z
     pageSize: boundedInteger(24, 48),
     q: z.preprocess(
       (value) =>
-        typeof value === "string"
-          ? value.trim().replace(/\s+/g, " ")
-          : value,
+        typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value,
       z.string().max(120).default(""),
     ),
-    status:
-      myInventoryStatusFilterSchema.default(
-        "all",
-      ),
-    condition:
-      myInventoryConditionFilterSchema.default(
-        "all",
-      ),
+    status: myInventoryStatusFilterSchema.default("all"),
+    condition: myInventoryConditionFilterSchema.default("all"),
     collection: z
-      .union([
-        z.literal("all"),
-        z.literal("unassigned"),
-        z.string().uuid(),
-      ])
+      .union([z.literal("all"), z.literal("unassigned"), z.string().uuid()])
       .default("all"),
   })
   .strict();
@@ -61,21 +41,45 @@ export const gameScopedListQuerySchema = z
   })
   .strict();
 
-export const bulkMoveCollectionItemsSchema = z.object({
-  gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
-  destinationCollectionId: z.string().uuid().nullable(),
-  inventoryItemIds: z.array(z.string().uuid()).min(1).max(500)
-    .refine((ids) => new Set(ids).size === ids.length, "Inventory item IDs must be unique."),
-}).strict();
+export const bulkMoveCollectionItemsSchema = z
+  .object({
+    gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
+    destinationCollectionId: z.string().uuid().nullable(),
+    inventoryItemIds: z
+      .array(z.string().uuid())
+      .min(1)
+      .max(500)
+      .refine(
+        (ids) => new Set(ids).size === ids.length,
+        "Inventory item IDs must be unique.",
+      ),
+  })
+  .strict();
 
-export type BulkMoveCollectionItemsInput = z.infer<typeof bulkMoveCollectionItemsSchema>;
+export type BulkMoveCollectionItemsInput = z.infer<
+  typeof bulkMoveCollectionItemsSchema
+>;
 
-export const cardRelationshipContextSchema = z.object({
-  gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
-  canonicalCardIds: z.array(z.string().uuid()).max(200).default([]),
-  printingIds: z.array(z.string().uuid()).max(200).default([]),
-}).strict();
-export type CardRelationshipContextInput = z.infer<typeof cardRelationshipContextSchema>;
+export const cardRelationshipContextSchema = z
+  .object({
+    gameSlug: z.string().trim().min(1).max(64).toLowerCase(),
+    canonicalCardIds: z.array(z.string().uuid()).max(200).default([]),
+    printingIds: z.array(z.string().uuid()).max(200).default([]),
+  })
+  .strict();
+export type CardRelationshipContextInput = z.infer<
+  typeof cardRelationshipContextSchema
+>;
+
+export const changeInventoryPrintingSchema = z
+  .object({
+    printingId: z.string().uuid(),
+    finish: z.string().trim().min(1).max(40),
+  })
+  .strict();
+export type ChangeInventoryPrintingInput = z.infer<
+  typeof changeInventoryPrintingSchema
+>;
 
 export type MyInventoryStatusFilter = z.infer<
   typeof myInventoryStatusFilterSchema
@@ -85,8 +89,6 @@ export type MyInventoryConditionFilter = z.infer<
   typeof myInventoryConditionFilterSchema
 >;
 
-export type MyInventoryListQuery = z.infer<
-  typeof myInventoryListQuerySchema
->;
+export type MyInventoryListQuery = z.infer<typeof myInventoryListQuerySchema>;
 
 export type GameScopedListQuery = z.infer<typeof gameScopedListQuerySchema>;

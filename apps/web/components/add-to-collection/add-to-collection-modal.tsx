@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   FormEvent,
   useCallback,
@@ -18,9 +19,19 @@ import type {
 } from "../../features/marketplace/api";
 import type { MyInventoryItem } from "../../features/account/inventory-types";
 import { useActiveGame } from "../../features/games/active-game-provider";
-import { groupPrintingVersions, type VersionFamily } from "../../features/catalog/version-families";
-import { authoritativeCollectionGameSlug, collectionOptionsHref } from "../../features/games/inventory-game";
+import {
+  groupPrintingVersions,
+  type VersionFamily,
+} from "../../features/catalog/version-families";
+import {
+  authoritativeCollectionGameSlug,
+  collectionOptionsHref,
+} from "../../features/games/inventory-game";
 import styles from "./add-to-collection-modal.module.css";
+import {
+  sanitizeIntegerInput,
+  sanitizeMoneyInput,
+} from "../../features/forms/numeric-input";
 
 type CollectionOption = { id: string; name: string };
 type CardContext = {
@@ -35,6 +46,7 @@ export type AddToCollectionModalProps = {
   onClose: () => void;
   initialCard?: CardContext;
   onAdded?: (item: MyInventoryItem) => void;
+  redirectToInventory?: boolean;
 };
 
 const conditions = [
@@ -74,7 +86,9 @@ export function AddToCollectionModal({
   onClose,
   initialCard,
   onAdded,
+  redirectToInventory = false,
 }: AddToCollectionModalProps) {
+  const router = useRouter();
   const { games, activeGameSlug } = useActiveGame();
   const closeRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -97,7 +111,9 @@ export function AddToCollectionModal({
   const [card, setCard] = useState<CatalogCard | null>(null);
   const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
   const [printing, setPrinting] = useState<CatalogPrinting | null>(null);
-  const [pendingFamily, setPendingFamily] = useState<VersionFamily | null>(null);
+  const [pendingFamily, setPendingFamily] = useState<VersionFamily | null>(
+    null,
+  );
   const [pickerOrigin, setPickerOrigin] = useState<PickerOrigin>(null);
   const [finishes, setFinishes] = useState<CatalogPrintingFinish[]>([]);
   const [collections, setCollections] = useState<CollectionOption[]>([]);
@@ -117,7 +133,10 @@ export function AddToCollectionModal({
   const savingRef = useRef(saving);
   savingRef.current = saving;
   const ranked = useMemo(() => rankCards(cards, query), [cards, query]);
-  const versionFamilies = useMemo(() => groupPrintingVersions(printings), [printings]);
+  const versionFamilies = useMemo(
+    () => groupPrintingVersions(printings),
+    [printings],
+  );
 
   const loadFinishes = useCallback(
     async (value: CatalogPrinting, retainedFinish?: string) => {
@@ -197,14 +216,17 @@ export function AddToCollectionModal({
     setNotes("");
     setCollections([]);
     if (!collectionOptionsUrl) {
-      setError("Collections are unavailable because this card's game could not be resolved.");
-    } else fetch(collectionOptionsUrl)
-      .then(async (response) => {
-        if (response.ok)
-          setCollections((await response.json()) as CollectionOption[]);
-        else setError("Collections are unavailable for this game.");
-      })
-      .catch(() => setError("Collections are unavailable for this game."));
+      setError(
+        "Collections are unavailable because this card's game could not be resolved.",
+      );
+    } else
+      fetch(collectionOptionsUrl)
+        .then(async (response) => {
+          if (response.ok)
+            setCollections((await response.json()) as CollectionOption[]);
+          else setError("Collections are unavailable for this game.");
+        })
+        .catch(() => setError("Collections are unavailable for this game."));
     if (initialCanonicalCardId && initialCardName) {
       const value = {
         id: initialCanonicalCardId,
@@ -250,7 +272,7 @@ export function AddToCollectionModal({
     setPrintings([]);
     try {
       const response = await fetch(
-        `/api/catalog/search?q=${encodeURIComponent(query)}&page=1${initialGameSlug ?? activeGameSlug ? `&game=${encodeURIComponent(initialGameSlug ?? activeGameSlug!)}` : ""}`,
+        `/api/catalog/search?q=${encodeURIComponent(query)}&page=1${(initialGameSlug ?? activeGameSlug) ? `&game=${encodeURIComponent(initialGameSlug ?? activeGameSlug!)}` : ""}`,
       );
       if (!response.ok) throw new Error("Catalog search is unavailable.");
       const result = (await response.json()) as CatalogSearchResult;
@@ -330,6 +352,13 @@ export function AddToCollectionModal({
         `${item.printing.canonical_cards.name} was added to ${item.collection?.name ?? "Unsorted"}.`,
       );
       onAdded?.(item);
+      if (redirectToInventory) {
+        const game = initialGameSlug ?? activeGameSlug;
+        router.push(
+          `/account/inventory?added=1${game ? `&game=${encodeURIComponent(game)}` : ""}`,
+        );
+        router.refresh();
+      }
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -406,7 +435,11 @@ export function AddToCollectionModal({
                       placeholder="Card name"
                     />
                   </label>
-                  <button className={styles.primary} disabled={loading} aria-busy={loading}>
+                  <button
+                    className={styles.primary}
+                    disabled={loading}
+                    aria-busy={loading}
+                  >
                     {loading ? "Searching…" : "Search"}
                   </button>
                 </form>
@@ -438,62 +471,76 @@ export function AddToCollectionModal({
                   <div className={styles.sectionHeader}>
                     <h3>Choose the exact printing</h3>
                     <span>
-                      {loading ? "Loading…" : `${versionFamilies.length} versions`}
+                      {loading
+                        ? "Loading…"
+                        : `${versionFamilies.length} versions`}
                     </span>
                   </div>
                   <ul className={styles.choices}>
                     {versionFamilies.map((family) => {
                       const value = family.representative;
-                      return <li key={family.key}>
-                        <button
-                          className={styles.choice}
-                          type="button"
-                          onClick={() => {
-                            if (family.printings.length === 1) void loadFinishes(value, finish);
-                            else setPendingFamily(family);
-                          }}
-                        >
-                          <div className={styles.thumb}>
-                            {value.image_normal_uri || value.image_small_uri ? (
-                              <Image
-                                src={
-                                  value.image_normal_uri ??
-                                  value.image_small_uri!
-                                }
-                                alt=""
-                                fill
-                                sizes="140px"
-                                unoptimized
-                              />
-                            ) : (
-                              <span>No image</span>
-                            )}
-                          </div>
-                          <strong>
-                            {value.card_sets.code.toUpperCase()} #
-                            {value.collector_number}
-                          </strong>
-                          <span>
-                            {value.card_sets.name} · {family.printings.length} languages
-                            {value.rarity ? ` · ${pretty(value.rarity)}` : ""}
-                            {value.treatment
-                              ? ` · ${pretty(value.treatment)}`
-                              : ""}
-                          </span>
-                        </button>
-                      </li>;
+                      return (
+                        <li key={family.key}>
+                          <button
+                            className={styles.choice}
+                            type="button"
+                            onClick={() => {
+                              if (family.printings.length === 1)
+                                void loadFinishes(value, finish);
+                              else setPendingFamily(family);
+                            }}
+                          >
+                            <div className={styles.thumb}>
+                              {value.image_normal_uri ||
+                              value.image_small_uri ? (
+                                <Image
+                                  src={
+                                    value.image_normal_uri ??
+                                    value.image_small_uri!
+                                  }
+                                  alt=""
+                                  fill
+                                  sizes="140px"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span>No image</span>
+                              )}
+                            </div>
+                            <strong>
+                              {value.card_sets.code.toUpperCase()} #
+                              {value.collector_number}
+                            </strong>
+                            <span>
+                              {value.card_sets.name} · {family.printings.length}{" "}
+                              languages
+                              {value.rarity ? ` · ${pretty(value.rarity)}` : ""}
+                              {value.treatment
+                                ? ` · ${pretty(value.treatment)}`
+                                : ""}
+                            </span>
+                          </button>
+                        </li>
+                      );
                     })}
                   </ul>
                   {pendingFamily ? (
                     <label className={styles.field}>
                       <span>Language</span>
-                      <select value="" onChange={(event) => {
-                        const selected = pendingFamily.printings.find((value) => value.id === event.target.value);
-                        if (selected) void loadFinishes(selected, finish);
-                      }}>
+                      <select
+                        value=""
+                        onChange={(event) => {
+                          const selected = pendingFamily.printings.find(
+                            (value) => value.id === event.target.value,
+                          );
+                          if (selected) void loadFinishes(selected, finish);
+                        }}
+                      >
                         <option value="">Choose language</option>
                         {pendingFamily.printings.map((value) => (
-                          <option key={value.id} value={value.id}>{value.language_code.toUpperCase()}</option>
+                          <option key={value.id} value={value.id}>
+                            {value.language_code.toUpperCase()}
+                          </option>
                         ))}
                       </select>
                     </label>
@@ -585,7 +632,11 @@ export function AddToCollectionModal({
                         <input
                           inputMode="numeric"
                           value={quantity}
-                          onChange={(event) => setQuantity(event.target.value)}
+                          onChange={(event) =>
+                            setQuantity(
+                              sanitizeIntegerInput(event.target.value),
+                            )
+                          }
                         />
                       </label>
                       <label className={styles.field}>
@@ -642,7 +693,9 @@ export function AddToCollectionModal({
                             inputMode="decimal"
                             value={acquiredPrice}
                             onChange={(event) =>
-                              setAcquiredPrice(event.target.value)
+                              setAcquiredPrice(
+                                sanitizeMoneyInput(event.target.value),
+                              )
                             }
                             placeholder="0.00"
                           />
@@ -670,7 +723,11 @@ export function AddToCollectionModal({
                       >
                         Cancel
                       </button>
-                    <button className={styles.primary} disabled={saving} aria-busy={saving}>
+                      <button
+                        className={styles.primary}
+                        disabled={saving}
+                        aria-busy={saving}
+                      >
                         {saving ? "Adding…" : "Add card"}
                       </button>
                     </div>

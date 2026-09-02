@@ -13,6 +13,7 @@ type CardContext = {
 type OpenOptions = {
   initialCard?: CardContext;
   onAdded?: (item: MyInventoryItem) => void;
+  redirectToInventory?: boolean;
 };
 type AddToCollectionContextValue = {
   openAddToCollection: (options?: OpenOptions) => void;
@@ -41,6 +42,7 @@ export function AddToCollectionProvider({
         open={request !== null}
         initialCard={request?.initialCard}
         onAdded={request?.onAdded}
+        redirectToInventory={request?.redirectToInventory}
         onClose={() => setRequest(null)}
       />
     </AddToCollectionContext.Provider>

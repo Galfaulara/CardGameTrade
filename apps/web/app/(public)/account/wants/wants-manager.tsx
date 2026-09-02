@@ -21,6 +21,10 @@ import { BulkWantsDialog } from "./bulk-wants-dialog";
 import styles from "./page.module.css";
 import { MessageContextAction } from "../../../../components/message-context-action/message-context-action";
 import { PageModal } from "../../../../components/page-modal/page-modal";
+import {
+  sanitizeIntegerInput,
+  sanitizeMoneyInput,
+} from "../../../../features/forms/numeric-input";
 
 const parse = async (response: Response) =>
   response.json().catch(() => ({})) as Promise<{ message?: string }>;
@@ -228,14 +232,14 @@ export function WantsManager({
                     disabled={selected.status !== "active"}
                     onClick={() => setAddOpen(true)}
                   >
-                    + Add want
+                    + Add wanted card
                   </button>
                   <button
                     className={styles.secondary}
                     disabled={selected.status !== "active"}
                     onClick={() => setBulkOpen(true)}
                   >
-                    Bulk add wants
+                    Bulk add wanted cards
                   </button>
                 </div>
               </header>
@@ -251,7 +255,7 @@ export function WantsManager({
                     className={styles.primary}
                     onClick={() => setAddOpen(true)}
                   >
-                    Add want
+                    Add wanted card
                   </button>
                 </div>
               ) : (
@@ -701,7 +705,7 @@ function AddWantDialog({
       <form className={styles.dialog} onSubmit={save}>
         <header>
           <div>
-            <h2>Add want</h2>
+            <h2>Add wanted card</h2>
             <p>
               {wishlist.name} · {game.name}
             </p>
@@ -906,7 +910,14 @@ function AddWantDialog({
                 Quantity
                 <input
                   name="quantity"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  onInput={(event) => {
+                    event.currentTarget.value = sanitizeIntegerInput(
+                      event.currentTarget.value,
+                    );
+                  }}
                   min="1"
                   max="1000"
                   defaultValue="1"
@@ -954,7 +965,16 @@ function AddWantDialog({
               ) : null}
               <label>
                 Max cash
-                <input name="maxCash" type="number" min="0" step="0.01" />
+                <input
+                  name="maxCash"
+                  type="text"
+                  inputMode="decimal"
+                  onInput={(event) => {
+                    event.currentTarget.value = sanitizeMoneyInput(
+                      event.currentTarget.value,
+                    );
+                  }}
+                />
               </label>
               <label>
                 Currency

@@ -44,6 +44,7 @@ export function AddToCollectionLauncher({
       onClick={() =>
         openAddToCollection({
           initialCard: { canonicalCardId, cardName, printingId, gameId },
+          redirectToInventory: true,
         })
       }
       disabled={!isLoaded}

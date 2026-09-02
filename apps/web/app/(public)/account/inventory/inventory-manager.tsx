@@ -3,18 +3,27 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAddToCollection } from "../../../../components/add-to-collection/add-to-collection-provider";
 import type {
   MyInventoryItem,
   MyInventoryListResult,
 } from "../../../../features/account/inventory-types";
 import type { MarketPrice } from "../../../../features/marketplace/api";
+import type {
+  CatalogPrinting,
+  CatalogPrintingFinish,
+} from "../../../../features/marketplace/api";
+import { groupPrintingVersions } from "../../../../features/catalog/version-families";
 import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import styles from "./page.module.css";
 import { CollectionActions } from "./collection-actions";
 import { custodyStatusLabel } from "../../../../features/account/trade-types";
 import { MessageContextAction } from "../../../../components/message-context-action/message-context-action";
+import {
+  sanitizeIntegerInput,
+  sanitizeMoneyInput,
+} from "../../../../features/forms/numeric-input";
 
 type Status = "all" | "available" | "not_for_trade" | "reserved" | "in_trade";
 type Condition =
@@ -174,6 +183,96 @@ function EditDialog({
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [changingPrinting, setChangingPrinting] = useState(false);
+  const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
+  const [familyKey, setFamilyKey] = useState("");
+  const [newPrintingId, setNewPrintingId] = useState("");
+  const [newFinishes, setNewFinishes] = useState<CatalogPrintingFinish[]>([]);
+  const [newFinish, setNewFinish] = useState("");
+  const [printingBusy, setPrintingBusy] = useState(false);
+  const [impact, setImpact] = useState<null | {
+    blocked: boolean;
+    blockReason: string | null;
+    strategy: "in_place" | "replacement";
+    impact: {
+      activeListings: number;
+      pendingOffers: number;
+      activeInterests: number;
+      historicalReferences: number;
+    };
+  }>(null);
+  const printingFamilies = groupPrintingVersions(printings);
+  const selectedFamily = printingFamilies.find(
+    (value) => value.key === familyKey,
+  );
+
+  const loadNewFinishes = async (printingId: string) => {
+    setNewPrintingId(printingId);
+    setNewFinish("");
+    setImpact(null);
+    const response = await fetch(
+      `/api/catalog/printings/${encodeURIComponent(printingId)}/finishes`,
+    );
+    if (!response.ok)
+      return setError("Finishes are unavailable for that printing.");
+    const values = (await response.json()) as CatalogPrintingFinish[];
+    setNewFinishes(values);
+    if (values.length === 1) setNewFinish(values[0]!.finish);
+  };
+  const beginPrintingChange = async () => {
+    setChangingPrinting(true);
+    setPrintingBusy(true);
+    setError(null);
+    const response = await fetch(
+      `/api/catalog/cards/${encodeURIComponent(item.printing.canonical_cards.id)}/printings`,
+    );
+    if (!response.ok) setError("Versions are unavailable for this card.");
+    else setPrintings((await response.json()) as CatalogPrinting[]);
+    setPrintingBusy(false);
+  };
+  const preflightPrinting = async () => {
+    if (!newPrintingId || !newFinish) return;
+    setPrintingBusy(true);
+    setError(null);
+    setImpact(null);
+    const response = await fetch(
+      `/api/me/inventory/${encodeURIComponent(item.id)}/printing/preflight`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ printingId: newPrintingId, finish: newFinish }),
+      },
+    );
+    if (!response.ok)
+      setError(
+        (await parseBody(response)).message ??
+          "The printing change could not be checked.",
+      );
+    else setImpact(await response.json());
+    setPrintingBusy(false);
+  };
+  const confirmPrinting = async () => {
+    if (!newPrintingId || !newFinish || impact?.blocked) return;
+    setPrintingBusy(true);
+    setError(null);
+    const response = await fetch(
+      `/api/me/inventory/${encodeURIComponent(item.id)}/printing`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ printingId: newPrintingId, finish: newFinish }),
+      },
+    );
+    if (!response.ok) {
+      setError(
+        (await parseBody(response)).message ??
+          "The printing could not be changed.",
+      );
+      setPrintingBusy(false);
+      return;
+    }
+    onChanged();
+  };
   useEffect(() => {
     closeRef.current?.focus();
     document.body.style.overflow = "hidden";
@@ -317,7 +416,9 @@ function EditDialog({
               <input
                 inputMode="numeric"
                 value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
+                onChange={(event) =>
+                  setQuantity(sanitizeIntegerInput(event.target.value))
+                }
               />
             </label>
             <label>
@@ -333,10 +434,137 @@ function EditDialog({
               <input
                 inputMode="decimal"
                 value={acquiredPrice}
-                onChange={(event) => setAcquiredPrice(event.target.value)}
+                onChange={(event) =>
+                  setAcquiredPrice(sanitizeMoneyInput(event.target.value))
+                }
               />
             </label>
           </div>
+          <section className={styles.printingChange}>
+            <div>
+              <strong>Exact printing</strong>
+              <p>
+                Correct the registered version without rewriting marketplace
+                history.
+              </p>
+            </div>
+            {!changingPrinting ? (
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={beginPrintingChange}
+              >
+                Change printing
+              </button>
+            ) : (
+              <div className={styles.printingFields}>
+                {printingBusy && !printings.length ? (
+                  <p>Loading versions…</p>
+                ) : null}
+                <label>
+                  <span>Version</span>
+                  <select
+                    value={familyKey}
+                    onChange={(event) => {
+                      const key = event.target.value;
+                      setFamilyKey(key);
+                      const family = printingFamilies.find(
+                        (value) => value.key === key,
+                      );
+                      if (family)
+                        void loadNewFinishes(family.representative.id);
+                    }}
+                  >
+                    <option value="">Choose version</option>
+                    {printingFamilies.map((family) => (
+                      <option key={family.key} value={family.key}>
+                        {family.representative.card_sets.name} · #
+                        {family.representative.collector_number}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {selectedFamily ? (
+                  <label>
+                    <span>Language</span>
+                    <select
+                      value={newPrintingId}
+                      onChange={(event) =>
+                        void loadNewFinishes(event.target.value)
+                      }
+                    >
+                      {selectedFamily.printings.map((value) => (
+                        <option key={value.id} value={value.id}>
+                          {value.language_code.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {newPrintingId ? (
+                  <label>
+                    <span>Finish</span>
+                    <select
+                      value={newFinish}
+                      onChange={(event) => {
+                        setNewFinish(event.target.value);
+                        setImpact(null);
+                      }}
+                    >
+                      <option value="">Choose finish</option>
+                      {newFinishes.map((value) => (
+                        <option key={value.finish} value={value.finish}>
+                          {pretty(value.finish)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {newPrintingId && newFinish && !impact ? (
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    disabled={printingBusy}
+                    onClick={preflightPrinting}
+                  >
+                    {printingBusy ? "Checking…" : "Review impact"}
+                  </button>
+                ) : null}
+                {impact ? (
+                  <div
+                    className={
+                      impact.blocked
+                        ? styles.printingBlocked
+                        : styles.printingImpact
+                    }
+                    role={impact.blocked ? "alert" : "status"}
+                  >
+                    <strong>
+                      {impact.blocked
+                        ? "Printing change blocked"
+                        : impact.strategy === "replacement"
+                          ? "Historical identity will be preserved"
+                          : "Safe in-place correction"}
+                    </strong>
+                    <p>
+                      {impact.blockReason ??
+                        `This change will close ${impact.impact.activeListings} active listing(s), withdraw/reject ${impact.impact.pendingOffers} pending offer(s), and dismiss ${impact.impact.activeInterests} active interest(s).`}
+                    </p>
+                    {!impact.blocked ? (
+                      <button
+                        className={styles.primaryButton}
+                        type="button"
+                        disabled={printingBusy}
+                        onClick={confirmPrinting}
+                      >
+                        {printingBusy ? "Changing…" : "Confirm change"}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
           <div className={styles.checks}>
             <label>
               <input
@@ -650,7 +878,12 @@ function ActivityDialog({
                     {person.interest?.message ? (
                       <blockquote>{person.interest.message}</blockquote>
                     ) : null}
-                    {person.interest ? <MessageContextAction contextType="inventory_interest" contextId={person.interest.id} /> : null}
+                    {person.interest ? (
+                      <MessageContextAction
+                        contextType="inventory_interest"
+                        contextId={person.interest.id}
+                      />
+                    ) : null}
                   </article>
                 ))
               ) : (
@@ -695,7 +928,10 @@ function ActivityDialog({
                         {offer.transactionId ? (
                           <p>Accepted into trade {offer.transactionId}</p>
                         ) : null}
-                        <MessageContextAction contextType="listing_offer" contextId={offer.id} />
+                        <MessageContextAction
+                          contextType="listing_offer"
+                          contextId={offer.id}
+                        />
                       </article>
                     );
                   })}
@@ -761,7 +997,10 @@ function ActivityDialog({
                           : "No custody record"}
                       </p>
                       <Link href="/account/trades">View trade</Link>
-                      <MessageContextAction contextType="transaction" contextId={relation.transaction.id} />
+                      <MessageContextAction
+                        contextType="transaction"
+                        contextId={relation.transaction.id}
+                      />
                     </article>
                   ))}
                 </div>
@@ -790,6 +1029,7 @@ export function InventoryManager({
   collections: Collection[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { openAddToCollection } = useAddToCollection();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<MyInventoryItem | null>(null);
@@ -860,6 +1100,12 @@ export function InventoryManager({
   };
   return (
     <div className={styles.page}>
+      {searchParams.get("added") ? (
+        <p className={styles.success} role="status">
+          {searchParams.get("added")} card
+          {searchParams.get("added") === "1" ? "" : "s"} added to Inventory.
+        </p>
+      ) : null}
       <section className={styles.inventoryHeader}>
         <div>
           <p className={styles.kicker}>Your cards</p>

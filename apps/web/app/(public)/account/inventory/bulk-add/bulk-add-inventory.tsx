@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import {
   BULK_INVENTORY_MAX_QUANTITY,
@@ -51,6 +53,8 @@ export function BulkAddInventory({
   game: DeckDealGame;
   collections: Array<{ id: string; name: string }>;
 }) {
+  const router = useRouter();
+  const [expandedImage, setExpandedImage] = useState<number | null>(null);
   const [method, setMethod] = useState<"paste" | "csv">("paste");
   const [text, setText] = useState("");
   const [csvRows, setCsvRows] = useState<BulkInventorySourceRow[]>([]);
@@ -171,6 +175,10 @@ export function BulkAddInventory({
       if (!response.ok)
         throw new Error(body.message ?? "The batch could not be added.");
       setSuccess(body);
+      router.push(
+        `/account/inventory?game=${encodeURIComponent(game.slug)}&added=${body.addedQuantity}`,
+      );
+      router.refresh();
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -322,6 +330,7 @@ export function BulkAddInventory({
             <table>
               <thead>
                 <tr>
+                  <th>Card</th>
                   <th>Input</th>
                   <th>Qty</th>
                   <th>Card / physical details</th>
@@ -333,6 +342,50 @@ export function BulkAddInventory({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.index}>
+                    <td className={styles.thumbnailCell}>
+                      {(() => {
+                        const candidate =
+                          row.candidates.find(
+                            (value) => value.id === row.printingId,
+                          ) ?? row.candidates[0];
+                        return candidate?.image_small_uri ? (
+                          <button
+                            type="button"
+                            className={styles.thumbnail}
+                            aria-label={`Enlarge ${row.canonicalCard?.name ?? row.name}`}
+                            aria-expanded={expandedImage === row.index}
+                            onClick={() =>
+                              setExpandedImage((value) =>
+                                value === row.index ? null : row.index,
+                              )
+                            }
+                          >
+                            <Image
+                              src={candidate.image_small_uri}
+                              alt=""
+                              fill
+                              sizes="64px"
+                              unoptimized
+                            />
+                            {expandedImage === row.index ? (
+                              <span className={styles.enlarged}>
+                                <Image
+                                  src={candidate.image_small_uri}
+                                  alt={`${row.canonicalCard?.name ?? row.name} preview`}
+                                  fill
+                                  sizes="240px"
+                                  unoptimized
+                                />
+                              </span>
+                            ) : null}
+                          </button>
+                        ) : (
+                          <span className={styles.thumbnailPlaceholder}>
+                            No image
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td>{row.source}</td>
                     <td>{row.quantity}</td>
                     <td>
@@ -342,13 +395,17 @@ export function BulkAddInventory({
                       {row.collectorNumber ?? "No number"} ·{" "}
                       {row.finish ?? "No finish"} · {row.language}
                       <br />
-                        {row.candidates.length > 1 || row.status === "AMBIGUOUS" ||
-                          (row.status === "INVALID" && row.candidates.length > 0) ? (
+                      {row.candidates.length > 1 ||
+                      row.status === "AMBIGUOUS" ||
+                      (row.status === "INVALID" &&
+                        row.candidates.length > 0) ? (
                         <select
                           aria-label={`Resolve row ${row.index + 1}`}
-                          value={row.printingId && row.finish
-                            ? `${row.candidates.findIndex((candidate) => candidate.id === row.printingId)}|${row.finish}`
-                            : ""}
+                          value={
+                            row.printingId && row.finish
+                              ? `${row.candidates.findIndex((candidate) => candidate.id === row.printingId)}|${row.finish}`
+                              : ""
+                          }
                           onChange={(e) => {
                             const [candidateIndex, selectedFinish] =
                               e.target.value.split("|");
