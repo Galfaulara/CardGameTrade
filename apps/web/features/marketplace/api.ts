@@ -162,11 +162,12 @@ export type CardView = {
   canonicalCardId?: string;
   printingId?: string;
   gameId?: string;
+  resultCategory?: "cards" | "tokens" | "artwork";
 };
 
 export type CatalogSearchResult = {
   query: string;
-  items: Array<CatalogCard & { representative_printing: CardPrinting | null }>;
+  items: Array<CatalogCard & { result_category?: "cards"|"tokens"|"artwork"; representative_printing: CardPrinting | null }>;
   page: number;
   page_size: number;
   total_results: number;
@@ -449,6 +450,7 @@ export async function searchCatalog({
           setCode: printing?.card_sets.code ?? "—",
           collectorNumber: printing?.collector_number ?? "—",
           rarity: printing?.rarity,
+          resultCategory: card.result_category ?? "cards",
         };
       }),
     };

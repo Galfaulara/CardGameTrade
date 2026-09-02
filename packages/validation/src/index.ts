@@ -10,3 +10,4 @@ export * from "./onboarding";
 export * from "./profile";
 export * from "./inventory";
 export * from "./bulk-inventory";
+export * from "./search-text";

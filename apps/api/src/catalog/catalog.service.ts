@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@repo/db";
+import { normalizeCatalogSearchText } from "@repo/validation";
 
 import { DatabaseService } from "../database/database.service";
 
@@ -44,20 +45,16 @@ export class CatalogService {
   }
 
   async searchCards(gameId: string, query: string) {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = normalizeCatalogSearchText(query);
 
     if (!normalizedQuery) {
       return [];
     }
 
-    const aliasIds = await this.faceAliasCanonicalIds(gameId, normalizedQuery);
-    return this.database.client.canonical_cards.findMany({
+    const direct = await this.database.client.canonical_cards.findMany({
       where: {
         game_id: gameId,
-        OR: [
-          { normalized_name: { contains: normalizedQuery } },
-          ...(aliasIds.length ? [{ id: { in: aliasIds } }] : []),
-        ],
+        normalized_name: { contains: normalizedQuery },
       },
       select: {
         id: true,
@@ -75,21 +72,44 @@ export class CatalogService {
       },
       take: 25,
     });
+    if (direct.length) return direct;
+    const aliasIds = await this.faceAliasCanonicalIds(gameId, normalizedQuery);
+    if (!aliasIds.length) return [];
+    return this.database.client.canonical_cards.findMany({
+      where: { game_id: gameId, id: { in: aliasIds } },
+      select: {
+        id: true,
+        game_id: true,
+        name: true,
+        normalized_name: true,
+        mana_cost: true,
+        type_line: true,
+        oracle_text: true,
+        colors: true,
+        color_identity: true,
+      },
+      orderBy: { name: "asc" },
+      take: 25,
+    });
   }
 
   private positiveInteger(value: string, fallback: number, maximum: number) {
     const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
+    return Number.isInteger(parsed) && parsed > 0
+      ? Math.min(parsed, maximum)
+      : fallback;
   }
 
   private terms(query: string) {
-    return query.trim().replace(/\s+/g, " ").toLowerCase().split(" ").filter(Boolean);
+    return normalizeCatalogSearchText(query).split(" ").filter(Boolean);
   }
 
   /** Scryfall explicitly supplies card_faces; aliases are never inferred from punctuation. */
   private async faceAliasCanonicalIds(gameId: string, normalizedQuery: string) {
     if (!normalizedQuery) return [];
-    const rows = await this.database.client.$queryRaw<Array<{ canonical_card_id: string }>>(Prisma.sql`
+    const rows = await this.database.client.$queryRaw<
+      Array<{ canonical_card_id: string }>
+    >(Prisma.sql`
       SELECT DISTINCT cp.canonical_card_id
       FROM card_printings cp
       CROSS JOIN LATERAL jsonb_array_elements(
@@ -104,33 +124,61 @@ export class CatalogService {
 
   private printingSelect() {
     return {
-      id: true, source_key: true, canonical_card_id: true, collector_number: true,
-      language_code: true, printed_name: true, printed_type_line: true, printed_text: true,
-      rarity: true, artist_name: true, treatment: true, frame_version: true,
-      border_color: true, is_promo: true, is_reprint: true, released_at: true,
-      image_small_uri: true, image_normal_uri: true, image_large_uri: true, raw_data: true,
-      card_sets: { select: { id: true, code: true, name: true, release_date: true } },
+      id: true,
+      source_key: true,
+      canonical_card_id: true,
+      collector_number: true,
+      language_code: true,
+      printed_name: true,
+      printed_type_line: true,
+      printed_text: true,
+      rarity: true,
+      artist_name: true,
+      treatment: true,
+      frame_version: true,
+      border_color: true,
+      is_promo: true,
+      is_reprint: true,
+      released_at: true,
+      image_small_uri: true,
+      image_normal_uri: true,
+      image_large_uri: true,
+      raw_data: true,
+      card_sets: {
+        select: { id: true, code: true, name: true, release_date: true },
+      },
     } as const;
   }
 
   private safeScryfallUri(raw: unknown) {
-    if (!raw || typeof raw !== "object" || !("scryfall_uri" in raw)) return null;
+    if (!raw || typeof raw !== "object" || !("scryfall_uri" in raw))
+      return null;
     const value = (raw as { scryfall_uri?: unknown }).scryfall_uri;
     if (typeof value !== "string") return null;
     try {
       const url = new URL(value);
-      return url.protocol === "https:" && (url.hostname === "scryfall.com" || url.hostname.endsWith(".scryfall.com")) ? url.href : null;
-    } catch { return null; }
+      return url.protocol === "https:" &&
+        (url.hostname === "scryfall.com" ||
+          url.hostname.endsWith(".scryfall.com"))
+        ? url.href
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   private mapPrinting(printing: any) {
     const { raw_data, ...safe } = printing;
-    const raw = raw_data && typeof raw_data === "object" ? raw_data as Record<string, unknown> : {};
+    const raw =
+      raw_data && typeof raw_data === "object"
+        ? (raw_data as Record<string, unknown>)
+        : {};
     return {
       ...safe,
       set: printing.card_sets,
       scryfall_uri: this.safeScryfallUri(raw_data),
-      illustration_id: typeof raw.illustration_id === "string" ? raw.illustration_id : null,
+      illustration_id:
+        typeof raw.illustration_id === "string" ? raw.illustration_id : null,
       variation: raw.variation === true,
       layout: typeof raw.layout === "string" ? raw.layout : null,
       faces: this.faces(raw_data),
@@ -138,12 +186,19 @@ export class CatalogService {
   }
 
   private faces(raw: unknown) {
-    if (!raw || typeof raw !== "object" || !("card_faces" in raw) || !Array.isArray((raw as any).card_faces)) return undefined;
+    if (
+      !raw ||
+      typeof raw !== "object" ||
+      !("card_faces" in raw) ||
+      !Array.isArray((raw as any).card_faces)
+    )
+      return undefined;
     return (raw as any).card_faces.map((face: any) => ({
       name: typeof face.name === "string" ? face.name : null,
       mana_cost: typeof face.mana_cost === "string" ? face.mana_cost : null,
       type_line: typeof face.type_line === "string" ? face.type_line : null,
-      oracle_text: typeof face.oracle_text === "string" ? face.oracle_text : null,
+      oracle_text:
+        typeof face.oracle_text === "string" ? face.oracle_text : null,
       power: typeof face.power === "string" ? face.power : null,
       toughness: typeof face.toughness === "string" ? face.toughness : null,
       loyalty: typeof face.loyalty === "string" ? face.loyalty : null,
@@ -156,84 +211,234 @@ export class CatalogService {
 
   private safeImageUri(value: unknown) {
     if (typeof value !== "string") return null;
-    try { const url = new URL(value); return url.protocol === "https:" ? url.href : null; }
-    catch { return null; }
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" ? url.href : null;
+    } catch {
+      return null;
+    }
   }
 
   private characteristics(raw: unknown) {
-    const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
-    const text = (key: string) => typeof source[key] === "string" ? source[key] as string : null;
-    return { power: text("power"), toughness: text("toughness"), loyalty: text("loyalty"), defense: text("defense") };
+    const source =
+      raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const text = (key: string) =>
+      typeof source[key] === "string" ? (source[key] as string) : null;
+    return {
+      power: text("power"),
+      toughness: text("toughness"),
+      loyalty: text("loyalty"),
+      defense: text("defense"),
+    };
   }
 
   private async representativePrintings(canonicalIds: string[]) {
     if (!canonicalIds.length) return new Map<string, any>();
-    const rows = await this.database.client.$queryRaw<Array<{ id: string; canonical_card_id: string }>>(Prisma.sql`
+    const rows = await this.database.client.$queryRaw<
+      Array<{ id: string; canonical_card_id: string }>
+    >(Prisma.sql`
       SELECT id, canonical_card_id FROM (
         SELECT cp.id, cp.canonical_card_id, ROW_NUMBER() OVER (PARTITION BY cp.canonical_card_id ORDER BY
-          CASE WHEN cp.language_code = 'en' THEN 0 ELSE 1 END,
           CASE WHEN cp.is_digital = false THEN 0 ELSE 1 END,
-          CASE WHEN cp.image_normal_uri IS NOT NULL OR cp.image_large_uri IS NOT NULL OR cp.image_small_uri IS NOT NULL THEN 0 ELSE 1 END,
+          CASE WHEN cp.is_reprint = false THEN 0 ELSE 1 END,
+          cp.released_at ASC NULLS LAST,
           CASE WHEN cp.is_promo = false THEN 0 ELSE 1 END,
-          cp.released_at DESC NULLS LAST, cp.id ASC) AS rank
+          CASE WHEN cp.language_code = 'en' THEN 0 ELSE 1 END,
+          CASE WHEN cp.image_normal_uri IS NOT NULL OR cp.image_large_uri IS NOT NULL OR cp.image_small_uri IS NOT NULL THEN 0 ELSE 1 END,
+          cp.id ASC) AS rank
         FROM card_printings cp WHERE cp.canonical_card_id IN (${Prisma.join(canonicalIds)})
       ) ranked WHERE rank = 1`);
     const printings = await this.database.client.card_printings.findMany({
-      where: { id: { in: rows.map((row) => row.id) } }, select: this.printingSelect(),
+      where: { id: { in: rows.map((row) => row.id) } },
+      select: this.printingSelect(),
     });
-    return new Map(printings.map((printing) => [printing.canonical_card_id, this.mapPrinting(printing)]));
+    return new Map(
+      printings.map((printing) => [
+        printing.canonical_card_id,
+        this.mapPrinting(printing),
+      ]),
+    );
   }
 
-  async searchCanonicalCards(gameId: string, query: string, pageValue: string, pageSizeValue: string) {
-    const terms = this.terms(query); const page = this.positiveInteger(pageValue, 1, 1_000_000);
+  async searchCanonicalCards(
+    gameId: string,
+    query: string,
+    pageValue: string,
+    pageSizeValue: string,
+  ) {
+    const terms = this.terms(query);
+    const page = this.positiveInteger(pageValue, 1, 1_000_000);
     const pageSize = this.positiveInteger(pageSizeValue, 60, 60);
-    if (!terms.length) return { query: "", items: [], page, page_size: pageSize, total_results: 0, total_pages: 0 };
+    if (!terms.length)
+      return {
+        query: "",
+        items: [],
+        page,
+        page_size: pageSize,
+        total_results: 0,
+        total_pages: 0,
+      };
     const normalizedQuery = terms.join(" ");
-    const aliasIds = await this.faceAliasCanonicalIds(gameId, normalizedQuery);
-    const where = { game_id: gameId, OR: [
-      { AND: terms.map((term) => ({ normalized_name: { contains: term } })) },
-      ...(aliasIds.length ? [{ id: { in: aliasIds } }] : []),
-    ] };
-    const [cards, total] = await Promise.all([
-      this.database.client.canonical_cards.findMany({ where, select: { id: true, game_id: true, name: true, mana_cost: true, type_line: true },
-        orderBy: [{ name: "asc" }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize }),
-      this.database.client.canonical_cards.count({ where }),
-    ]);
-    const representatives = await this.representativePrintings(cards.map((card) => card.id));
-    return { query: normalizedQuery, items: cards.map((card) => ({ ...card, representative_printing: representatives.get(card.id) ?? null })),
-      page, page_size: pageSize, total_results: total, total_pages: Math.ceil(total / pageSize) };
+    const runRanked = (aliasIds: string[] = []) =>
+      this.database.client.$queryRaw<
+        Array<{ id: string; total_count: bigint }>
+      >(Prisma.sql`
+      SELECT cc.id, count(*) OVER() total_count FROM canonical_cards cc
+      WHERE cc.game_id=${gameId}::uuid AND (
+        (${Prisma.join(
+          terms.map(
+            (term) => Prisma.sql`cc.normalized_name LIKE ${`%${term}%`}`,
+          ),
+          " AND ",
+        )})
+        ${aliasIds.length ? Prisma.sql`OR cc.id IN (${Prisma.join(aliasIds)})` : Prisma.empty}
+      )
+      ORDER BY CASE WHEN cc.normalized_name=${normalizedQuery} THEN 0 WHEN cc.normalized_name LIKE ${`${normalizedQuery}%`} THEN 1 ELSE 2 END,
+        cc.normalized_name ASC,cc.id ASC OFFSET ${(page - 1) * pageSize} LIMIT ${pageSize}`);
+    let ranked = await runRanked();
+    if (!ranked.length) {
+      const aliasIds = await this.faceAliasCanonicalIds(
+        gameId,
+        normalizedQuery,
+      );
+      if (aliasIds.length) ranked = await runRanked(aliasIds);
+    }
+    const hydrated = await this.database.client.canonical_cards.findMany({
+      where: { id: { in: ranked.map((row) => row.id) } },
+      select: {
+        id: true,
+        game_id: true,
+        name: true,
+        mana_cost: true,
+        type_line: true,
+        raw_data: true,
+      },
+    });
+    const byId = new Map(hydrated.map((card) => [card.id, card]));
+    const cards = ranked.flatMap(({ id }) => {
+      const card = byId.get(id);
+      return card ? [card] : [];
+    });
+    const total = Number(ranked[0]?.total_count ?? 0);
+    const representatives = await this.representativePrintings(
+      cards.map((card) => card.id),
+    );
+    return {
+      query: normalizedQuery,
+      items: cards.map(({ raw_data, ...card }) => ({
+        ...card,
+        result_category: this.searchCategory(raw_data),
+        representative_printing: representatives.get(card.id) ?? null,
+      })),
+      page,
+      page_size: pageSize,
+      total_results: total,
+      total_pages: Math.ceil(total / pageSize),
+    };
   }
 
   async getCardDetail(canonicalCardId: string, requestedPrintingId?: string) {
-    const card = await this.database.client.canonical_cards.findUnique({ where: { id: canonicalCardId },
-      select: { id: true, game_id: true, name: true, mana_cost: true, type_line: true, oracle_text: true,
-        colors: true, color_identity: true, raw_data: true } });
+    const card = await this.database.client.canonical_cards.findUnique({
+      where: { id: canonicalCardId },
+      select: {
+        id: true,
+        game_id: true,
+        name: true,
+        mana_cost: true,
+        type_line: true,
+        oracle_text: true,
+        colors: true,
+        color_identity: true,
+        raw_data: true,
+      },
+    });
     if (!card) throw new NotFoundException("Card was not found.");
-    const requested = requestedPrintingId && /^[0-9a-f-]{36}$/i.test(requestedPrintingId)
-      ? await this.database.client.card_printings.findFirst({ where: { id: requestedPrintingId, canonical_card_id: canonicalCardId }, select: this.printingSelect() }) : null;
-    const representative = requested ? null : (await this.representativePrintings([canonicalCardId])).get(canonicalCardId);
+    const requested =
+      requestedPrintingId && /^[0-9a-f-]{36}$/i.test(requestedPrintingId)
+        ? await this.database.client.card_printings.findFirst({
+            where: {
+              id: requestedPrintingId,
+              canonical_card_id: canonicalCardId,
+            },
+            select: this.printingSelect(),
+          })
+        : null;
+    const representative = requested
+      ? null
+      : (await this.representativePrintings([canonicalCardId])).get(
+          canonicalCardId,
+        );
     const selected = requested ?? representative ?? null;
-    const alternatives = await this.database.client.card_printings.findMany({ where: { canonical_card_id: canonicalCardId, is_digital: false,
-      ...(selected ? { id: { not: selected.id } } : {}) }, select: this.printingSelect(), orderBy: [{ released_at: "desc" }, { id: "asc" }], take: 10 });
+    const alternatives = await this.database.client.card_printings.findMany({
+      where: {
+        canonical_card_id: canonicalCardId,
+        is_digital: false,
+        ...(selected ? { id: { not: selected.id } } : {}),
+      },
+      select: this.printingSelect(),
+      orderBy: [{ released_at: "desc" }, { id: "asc" }],
+      take: 10,
+    });
     const { raw_data, ...canonical } = card;
-    return { card: { ...canonical, ...this.characteristics(raw_data), faces: this.faces(raw_data) },
-      selected_printing: requested ? this.mapPrinting(requested) : (representative ?? null),
-      other_printings: alternatives.map((printing) => this.mapPrinting(printing)),
-      requested_printing_valid: !requestedPrintingId || Boolean(requested) };
+    return {
+      card: {
+        ...canonical,
+        ...this.characteristics(raw_data),
+        faces: this.faces(raw_data),
+      },
+      selected_printing: requested
+        ? this.mapPrinting(requested)
+        : (representative ?? null),
+      other_printings: alternatives.map((printing) =>
+        this.mapPrinting(printing),
+      ),
+      requested_printing_valid: !requestedPrintingId || Boolean(requested),
+    };
   }
 
-  async getCardListings(canonicalCardId: string, selectedPrintingId: string, pageValue: string, pageSizeValue: string) {
-    const page = this.positiveInteger(pageValue, 1, 1_000_000); const pageSize = this.positiveInteger(pageSizeValue, 12, 24);
-    const inventorySelect = { id: true, printing_id: true, condition: true, finish: true, language_code: true, quantity: true,
-      is_signed: true, is_altered: true, is_graded: true,
-      user_profiles: { select: { id: true, display_name: true, username: true } },
-      stores: { select: { id: true, name: true, slug: true, verification_status: true } },
-      printing_finishes: { select: { card_printings: { select: this.printingSelect() } } },
+  async getCardListings(
+    canonicalCardId: string,
+    selectedPrintingId: string,
+    pageValue: string,
+    pageSizeValue: string,
+  ) {
+    const page = this.positiveInteger(pageValue, 1, 1_000_000);
+    const pageSize = this.positiveInteger(pageSizeValue, 12, 24);
+    const inventorySelect = {
+      id: true,
+      printing_id: true,
+      condition: true,
+      finish: true,
+      language_code: true,
+      quantity: true,
+      is_signed: true,
+      is_altered: true,
+      is_graded: true,
+      user_profiles: {
+        select: { id: true, display_name: true, username: true },
+      },
+      stores: {
+        select: { id: true, name: true, slug: true, verification_status: true },
+      },
+      printing_finishes: {
+        select: { card_printings: { select: this.printingSelect() } },
+      },
     } as const;
-    const select = { id: true, accepts_trade: true, accepts_cash: true, asking_price: true, currency_code: true, created_at: true,
-      inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: { select: inventorySelect },
-      inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: { select: inventorySelect } } as const;
-    const selected = /^[0-9a-f-]{36}$/i.test(selectedPrintingId) ? selectedPrintingId : "00000000-0000-0000-0000-000000000000";
+    const select = {
+      id: true,
+      accepts_trade: true,
+      accepts_cash: true,
+      asking_price: true,
+      currency_code: true,
+      created_at: true,
+      inventory_items_listings_inventory_item_id_seller_user_idToinventory_items:
+        { select: inventorySelect },
+      inventory_items_listings_inventory_item_id_seller_store_idToinventory_items:
+        { select: inventorySelect },
+    } as const;
+    const selected = /^[0-9a-f-]{36}$/i.test(selectedPrintingId)
+      ? selectedPrintingId
+      : "00000000-0000-0000-0000-000000000000";
     const [ids, countRows] = await Promise.all([
       this.database.client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT l.id FROM listings l JOIN inventory_items i ON i.id = l.inventory_item_id
@@ -253,16 +458,48 @@ export class CatalogService {
           AND ((l.seller_user_id = i.owner_user_id AND l.seller_store_id IS NULL)
             OR (l.seller_store_id = i.owner_store_id AND l.seller_user_id IS NULL))`),
     ]);
-    const hydrated = await this.database.client.listings.findMany({ where: { id: { in: ids.map((row) => row.id) } }, select });
+    const hydrated = await this.database.client.listings.findMany({
+      where: { id: { in: ids.map((row) => row.id) } },
+      select,
+    });
     const byId = new Map(hydrated.map((listing) => [listing.id, listing]));
-    const ranked = ids.flatMap(({ id }) => { const item = byId.get(id); return item ? [item] : []; });
+    const ranked = ids.flatMap(({ id }) => {
+      const item = byId.get(id);
+      return item ? [item] : [];
+    });
     const total = Number(countRows[0]?.count ?? 0);
-    return { items: ranked.map((listing) => { const inventory = listing.inventory_items_listings_inventory_item_id_seller_user_idToinventory_items ?? listing.inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
-      if (!inventory) return null; return { id: listing.id, accepts_trade: listing.accepts_trade, accepts_cash: listing.accepts_cash,
-        asking_price: listing.asking_price, currency_code: listing.currency_code, created_at: listing.created_at,
-        inventory_item: { ...inventory, printing_finishes: undefined, printing: this.mapPrinting(inventory.printing_finishes.card_printings) },
-        seller: inventory.stores ? { kind: "store", ...inventory.stores } : { kind: "user", ...inventory.user_profiles } }; }).filter(Boolean),
-      page, page_size: pageSize, total_results: total, total_pages: Math.ceil(total / pageSize) };
+    return {
+      items: ranked
+        .map((listing) => {
+          const inventory =
+            listing.inventory_items_listings_inventory_item_id_seller_user_idToinventory_items ??
+            listing.inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
+          if (!inventory) return null;
+          return {
+            id: listing.id,
+            accepts_trade: listing.accepts_trade,
+            accepts_cash: listing.accepts_cash,
+            asking_price: listing.asking_price,
+            currency_code: listing.currency_code,
+            created_at: listing.created_at,
+            inventory_item: {
+              ...inventory,
+              printing_finishes: undefined,
+              printing: this.mapPrinting(
+                inventory.printing_finishes.card_printings,
+              ),
+            },
+            seller: inventory.stores
+              ? { kind: "store", ...inventory.stores }
+              : { kind: "user", ...inventory.user_profiles },
+          };
+        })
+        .filter(Boolean),
+      page,
+      page_size: pageSize,
+      total_results: total,
+      total_pages: Math.ceil(total / pageSize),
+    };
   }
 
   async getPrintingsByCanonicalCard(canonicalCardId: string) {
@@ -306,6 +543,21 @@ export class CatalogService {
       },
     });
     return printings.map((printing) => this.mapPrinting(printing));
+  }
+
+  private searchCategory(raw: unknown) {
+    const layout =
+      raw && typeof raw === "object" && "layout" in raw
+        ? (raw as { layout?: unknown }).layout
+        : null;
+    if (layout === "art_series") return "artwork";
+    if (
+      layout === "token" ||
+      layout === "double_faced_token" ||
+      layout === "emblem"
+    )
+      return "tokens";
+    return "cards";
   }
 
   async getPrintingFinishes(printingId: string) {

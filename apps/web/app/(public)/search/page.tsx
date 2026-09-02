@@ -53,6 +53,7 @@ export default async function SearchPage({
   );
   const href = (value: number) =>
     game ? catalogSearchHref(query, game.slug, value) : `/search?q=${encodeURIComponent(query)}`;
+  const sections = [["Cards",result.cards.filter((card)=>card.resultCategory==="cards")],["Tokens & Emblems",result.cards.filter((card)=>card.resultCategory==="tokens")],["Artwork",result.cards.filter((card)=>card.resultCategory==="artwork")]] as const;
 
   return (
     <main className={styles.main}>
@@ -63,15 +64,13 @@ export default async function SearchPage({
         <SearchForm defaultValue={query} />
       </div>
       <section className={styles.results} aria-label="Catalog search results">
-        {result.cards.length ? (
-          <ul className={styles.grid}>
-            {result.cards.map((card) => (
+        {result.cards.length ? sections.map(([label,cards])=>cards.length?<section className={styles.resultGroup} key={label}><h2>{label}</h2><ul className={styles.grid}>
+            {cards.map((card) => (
               <li key={card.canonicalCardId}>
                 <CardTile card={card} layout="grid" canonicalAdd relationship={card.canonicalCardId&&relationship?{owned:relationship.canonicalOwned[card.canonicalCardId]??0,inWants:relationship.canonicalWants.includes(card.canonicalCardId)}:undefined} />
               </li>
             ))}
-          </ul>
-        ) : (
+          </ul></section>:null) : (
           <p className={styles.empty}>
             {query
               ? "No matching cards were found. Try another card name."
