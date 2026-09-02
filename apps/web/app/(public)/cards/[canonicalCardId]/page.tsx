@@ -135,7 +135,7 @@ export default async function CardPage({
         <div className={styles.info}>
           <p className={styles.eyebrow}>DeckDeal card catalog</p>
           <h1>{card.name}</h1>
-          {relationship&&((selected&&(relationship.printingOwned[selected.id]??0)>0)||relationship.canonicalWants.includes(canonicalCardId))?<div className={styles.tags}>{selected&&(relationship.printingOwned[selected.id]??0)>0?<span>Owned ×{relationship.printingOwned[selected.id]}</span>:null}{relationship.canonicalWants.includes(canonicalCardId)?<span>In Wants</span>:null}</div>:null}
+          {relationship&&((selected&&(relationship.printingOwned[selected.id]??0)>0)||relationship.canonicalWants.includes(canonicalCardId))?<div className={styles.tags}>{selected&&(relationship.printingOwned[selected.id]??0)>0?<span>Owned ×{relationship.printingOwned[selected.id]}</span>:null}{relationship.canonicalWants.includes(canonicalCardId)?<span>In Wishlists</span>:null}</div>:null}
           {dfcFaces ? null : isMtg && card.faces?.length
             ? card.faces.map((face: any, index: number) => (
                 <section className={styles.face} key={`${face.name}-${index}`}>

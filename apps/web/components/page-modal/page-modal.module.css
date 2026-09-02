@@ -11,7 +11,7 @@
 }
 .dialog {
   width: min(34rem, 100%);
-  max-height: min(90vh, 52rem);
+  max-height: min(90dvh, 52rem);
   overflow: auto;
   padding: var(--space-6);
   border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);

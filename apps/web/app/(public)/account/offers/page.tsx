@@ -37,10 +37,7 @@ import {
   orderGames,
   type DeckDealGame,
 } from "../../../../features/games/active-game";
-import {
-  ALL_GAMES_VALUE,
-  resolveOptionalGameFilter,
-} from "../../../../features/games/optional-game-filter";
+import { resolveOptionalGameFilter } from "../../../../features/games/optional-game-filter";
 import {
   resolveMediatorGameSlug,
   selectMediatorsForSlug,
@@ -466,12 +463,7 @@ export default async function AccountOffersPage({
 
           {games.length > 0 && (
             <nav className={styles.tabs} aria-label="Offer game filter">
-              <Link
-                href={offersGameHref(view, ALL_GAMES_VALUE)}
-                aria-current={!gameFilter ? "page" : undefined}
-              >
-                All games
-              </Link>
+              <span aria-disabled="true" title="More games coming soon">All games</span>
               {orderGames(games).map((game) => (
                 <Link
                   key={game.id}

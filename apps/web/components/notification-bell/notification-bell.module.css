@@ -113,3 +113,4 @@
     animation: none;
   }
 }
+@media(max-width:42rem){.panel{position:fixed;top:4.25rem;right:.5rem;left:.5rem;width:auto;max-height:calc(100dvh - 9rem - env(safe-area-inset-bottom))}.panel ul{max-height:calc(100dvh - 14rem - env(safe-area-inset-bottom))}}

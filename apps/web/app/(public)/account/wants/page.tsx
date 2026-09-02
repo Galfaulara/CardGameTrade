@@ -29,7 +29,7 @@ export default async function WantsPage({
     return (
       <AccountState
         eyebrow="My DeckDeal"
-        title="My Wants is not configured locally"
+        title="My Wishlists are not configured locally"
         description="Configure Clerk to manage Wishlists."
         primaryHref="/"
         primaryLabel="Continue browsing"
@@ -52,7 +52,7 @@ export default async function WantsPage({
     return (
       <AccountState
         eyebrow="My DeckDeal"
-        title="Choose a game to manage Wants"
+        title="Choose a game to manage Wishlists"
         description="An active game is required."
         primaryHref="/"
         primaryLabel="Return home"
@@ -69,7 +69,7 @@ export default async function WantsPage({
       <AccountShell
         section="wants"
         wide
-        title="My Wants / Wishlists"
+        title="My Wishlists"
         intro="Create game-scoped Wishlists and tell other collectors which cards you want."
       >
         <WantsManager
@@ -89,7 +89,7 @@ export default async function WantsPage({
     return (
       <AccountState
         eyebrow="My DeckDeal"
-        title="We couldn’t load My Wants"
+        title="We couldn’t load My Wishlists"
         description="Please try again shortly."
         primaryHref="/account"
         primaryLabel="Back to account"

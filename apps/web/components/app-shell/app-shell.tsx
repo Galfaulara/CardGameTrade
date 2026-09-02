@@ -11,6 +11,8 @@ import { PrimaryNavigation } from "./primary-navigation";
 import { NotificationBell } from "../notification-bell/notification-bell";
 import { MessagesIndicator } from "../messages-indicator/messages-indicator";
 import { InterestDialogProvider } from "../interest-action/interest-dialog-provider";
+import { MobileBottomNav } from "../mobile-bottom-nav/mobile-bottom-nav";
+import { AccountMenu } from "../account-menu/account-menu";
 
 export async function AppShell({ children }: { children: ReactNode }) {
   const clerkConfigured = Boolean(
@@ -49,15 +51,6 @@ export async function AppShell({ children }: { children: ReactNode }) {
                     )}
                     {currentUser?.onboarded &&
                       currentUser.account_status === "active" && (
-                        <Link
-                          className={styles.accountLink}
-                          href="/account/profile"
-                        >
-                          DeckDeal profile
-                        </Link>
-                      )}
-                    {currentUser?.onboarded &&
-                      currentUser.account_status === "active" && (
                         <NotificationBell />
                       )}
                     {currentUser?.onboarded &&
@@ -71,7 +64,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
                           Store Workspace
                         </Link>
                       )}
-                    <UserButton />
+                    {currentUser?.onboarded && currentUser.account_status === "active" ? <AccountMenu /> : <UserButton />}
                   </>
                 ) : (
                   <>
@@ -102,6 +95,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
       <InterestDialogProvider>
         <main id="main-content">{children}</main>
       </InterestDialogProvider>
+      <MobileBottomNav signedIn={signedIn} />
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           <Brand />

@@ -86,17 +86,18 @@
 }
 
 @media (max-width: 42rem) {
+  .shell{padding-bottom:calc(4rem + env(safe-area-inset-bottom))}
   .headerInner {
     grid-template-columns:1fr;
     grid-template-areas:"top" "search";
     padding-block: var(--space-4);
     gap: var(--space-3);
   }
-  .topRow{justify-content:space-between;gap:var(--space-3);flex-wrap:wrap}
+  .topRow{justify-content:space-between;gap:var(--space-3);flex-wrap:nowrap}.topRow>nav{display:none}
   .searchTools{grid-template-columns:1fr;gap:var(--space-3)}
   .navigation{gap:var(--space-3);font-size:var(--font-size-xs)}
   .navigation{width:100%;overflow-x:auto;padding-bottom:var(--space-1)}
-  .auth{margin-left:0}.auth .createAccount{display:none}
+  .auth{margin-left:auto;gap:var(--space-2)}.auth .createAccount,.auth .accountLink{display:none}
 
   .footerInner {
     align-items: flex-start;

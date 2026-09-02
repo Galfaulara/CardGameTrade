@@ -20,7 +20,7 @@ const sections = [
   },
   {
     id: "wants",
-    label: "Wants",
+    label: "Wishlists",
     href: "/account/wants",
   },
   {
@@ -37,8 +37,7 @@ const sections = [
   { id: "messages", label: "Messages", href: "/account/messages" },
 ] as const;
 
-export type AccountSection =
-  (typeof sections)[number]["id"];
+export type AccountSection = (typeof sections)[number]["id"];
 
 export function AccountState({
   eyebrow,
@@ -89,6 +88,23 @@ export function AccountShell({
       <div className={`${styles.shell} ${wide ? styles.wideShell : ""}`}>
         <header className={styles.hero}>
           <p className={styles.eyebrow}>My DeckDeal</p>
+          <details className={styles.mobileNav}>
+            <summary>
+              My DeckDeal ·{" "}
+              {sections.find((item) => item.id === section)?.label}
+            </summary>
+            <nav aria-label="My DeckDeal mobile sections">
+              {sections.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  aria-current={section === item.id ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </details>
           <nav className={styles.sectionNav} aria-label="My DeckDeal sections">
             {sections.map((item) => (
               <Link

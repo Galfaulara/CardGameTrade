@@ -21,7 +21,7 @@ const views: Array<{ id: View; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "collections", label: "Collections" },
   { id: "available", label: "Available" },
-  { id: "wants", label: "Wants" },
+  { id: "wants", label: "Wishlists" },
 ];
 const pageNumber = (value: string | string[] | undefined) => {
   const raw = Array.isArray(value) ? value[0] : value;

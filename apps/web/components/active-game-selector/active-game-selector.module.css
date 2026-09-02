@@ -28,7 +28,9 @@
 
 @media (max-width: 42rem) {
   .field {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 1fr;
     width: 100%;
+    gap:var(--space-1);
   }
+  .field select{min-height:3rem;border-radius:var(--radius-lg);font-size:var(--font-size-base)}
 }

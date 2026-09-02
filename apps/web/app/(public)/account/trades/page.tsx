@@ -23,10 +23,7 @@ import {
 } from "../../../../features/auth/authenticated-api";
 import { loadGames } from "../../../../features/games/games.server";
 import { ACTIVE_GAME_COOKIE, orderGames } from "../../../../features/games/active-game";
-import {
-  ALL_GAMES_VALUE,
-  resolveOptionalGameFilter,
-} from "../../../../features/games/optional-game-filter";
+import { resolveOptionalGameFilter } from "../../../../features/games/optional-game-filter";
 import styles from "./page.module.css";
 
 const signInRedirectUrl =
@@ -106,12 +103,7 @@ export default async function AccountTradesPage({
       >
         {games.length > 0 && (
           <nav className={styles.tabs} aria-label="Trade game filter">
-            <Link
-              href={tradesGameHref(ALL_GAMES_VALUE)}
-              aria-current={!gameFilter ? "page" : undefined}
-            >
-              All games
-            </Link>
+            <span aria-disabled="true" title="More games coming soon">All games</span>
             {orderGames(games).map((game) => (
               <Link
                 key={game.id}
