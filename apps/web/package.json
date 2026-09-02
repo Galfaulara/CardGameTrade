@@ -29,6 +29,7 @@
     "test:wishlist-availability-modal": "node --experimental-strip-types test/wishlist-availability-modal-regression.ts",
     "test:header-icons": "node --experimental-strip-types test/header-icons-regression.ts",
     "test:account-menu": "node --experimental-strip-types test/account-menu-regression.ts",
+    "test:notification-actions": "node --experimental-strip-types test/notification-actions-regression.ts",
     "test:mobile-qa": "node --experimental-strip-types test/mobile-qa-hardening-regression.ts"
   },
   "dependencies": {

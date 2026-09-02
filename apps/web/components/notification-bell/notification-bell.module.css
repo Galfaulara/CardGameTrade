@@ -99,6 +99,11 @@
 .panel li a:hover {
   background: var(--color-surface-muted);
 }
+.panel li a:focus-visible {
+  position: relative;
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+}
 .empty {
   padding: var(--space-6);
   color: var(--color-text-muted);

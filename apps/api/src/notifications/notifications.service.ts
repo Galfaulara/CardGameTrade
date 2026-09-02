@@ -11,9 +11,9 @@ export class NotificationsService {
         where: { recipient_user_id: userId }, orderBy: { created_at: "desc" }, take: 50,
         select: { id: true, type: true, read_at: true, created_at: true, inventory_item_id: true,
           actor: { select: { id: true, username: true, display_name: true } },
-          inventory_item_interest: { select: { interest_type: true } },
+          inventory_item_interest: { select: { id: true, interest_type: true } },
           user_friendship: { select: { id: true, status: true } },
-          inventory_item: { select: { card_printings: { select: { canonical_cards: { select: { name: true } } } } } },
+          inventory_item: { select: { card_printings: { select: { canonical_cards: { select: { id: true, name: true } } } } } },
         },
       }),
       this.database.client.user_notifications.count({ where: { recipient_user_id: userId, read_at: null } }),
@@ -21,8 +21,10 @@ export class NotificationsService {
     return { unreadCount, items: items.map((item) => ({
       id: item.id, type: item.type, readAt: item.read_at?.toISOString() ?? null,
       createdAt: item.created_at.toISOString(), inventoryItemId: item.inventory_item_id,
+      canonicalCardId: item.inventory_item?.card_printings.canonical_cards.id ?? null,
       actor: item.actor ? { id: item.actor.id, username: item.actor.username, displayName: item.actor.display_name } : null,
       interestType: item.inventory_item_interest?.interest_type ?? null,
+      interestId: item.inventory_item_interest?.id ?? null,
       friendshipId: item.user_friendship?.id ?? null,
       cardName: item.inventory_item?.card_printings.canonical_cards.name ?? "card",
     })) };

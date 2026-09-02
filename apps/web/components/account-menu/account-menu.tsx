@@ -81,9 +81,13 @@ export function AccountMenu() {
         triggerRef.current?.focus();
       }
     };
+    const otherPopover = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== "account") close();
+    };
     const viewport = window.visualViewport;
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("deckdeal:header-popover-open", otherPopover);
     window.addEventListener("resize", placeMenu);
     window.addEventListener("scroll", placeMenu, true);
     viewport?.addEventListener("resize", placeMenu);
@@ -91,6 +95,7 @@ export function AccountMenu() {
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("deckdeal:header-popover-open", otherPopover);
       window.removeEventListener("resize", placeMenu);
       window.removeEventListener("scroll", placeMenu, true);
       viewport?.removeEventListener("resize", placeMenu);
@@ -111,7 +116,17 @@ export function AccountMenu() {
         aria-label="Account menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() =>
+          setOpen((current) => {
+            if (!current)
+              document.dispatchEvent(
+                new CustomEvent("deckdeal:header-popover-open", {
+                  detail: "account",
+                }),
+              );
+            return !current;
+          })
+        }
       >
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" />

@@ -7,13 +7,14 @@ const menu = read("components/account-menu/account-menu.tsx");
 const css = read("components/account-menu/account-menu.module.css");
 const shell = read("components/app-shell/app-shell.tsx");
 
-assert.match(menu, /onClick=\{\(\) => setOpen\(\(current\) => !current\)\}/, "Account trigger must toggle open and closed.");
+assert.match(menu, /setOpen\(\(current\) => \{[\s\S]*return !current;/, "Account trigger must toggle open and closed.");
 assert.match(menu, /document\.addEventListener\("pointerdown", handlePointerDown\)/, "Outside pointer dismissal must cover touch, pen, and mouse.");
 assert.match(menu, /rootRef\.current\?\.contains\(target\)/, "Trigger clicks must count as inside interactions.");
 assert.match(menu, /menuRef\.current\?\.contains\(target\)/, "Menu interactions must not dismiss prematurely.");
 assert.match(menu, /document\.removeEventListener\("pointerdown", handlePointerDown\)/, "Outside pointer listener must be cleaned up.");
 assert.match(menu, /event\.key === "Escape"/, "Escape must close the account menu.");
 assert.match(menu, /triggerRef\.current\?\.focus\(\)/, "Escape must restore trigger focus.");
+assert.match(menu, /deckdeal:header-popover-open/, "Opening another header popover must close the account menu.");
 assert.match(menu, /<Link key=\{href\} href=\{href\} onClick=\{close\}>/, "Navigation selections must close the menu.");
 assert.match(menu, /close\(\);\s*void signOut/, "Sign out must close the menu before using existing sign-out behavior.");
 assert.match(menu, /usePathname\(\)/, "Route changes must reset account-menu state.");

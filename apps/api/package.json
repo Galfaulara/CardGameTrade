@@ -27,6 +27,7 @@
     "test:bulk-inventory": "tsc -p tsconfig.test.json && node dist-test/test/bulk-inventory-regression.js",
     "test:collection-listings": "tsc -p tsconfig.test.json && node dist-test/test/collection-listings-regression.js",
     "test:interest-listing-visibility": "tsc -p tsconfig.test.json && node dist-test/test/interest-listing-visibility-regression.js",
+    "test:interest-notifications": "tsc -p tsconfig.test.json && node dist-test/test/interest-notification-architecture-regression.js",
     "test:catalog-mobile-qa": "tsc -p tsconfig.test.json && node dist-test/test/catalog-mobile-qa-regression.js",
     "test:inventory-printing-change-db": "tsc -p tsconfig.test.json && node dist-test/test/inventory-printing-change-db-regression.js",
     "test:multigame-offers-transactions-read": "tsc -p tsconfig.test.json && node dist-test/test/multigame-offers-transactions-read-regression.js",

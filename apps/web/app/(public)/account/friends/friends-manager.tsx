@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
 type Person = {
   id: string;
@@ -18,8 +18,11 @@ type Data = {
 const tabs = ["friends", "incoming", "outgoing", "blocked"] as const;
 export function FriendsManager() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [data, setData] = useState<Data | null>(null),
-    [tab, setTab] = useState<(typeof tabs)[number]>("friends"),
+    [tab, setTab] = useState<(typeof tabs)[number]>(
+      searchParams.get("view") === "incoming" ? "incoming" : "friends",
+    ),
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
   const load = async () => {

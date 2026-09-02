@@ -801,7 +801,7 @@ function ListForTradeDialog({
   );
 }
 
-function ActivityDialog({
+export function ActivityDialog({
   item,
   onClose,
 }: {
@@ -1072,6 +1072,7 @@ export function InventoryManager({
   const sourceCollection = collections.find(
     (value) => value.id === initialFilters.collection,
   );
+  const activityUnavailable = searchParams.get("activityUnavailable") === "1";
   const moveCards = async () => {
     if (!sourceCollection || !moveIds.length) return;
     setMoveBusy(true);
@@ -1397,6 +1398,11 @@ export function InventoryManager({
           <p>Try another Collection, card name, status, or condition.</p>
         </section>
       )}
+      {activityUnavailable ? (
+        <p className={styles.error} role="status">
+          That Card Activity context is no longer available.
+        </p>
+      ) : null}
       {editing && (
         <EditDialog
           item={editing}

@@ -23,6 +23,7 @@ import styles from "./page.module.css";
 import { CardFaceViewer } from "../../../../components/card-face-viewer/card-face-viewer";
 import { trueDfcFaces } from "../../../../features/cards/card-faces";
 import { getMyCardRelationshipContext } from "../../../../features/auth/authenticated-api";
+import { CardActivityDeepLink } from "../../../../components/card-activity-deep-link/card-activity-deep-link";
 
 export const dynamic = "force-dynamic";
 const value = (input: unknown) =>
@@ -43,7 +44,7 @@ export default async function CardPage({
   searchParams,
 }: {
   params: Promise<{ canonicalCardId: string }>;
-  searchParams: Promise<{ printing?: string; offersPage?: string }>;
+  searchParams: Promise<{ printing?: string; offersPage?: string; activity?: string }>;
 }) {
   const { canonicalCardId } = await params,
     query = await searchParams,
@@ -114,6 +115,7 @@ export default async function CardPage({
     `/cards/${canonicalCardId}?${new URLSearchParams({ ...query, offersPage: String(page) }).toString()}`;
   return (
     <main className={styles.main}>
+      <CardActivityDeepLink canonicalCardId={canonicalCardId} inventoryItemId={query.activity} />
       <ResourceGameSync gameId={card.game_id} />
       <NavigationBack fallback="/search" />
       <section className={styles.hero}>
