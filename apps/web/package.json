@@ -30,7 +30,10 @@
     "test:header-icons": "node --experimental-strip-types test/header-icons-regression.ts",
     "test:account-menu": "node --experimental-strip-types test/account-menu-regression.ts",
     "test:notification-actions": "node --experimental-strip-types test/notification-actions-regression.ts",
-    "test:mobile-qa": "node --experimental-strip-types test/mobile-qa-hardening-regression.ts"
+    "test:mobile-qa": "node --experimental-strip-types test/mobile-qa-hardening-regression.ts",
+    "test:hero-notification-copy": "node --experimental-strip-types test/mobile-hero-notification-copy-regression.ts",
+    "test:share-actions": "node --experimental-strip-types test/share-actions-regression.ts",
+    "test:printing-actionability": "node --experimental-strip-types test/printing-actionability-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

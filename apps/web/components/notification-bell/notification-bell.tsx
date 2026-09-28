@@ -163,7 +163,7 @@ export function NotificationBell() {
               disabled={busy || !data.unreadCount}
               onClick={() => void markAll()}
             >
-              {busy ? "Marking…" : "Mark all read"}
+              {busy ? "Marking…" : "Mark all as read"}
             </button>
           </header>
           {data.items.length ? (
