@@ -8,6 +8,7 @@ import { getCardDetail } from "../../../../features/marketplace/api";
 import { AddToCollectionLauncher } from "../../../../components/add-to-collection/add-to-collection-launcher";
 import { ListingIntentPill } from "../../../../components/listing-intent/listing-intent-pill";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
+import { ShareButton } from "../../../../components/share-button/share-button";
 import { MarketPrices } from "../../../../features/marketplace/market-prices";
 import { ResourceGameSync } from "../../../../features/games/resource-game-sync";
 import { loadGames } from "../../../../features/games/games.server";
@@ -162,6 +163,12 @@ export default async function CardPage({
                   cardName={card.name}
                   printingId={selected.id}
                   gameId={card.game_id}
+                />
+                <ShareButton
+                  path={`/cards/${canonicalCardId}?printing=${selected.id}`}
+                  title={card.name}
+                  text={`${card.name} — ${selected.set.name} #${selected.collector_number} on DeckDeal.`}
+                  label="Share"
                 />
               </div>
               <dl>

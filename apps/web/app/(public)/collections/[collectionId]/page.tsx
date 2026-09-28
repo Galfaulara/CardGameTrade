@@ -5,6 +5,7 @@ import { CardTile } from "../../../../components/card-tile/card-tile";
 import { PublicUserLink } from "../../../../components/public-user-link/public-user-link";
 import { PublicStoreLink } from "../../../../components/public-store-link/public-store-link";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
+import { ShareButton } from "../../../../components/share-button/share-button";
 import { getPublicCollectionPage } from "../../../../features/marketplace/api";
 import { ResourceGameSync } from "../../../../features/games/resource-game-sync";
 import styles from "./page.module.css";
@@ -63,6 +64,9 @@ export default async function CollectionPage({
         <p className={styles.eyebrow}>{ownerLabel(collection.owner)}</p>
         <h1>{collection.name}</h1>
         <p className={styles.count}>{collection.card_quantity.toLocaleString()} cards</p>
+        <div className={styles.headerActions}>
+          <ShareButton path={`/collections/${collection.id}`} title={collection.name} text={`${collection.name} on DeckDeal — ${collection.card_quantity.toLocaleString()} public cards.`} label="Share collection" />
+        </div>
         {collection.preferred_store && <p className={styles.preferredStore}><span>Preferred store</span><PublicStoreLink store={collection.preferred_store} /> <span aria-label="verified DeckDeal mediation store">✓</span></p>}
         {collection.description && <p className={styles.description}>{collection.description}</p>}
       </header>

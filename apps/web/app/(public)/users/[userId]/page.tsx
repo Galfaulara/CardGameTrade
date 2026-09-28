@@ -7,6 +7,7 @@ import { CardTile } from "../../../../components/card-tile/card-tile";
 import { publicUserLabel } from "../../../../components/public-user-link/public-user-link";
 import { PublicStoreLink } from "../../../../components/public-store-link/public-store-link";
 import { NavigationBack } from "../../../../components/navigation-back/navigation-back";
+import { ShareButton } from "../../../../components/share-button/share-button";
 import {
   getPublicUser,
   getPublicUserCollections,
@@ -154,7 +155,23 @@ export default async function UserPage({
               <b aria-label="verified DeckDeal mediation store">✓</b>
             </p>
           )}
-          <ProfileSocialActions userId={userId} />
+          <div className={styles.profileActions}>
+            <ProfileSocialActions userId={userId} />
+            <ShareButton
+              path={view === "overview" ? `/users/${user.id}` : `/users/${user.id}?view=${view}`}
+              title={name}
+              text={
+                view === "wants"
+                  ? `${headingName}'s public wants on DeckDeal.`
+                  : view === "collections"
+                    ? `${headingName}'s public collections on DeckDeal.`
+                    : view === "available"
+                      ? `${headingName}'s cards available for trade on DeckDeal.`
+                      : `${headingName} on DeckDeal.`
+              }
+              label="Share"
+            />
+          </div>
         </div>
         <dl className={styles.summary}>
           <div>

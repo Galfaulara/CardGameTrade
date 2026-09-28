@@ -4,6 +4,7 @@
 .eyebrow,.inventoryHeading p,.unavailable>p{color:var(--color-action);font-size:var(--font-size-xs);font-weight:var(--font-weight-bold);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
 .collectionHeader h1{max-width:22ch;margin-top:var(--space-2);font-size:clamp(2.25rem,5vw,4rem);line-height:var(--line-height-tight);letter-spacing:var(--letter-spacing-tight)}
 .count{margin-top:var(--space-3);color:var(--color-brand-deep);font-size:var(--font-size-lg);font-weight:var(--font-weight-bold)}
+.headerActions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-4)}
 .preferredStore{width:max-content;max-width:100%;margin-top:var(--space-4);padding-left:var(--space-3);border-left:3px solid var(--color-brand-accent-warm);color:var(--color-brand-deep);font-size:var(--font-size-sm);font-weight:var(--font-weight-bold)}.preferredStore>span:first-child{display:block;margin-bottom:var(--space-1);color:var(--color-gold-deep);font-size:var(--font-size-xs);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}.preferredStore>span:last-child{color:var(--color-gold-deep)}
 .description{max-width:58rem;margin-top:var(--space-4);color:var(--color-text-muted);line-height:var(--line-height-relaxed)}
 .inventory{margin-top:var(--space-8)}

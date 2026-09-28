@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CardRail } from "../../../../components/card-rail/card-rail";
 import { CardTile } from "../../../../components/card-tile/card-tile";
+import { ShareButton } from "../../../../components/share-button/share-button";
 import { getPublicStore, getPublicStoreInventory, getPublicStoreListings } from "../../../../features/marketplace/api";
 import styles from "./page.module.css";
 
@@ -29,6 +30,7 @@ export default async function StorePage({params,searchParams}:{params:Promise<{s
   const location=[store.city,store.state_region,store.country_code].filter(Boolean).join(", ");
   return <main className={styles.main}>
     <header className={styles.header}><p className={styles.eyebrow}>Local game store</p><h1>{store.name} <span aria-label="verified DeckDeal LGS">✓</span></h1>{location&&<p className={styles.location}>{location}</p>}{store.description&&<p className={styles.description}>{store.description}</p>}<p className={styles.partner}>Verified DeckDeal trade-mediation partner</p>
+      <div className={styles.headerActions}><ShareButton path={`/stores/${store.id}`} title={store.name} text={`${store.name} on DeckDeal${location?` — ${location}`:""}.`} label="Share store" /></div>
       <dl className={styles.summary}><div><dd>{summary.available_card_quantity.toLocaleString()}</dd><dt>cards in public inventory</dt></div><div><dd>{summary.marketplace_card_quantity.toLocaleString()}</dd><dt>currently available on DeckDeal</dt></div><div><dd>{summary.active_listing_count.toLocaleString()}</dd><dt>active listings</dt></div></dl>
     </header>
     <nav className={styles.views} aria-label="Store profile views">{views.map(item=><Link key={item.id} href={item.id==="overview"?`/stores/${storeId}`:`/stores/${storeId}?view=${item.id}`} aria-current={view===item.id?"page":undefined}>{item.label}</Link>)}</nav>
