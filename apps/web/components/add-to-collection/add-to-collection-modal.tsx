@@ -19,10 +19,7 @@ import type {
 } from "../../features/marketplace/api";
 import type { MyInventoryItem } from "../../features/account/inventory-types";
 import { useActiveGame } from "../../features/games/active-game-provider";
-import {
-  groupPrintingVersions,
-  type VersionFamily,
-} from "../../features/catalog/version-families";
+import { groupPrintingVersions } from "../../features/catalog/version-families";
 import {
   authoritativeCollectionGameSlug,
   collectionOptionsHref,
@@ -111,9 +108,6 @@ export function AddToCollectionModal({
   const [card, setCard] = useState<CatalogCard | null>(null);
   const [printings, setPrintings] = useState<CatalogPrinting[]>([]);
   const [printing, setPrinting] = useState<CatalogPrinting | null>(null);
-  const [pendingFamily, setPendingFamily] = useState<VersionFamily | null>(
-    null,
-  );
   const [pickerOrigin, setPickerOrigin] = useState<PickerOrigin>(null);
   const [finishes, setFinishes] = useState<CatalogPrintingFinish[]>([]);
   const [collections, setCollections] = useState<CollectionOption[]>([]);
@@ -137,11 +131,19 @@ export function AddToCollectionModal({
     () => groupPrintingVersions(printings),
     [printings],
   );
+  const selectedFamily = useMemo(
+    () =>
+      printing
+        ? (versionFamilies.find((family) =>
+            family.printings.some((value) => value.id === printing.id),
+          ) ?? null)
+        : null,
+    [printing, versionFamilies],
+  );
 
   const loadFinishes = useCallback(
     async (value: CatalogPrinting, retainedFinish?: string) => {
       setPrinting(value);
-      setPendingFamily(null);
       setPickerOrigin(null);
       setFinishes([]);
       setFinish("");
@@ -202,7 +204,6 @@ export function AddToCollectionModal({
     setCards([]);
     setPrintings([]);
     setPrinting(null);
-    setPendingFamily(null);
     setPickerOrigin(null);
     setFinishes([]);
     setFinish("");
@@ -484,11 +485,13 @@ export function AddToCollectionModal({
                           <button
                             className={styles.choice}
                             type="button"
-                            onClick={() => {
-                              if (family.printings.length === 1)
-                                void loadFinishes(value, finish);
-                              else setPendingFamily(family);
-                            }}
+                            data-selected={family.printings.some(
+                              (option) => option.id === printing?.id,
+                            )}
+                            aria-pressed={family.printings.some(
+                              (option) => option.id === printing?.id,
+                            )}
+                            onClick={() => void loadFinishes(value, finish)}
                           >
                             <div className={styles.thumb}>
                               {value.image_normal_uri ||
@@ -512,8 +515,11 @@ export function AddToCollectionModal({
                               {value.collector_number}
                             </strong>
                             <span>
-                              {value.card_sets.name} · {family.printings.length}{" "}
-                              languages
+                              {value.card_sets.name} ·{" "}
+                              {value.language_code.toUpperCase()}
+                              {family.printings.length > 1
+                                ? ` +${family.printings.length - 1} languages`
+                                : ""}
                               {value.rarity ? ` · ${pretty(value.rarity)}` : ""}
                               {value.treatment
                                 ? ` · ${pretty(value.treatment)}`
@@ -524,27 +530,6 @@ export function AddToCollectionModal({
                       );
                     })}
                   </ul>
-                  {pendingFamily ? (
-                    <label className={styles.field}>
-                      <span>Language</span>
-                      <select
-                        value=""
-                        onChange={(event) => {
-                          const selected = pendingFamily.printings.find(
-                            (value) => value.id === event.target.value,
-                          );
-                          if (selected) void loadFinishes(selected, finish);
-                        }}
-                      >
-                        <option value="">Choose language</option>
-                        {pendingFamily.printings.map((value) => (
-                          <option key={value.id} value={value.id}>
-                            {value.language_code.toUpperCase()}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
                 </section>
               )}
               {card && !pickerOrigin && !printing && loading && (
@@ -615,6 +600,26 @@ export function AddToCollectionModal({
                           ))}
                         </select>
                       </label>
+                      {selectedFamily && selectedFamily.printings.length > 1 && (
+                        <label className={styles.field}>
+                          <span>Language</span>
+                          <select
+                            value={printing.id}
+                            onChange={(event) => {
+                              const selected = selectedFamily.printings.find(
+                                (value) => value.id === event.target.value,
+                              );
+                              if (selected) void loadFinishes(selected, finish);
+                            }}
+                          >
+                            {selectedFamily.printings.map((value) => (
+                              <option key={value.id} value={value.id}>
+                                {value.language_code.toUpperCase()}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                       <label className={styles.field}>
                         <span>Finish</span>
                         <select
