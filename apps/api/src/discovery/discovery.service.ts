@@ -453,6 +453,92 @@ export class DiscoveryService {
     };
   }
 
+  async getWishlist(id: string, query: DiscoveryInventoryPageQuery) {
+    const wishlist = await this.database.client.wishlists.findFirst({
+      where: {
+        id,
+        visibility: { in: ["public", "unlisted"] },
+        status: "active",
+        user_profiles: { status: "active" },
+      },
+      select: {
+        id: true,
+        game_id: true,
+        name: true,
+        description: true,
+        user_profiles: {
+          select: { id: true, display_name: true, username: true },
+        },
+      },
+    });
+    if (!wishlist) throw new NotFoundException("Wishlist was not found.");
+    const where = { wishlist_id: id, status: "active" };
+    const [items, total] = await Promise.all([
+      this.database.client.wishlist_items.findMany({
+        where,
+        select: {
+          id: true,
+          canonical_card_id: true,
+          printing_id: true,
+          quantity_desired: true,
+          desired_finish: true,
+          desired_condition: true,
+          language_code: true,
+          canonical_cards: { select: { id: true, name: true } },
+          card_printings: {
+            select: {
+              id: true,
+              collector_number: true,
+              language_code: true,
+              printed_name: true,
+              rarity: true,
+              image_small_uri: true,
+              image_normal_uri: true,
+              canonical_cards: { select: { id: true, name: true } },
+              card_sets: { select: { id: true, code: true, name: true } },
+            },
+          },
+        },
+        orderBy: [{ priority: "desc" }, { created_at: "asc" }, { id: "asc" }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.database.client.wishlist_items.count({ where }),
+    ]);
+    const representatives = await this.representativePrintings(
+      items.flatMap((item) =>
+        item.canonical_card_id ? [item.canonical_card_id] : [],
+      ),
+    );
+    const { user_profiles: owner, ...publicWishlist } = wishlist;
+    return {
+      wishlist: { ...publicWishlist, owner },
+      items: items.map((item) => ({
+        id: item.id,
+        quantity_desired: item.quantity_desired,
+        desired_finish: item.desired_finish,
+        desired_condition: item.desired_condition,
+        language_code: item.language_code,
+        target: {
+          canonical_card:
+            item.canonical_cards ??
+            item.card_printings?.canonical_cards ??
+            null,
+          printing: item.card_printings,
+          representative_printing: item.printing_id
+            ? null
+            : (representatives.get(item.canonical_card_id!) ?? null),
+        },
+      })),
+      pagination: {
+        page: query.page,
+        page_size: query.pageSize,
+        total_count: total,
+        has_more: query.page * query.pageSize < total,
+      },
+    };
+  }
+
   async getUserWishlists(id: string, query: DiscoveryUserWishlistQuery) {
     const user = await this.requirePublicUser(id);
     const gameId = await this.resolveGameId(query.gameSlug);
@@ -1076,7 +1162,11 @@ export class DiscoveryService {
 
   async getCollection(id: string, query: DiscoveryInventoryPageQuery) {
     const collection = await this.database.client.collections.findFirst({
-      where: { id, visibility: "public", user_profiles: { status: "active" } },
+      where: {
+        id,
+        visibility: { in: ["public", "unlisted"] },
+        user_profiles: { status: "active" },
+      },
       select: {
         id: true,
         game_id: true,

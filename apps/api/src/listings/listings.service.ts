@@ -778,11 +778,12 @@ export class ListingsService {
         },
       });
 
+    const publicIds = new Set((await this.database.client.listings.findMany({
+      where: { ...publicListingWhere, id: { in: listings.map(listing => listing.id) } }, select: { id: true },
+    })).map(listing => listing.id));
     return listings.map(
       (listing) =>
-        this.mapManagementListing(
-          listing,
-        ),
+        ({ ...this.mapManagementListing(listing), public_share_path: publicIds.has(listing.id) ? `/listings/${listing.id}` : null }),
     );
   }
 

@@ -813,6 +813,30 @@ const mapWishlistCard = (item: PublicWishlistItem): CardView => {
   };
 };
 
+export async function getPublicWishlist(id: string, page: number) {
+  const result = await publicUserGet<{
+    wishlist: {
+      id: string;
+      game_id: string;
+      name: string;
+      description: string | null;
+      owner: {
+        id: string;
+        display_name: string | null;
+        username: string | null;
+      };
+    };
+    items: PublicWishlistItem[];
+    pagination: { page: number; has_more: boolean; total_count: number };
+  }>(`/discovery/wishlists/${encodeURIComponent(id)}?page=${page}&pageSize=24`);
+  return result.status === "ready"
+    ? {
+        ...result,
+        data: { ...result.data, items: result.data.items.map(mapWishlistCard) },
+      }
+    : result;
+}
+
 export async function getPublicUserWishlists(
   userId: string,
   page: number,

@@ -38,7 +38,8 @@
     "sync:prices": "npm run build && node dist/scripts/sync-market-prices.js",
     "sync:prices:tcgplayer": "npm run build && node dist/scripts/sync-market-prices.js tcgplayer",
     "sync:prices:cardkingdom": "npm run build && node dist/scripts/sync-market-prices.js cardkingdom",
-    "bootstrap:user": "npm run build && node dist/scripts/bootstrap-user.js"
+    "bootstrap:user": "npm run build && node dist/scripts/bootstrap-user.js",
+    "test:owner-share-visibility-db": "tsc -p tsconfig.test.json && node dist-test/test/owner-share-visibility-db-regression.js"
   },
   "dependencies": {
     "@clerk/backend": "^3.16.12",

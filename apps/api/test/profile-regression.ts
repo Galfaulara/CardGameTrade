@@ -283,10 +283,16 @@ export async function runProfileRegression() {
     assert(afterRejected === beforeRejected, "Rejected /me/profile requests must not mutate domain state.");
 
     const tempCollection = await harness.as(tempPrincipal).post(`/api/inventory/users/${tempUser.id}/collections`).send({
+      gameSlug: "mtg",
       name: `Step 4A Public ${seed.slice(0, 8)}`,
-      visibility: "public",
+      visibility: "unlisted",
     }).expect(201);
     cleanup.tempCollectionId = tempCollection.body.id;
+    const tempUnlisted = await harness.as(tempPrincipal).get("/api/me/profile").expect(200);
+    assert(tempUnlisted.body.public_profile_available === false, "Unlisted content must not make a profile discoverable.");
+    await harness.as(null).get(`/api/discovery/users/${tempUser.id}`).expect(404);
+    await harness.as(null).get(`/api/discovery/collections/${tempCollection.body.id}`).expect(200);
+    await harness.as(tempPrincipal).patch(`/api/me/collections/${tempCollection.body.id}`).send({ visibility: "public" }).expect(200);
 
     const tempAfterPublic = await harness.as(tempPrincipal).get("/api/me/profile").expect(200);
     assert(tempAfterPublic.body.public_profile_available === true, "A public collection must make the actor's public profile discoverable.");

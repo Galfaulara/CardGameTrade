@@ -275,6 +275,10 @@ export const createUserCollectionSchema =
     })
     .strict();
 
+export const updateCollectionVisibilitySchema = z.object({
+  visibility: collectionVisibilitySchema,
+}).strict();
+
 export const setInventoryCollectionSchema =
   z
     .object({

@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
-import { bulkMoveCollectionItemsSchema, createUserCollectionSchema, gameScopedListQuerySchema } from "@repo/validation";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
+import { updateCollectionVisibilitySchema, bulkMoveCollectionItemsSchema, createUserCollectionSchema, gameScopedListQuerySchema } from "@repo/validation";
 import type { AuthenticatedPrincipal } from "../auth/auth.types";
 import type { BulkMoveCollectionItemsInput, CreateUserCollectionInput, GameScopedListQuery } from "@repo/validation";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -24,6 +24,15 @@ export class MeCollectionsController {
     @Body(new ZodValidationPipe(createUserCollectionSchema)) input: CreateUserCollectionInput,
   ) {
     return this.inventoryService.createUserCollection(principal.deckdealUserId!, input);
+  }
+
+  @Patch(":collectionId")
+  updateVisibility(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param("collectionId", new ParseUUIDPipe({ version: "4" })) collectionId: string,
+    @Body(new ZodValidationPipe(updateCollectionVisibilitySchema)) input: { visibility: "private" | "unlisted" | "public" },
+  ) {
+    return this.inventoryService.updateCollectionVisibility(principal.deckdealUserId!, collectionId, input.visibility);
   }
 
   @Post(":collectionId/items/move")

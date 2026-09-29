@@ -1,3 +1,4 @@
+import { publicListingWhere } from "../marketplace/active-public-listing";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -443,6 +444,54 @@ export class InventoryService {
     } as const;
   }
 
+  private async inventorySharePaths(
+    userId: string,
+    items: Array<{ id: string; status: string; collection_id: string | null }>,
+  ) {
+    const [listings, collections] = await Promise.all([
+      this.database.client.listings.findMany({
+        where: {
+          ...publicListingWhere,
+          seller_user_id: userId,
+          inventory_item_id: { in: items.map((item) => item.id) },
+        },
+        select: { id: true, inventory_item_id: true },
+      }),
+      this.database.client.collections.findMany({
+        where: {
+          id: {
+            in: items.flatMap((item) =>
+              item.collection_id ? [item.collection_id] : [],
+            ),
+          },
+          user_id: userId,
+          visibility: { in: ["public", "unlisted"] },
+          user_profiles: { status: "active" },
+        },
+        select: { id: true },
+      }),
+    ]);
+    const listingByItem = new Map(
+      listings.map((listing) => [listing.inventory_item_id, listing.id]),
+    );
+    const shareableCollections = new Set(
+      collections.map((collection) => collection.id),
+    );
+    return new Map(
+      items.map((item) => {
+        const listingId = listingByItem.get(item.id);
+        const path = listingId
+          ? `/listings/${listingId}`
+          : item.status === "available" &&
+              item.collection_id &&
+              shareableCollections.has(item.collection_id)
+            ? `/collections/${item.collection_id}`
+            : null;
+        return [item.id, path];
+      }),
+    );
+  }
+
   private mapMyInventoryItem(item: any) {
     const {
       collections,
@@ -824,6 +873,7 @@ export class InventoryService {
             row._count._all,
         );
 
+    const sharePaths = await this.inventorySharePaths(userId, items);
     return {
       items: items.map((item) => {
         const wantedBy = new Set(
@@ -848,6 +898,7 @@ export class InventoryService {
             ?.id;
         return {
           ...this.mapMyInventoryItem(item),
+          public_share_path: sharePaths.get(item.id) ?? null,
           relationship_summary: {
             interested: interested.get(item.id) ?? 0,
             wanted_by: wantedBy,
@@ -886,7 +937,11 @@ export class InventoryService {
       throw this.getInventoryItemNotFoundError();
     }
 
-    return this.mapMyInventoryItem(item);
+    const sharePaths = await this.inventorySharePaths(userId, [item]);
+    return {
+      ...this.mapMyInventoryItem(item),
+      public_share_path: sharePaths.get(item.id) ?? null,
+    };
   }
 
   async createMyInventoryItem(
@@ -1249,6 +1304,23 @@ export class InventoryService {
         created_at: "asc",
       },
     });
+  }
+
+  async updateCollectionVisibility(
+    userId: string,
+    collectionId: string,
+    visibility: "private" | "unlisted" | "public",
+  ) {
+    const result = await this.database.client.collections.updateMany({
+      where: {
+        id: collectionId,
+        user_id: userId,
+        user_profiles: { status: "active" },
+      },
+      data: { visibility, updated_at: new Date() },
+    });
+    if (!result.count) throw new NotFoundException("Collection was not found.");
+    return { id: collectionId, visibility };
   }
 
   async createUserCollection(userId: string, input: CreateUserCollectionInput) {

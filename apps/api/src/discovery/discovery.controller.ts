@@ -83,6 +83,14 @@ export class DiscoveryController {
     return this.discoveryService.getUserWishlists(userId, query);
   }
 
+  @Get("wishlists/:wishlistId")
+  getWishlist(
+    @Param("wishlistId", new ParseUUIDPipe({ version: "4" })) wishlistId: string,
+    @Query(new ZodValidationPipe(discoveryInventoryPageQuerySchema)) query: DiscoveryInventoryPageQuery,
+  ) {
+    return this.discoveryService.getWishlist(wishlistId, query);
+  }
+
   @Get("collections")
   getCollections(
     @Query(
