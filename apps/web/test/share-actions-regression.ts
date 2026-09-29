@@ -124,7 +124,7 @@ assert.match(
   "Private/unresolvable profiles must 404 before Share is ever rendered.",
 );
 
-/* Public collection: the route only renders visibility=public collections. */
+/* Public collection: the API resolves public or unlisted exact links. */
 assert.match(collection, /import \{ ShareButton \}/);
 assert.match(
   collection,
@@ -171,13 +171,9 @@ assert.doesNotMatch(
 /* --- Surfaces that must NOT gain a Share control --- */
 
 for (const path of [
-  "app/(public)/account/inventory/page.tsx",
-  "app/(public)/account/wants/page.tsx",
   "app/(public)/account/messages/page.tsx",
   "app/(public)/account/offers/page.tsx",
   "app/(public)/account/friends/page.tsx",
-  "app/(public)/account/profile/page.tsx",
-  "app/(public)/store/[storeId]/page.tsx",
   "app/(public)/trade/[listingId]/page.tsx",
   "components/notification-bell/notification-bell.tsx",
 ])

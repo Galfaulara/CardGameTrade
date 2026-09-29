@@ -1,4 +1,6 @@
 "use client";
+import { ShareButton } from "../../../../components/share-button/share-button";
+import { OwnerShareControls } from "../../../../components/share-button/owner-share-controls";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import Link from "next/link";
@@ -1118,6 +1120,9 @@ export function InventoryManager({
           </h2>
         </div>
         <div className={styles.headerActions}>
+          {sourceCollection ? <OwnerShareControls key={sourceCollection.id + sourceCollection.visibility}
+            path={`/collections/${sourceCollection.id}`} title={sourceCollection.name} visibility={sourceCollection.visibility}
+            updateUrl={`/api/me/collections/${sourceCollection.id}`} /> : null}
           <CollectionActions
             gameSlug={initialFilters.game}
             collectionId={
@@ -1330,6 +1335,7 @@ export function InventoryManager({
                         ▱ {item.collection?.name ?? "Unsorted"}
                       </span>
                       <div className={styles.cardActions}>
+                        <ShareButton path={item.public_share_path ?? "/discover"} title={item.printing.canonical_cards.name} text={`${item.printing.canonical_cards.name} on DeckDeal`} label="Share" disabled={!item.public_share_path} />
                         {item.status === "available" && !item.active_listing ? (
                           <button
                             className={styles.tradeButton}

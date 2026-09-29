@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { OwnerShareControls } from "../../../../components/share-button/owner-share-controls";
 import Image from "next/image";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -215,8 +216,13 @@ export function WantsManager({
                   ) : null}
                 </div>
                 <div className={styles.actions}>
+                  <OwnerShareControls key={selected.id + selected.visibility} path={`/wishlists/${selected.id}`} title={selected.name}
+                    visibility={selected.visibility} eligible={selected.status === "active"}
+                    updateUrl={`/api/me/wishlists/${selected.id}?gameSlug=${encodeURIComponent(game.slug)}`}
+                    onVisibilityChange={() => setWishlists(values => values.map(value => value.id === selected.id ? { ...value, visibility: "unlisted" } : value))} />
                   <select
                     aria-label="Wishlist visibility"
+                    title="Private: only you. Unlisted: anyone with the link, hidden from discovery. Public: anyone, including public discovery."
                     value={selected.visibility}
                     disabled={busy}
                     onChange={(event) =>
@@ -244,6 +250,7 @@ export function WantsManager({
                 </div>
               </header>
               <WishlistMetadataForm
+                key={selected.id + selected.visibility}
                 wishlist={selected}
                 busy={busy}
                 onSave={updateWishlist}
@@ -475,7 +482,7 @@ export function WantsManager({
             </label>
             <label>
               Visibility
-              <select name="visibility" defaultValue="private">
+              <select title="Private: only you. Unlisted: anyone with the link, hidden from discovery. Public: anyone, including public discovery." name="visibility" defaultValue="private">
                 <option value="private">Private</option>
                 <option value="unlisted">Unlisted</option>
                 <option value="public">Public</option>
@@ -555,7 +562,7 @@ function WishlistMetadataForm({
       </label>
       <label>
         Visibility
-        <select name="visibility" defaultValue={wishlist.visibility}>
+        <select title="Private: only you. Unlisted: anyone with the link, hidden from discovery. Public: anyone, including public discovery." name="visibility" defaultValue={wishlist.visibility}>
           <option value="private">Private</option>
           <option value="unlisted">Unlisted</option>
           <option value="public">Public</option>

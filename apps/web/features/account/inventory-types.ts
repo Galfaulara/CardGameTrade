@@ -42,6 +42,7 @@ export type MyInventoryPrinting = {
 };
 
 export type MyInventoryItem = {
+  public_share_path?: string | null;
   id: string;
   game_id: string;
   printing_id: string;

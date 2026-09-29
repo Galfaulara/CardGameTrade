@@ -1,3 +1,5 @@
+import { ShareButton } from "../../../../components/share-button/share-button";
+import { getPublicStore } from "../../../../features/marketplace/api";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
@@ -15,12 +17,14 @@ export default async function StoreWorkspace({ params }: { params: Promise<{ sto
   const workspace = current.store_workspaces.find((item) => item.store_id === storeId);
   if (!workspace) redirect("/store");
   const handoffs = await getStoreHandoffs(storeId);
+  const publicStore = await getPublicStore(storeId);
 
   return <div className={styles.page}>
     <header className={styles.hero}>
       <p className={styles.eyebrow}>Store Workspace</p>
       <h1>{workspace.store.name}</h1>
       <p>Trade Handoffs</p>
+      <ShareButton path={`/stores/${storeId}`} title={workspace.store.name} text={`${workspace.store.name} on DeckDeal`} label="Share" disabled={publicStore.status !== "ready"} />
     </header>
     {handoffs.length ? <ul className={styles.list}>{handoffs.map((handoff) => <li key={handoff.id}>
       <article className={styles.handoff}>

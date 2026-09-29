@@ -1,3 +1,4 @@
+import { ShareButton } from "../../../../components/share-button/share-button";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import {
@@ -61,6 +62,7 @@ export default async function AccountProfilePage() {
         title="DeckDeal public profile"
         intro="Manage your DeckDeal public identity, display name, and preferred local game store without changing Clerk sign-in controls."
       >
+        <ShareButton path={`/users/${profile.id}`} title={profile.display_name ?? profile.username ?? "My profile"} text="My DeckDeal profile" label="Share" disabled={!profile.public_profile_available} />
         <ProfileForm initialProfile={profile} />
       </AccountShell>
     );

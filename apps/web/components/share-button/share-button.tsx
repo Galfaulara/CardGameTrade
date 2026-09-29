@@ -32,9 +32,10 @@ export type ShareButtonProps = {
   text: string;
   /** Show a visible text label next to the icon. */
   label?: string;
+  disabled?: boolean;
 };
 
-export function ShareButton({ path, title, text, label }: ShareButtonProps) {
+export function ShareButton({ path, title, text, label, disabled = false }: ShareButtonProps) {
   const [status, setStatus] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -52,6 +53,7 @@ export function ShareButton({ path, title, text, label }: ShareButtonProps) {
     timer.current = setTimeout(() => setStatus(null), 2600);
   };
   const share = async () => {
+    if (disabled) return;
     const url = new URL(path, window.location.origin).toString();
     if (typeof navigator.share === "function") {
       try {
@@ -74,6 +76,7 @@ export function ShareButton({ path, title, text, label }: ShareButtonProps) {
       <button
         className={styles.button}
         type="button"
+        disabled={disabled}
         aria-label={`Share ${title}`}
         onClick={() => void share()}
       >

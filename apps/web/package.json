@@ -34,7 +34,8 @@
     "test:hero-notification-copy": "node --experimental-strip-types test/mobile-hero-notification-copy-regression.ts",
     "test:share-actions": "node --experimental-strip-types test/share-actions-regression.ts",
     "test:public-listing-sharing": "node --experimental-strip-types test/public-listing-sharing-regression.ts",
-    "test:printing-actionability": "node --experimental-strip-types test/printing-actionability-regression.ts"
+    "test:printing-actionability": "node --experimental-strip-types test/printing-actionability-regression.ts",
+    "test:owner-share-controls": "node test/owner-share-controls-regression.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",
