@@ -1,0 +1,39 @@
+.main{width:min(calc(100% - 2 * var(--space-6)),var(--content-max-width));margin-inline:auto;padding-block:var(--space-8) var(--space-20)}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:var(--space-8);align-items:start;padding:var(--space-8);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl)}
+.art{position:relative;display:grid;place-items:center;aspect-ratio:.72;overflow:hidden;background:var(--color-surface-muted);border-radius:var(--radius-lg)}
+.art img{object-fit:cover}
+.art>span{padding:var(--space-4);color:var(--color-text-muted);font-size:var(--font-size-sm);text-align:center}
+.info{min-width:0}
+.kicker{color:var(--color-action);font-size:var(--font-size-xs);font-weight:var(--font-weight-bold);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
+.info h1{margin-top:var(--space-2);font-size:clamp(1.75rem,3.5vw,2.75rem);line-height:var(--line-height-tight);letter-spacing:var(--letter-spacing-tight);overflow-wrap:anywhere}
+.printing{margin-top:var(--space-2)}
+.printing a{color:var(--color-action);font-weight:var(--font-weight-bold)}
+.printing a:hover{text-decoration:underline}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:var(--space-4);margin-top:var(--space-6);padding-top:var(--space-5);border-top:1px solid var(--color-border)}
+.facts dt{color:var(--color-text-muted);font-size:var(--font-size-xs);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
+.facts dd{margin-top:var(--space-1);font-weight:var(--font-weight-bold);text-transform:capitalize}
+.traits{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-4);list-style:none}
+.traits li{padding:var(--space-1) var(--space-3);color:var(--color-brand-deep);background:var(--color-surface-accent);border-radius:var(--radius-full);font-size:var(--font-size-xs);font-weight:var(--font-weight-bold)}
+.seller,.terms,.description{margin-top:var(--space-4);color:var(--color-text-muted)}
+.terms{color:var(--color-brand-deep);font-weight:var(--font-weight-bold);text-transform:capitalize}
+.terms>span{margin-right:var(--space-2);color:var(--color-text-muted);font-size:var(--font-size-xs);font-weight:var(--font-weight-bold);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
+.description{line-height:var(--line-height-relaxed);overflow-wrap:anywhere}
+.mediation{width:max-content;max-width:100%;margin-top:var(--space-4);padding-left:var(--space-3);border-left:3px solid var(--color-brand-accent-warm);color:var(--color-brand-deep);font-size:var(--font-size-sm);font-weight:var(--font-weight-bold)}
+.mediation>span{display:block;margin-bottom:var(--space-1);color:var(--color-gold-deep);font-size:var(--font-size-xs);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
+.mediation b{color:var(--color-gold-deep)}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);margin-top:var(--space-6)}
+.primaryAction{display:inline-flex;min-height:2.75rem;align-items:center;padding-inline:var(--space-5);color:var(--color-text-inverse);background:var(--color-action);border-radius:var(--radius-md);font-weight:var(--font-weight-bold)}
+.primaryAction:hover{background:var(--color-action-hover)}
+.primaryAction:focus-visible{outline:3px solid color-mix(in srgb,var(--color-action) 55%,transparent);outline-offset:2px}
+.note{margin-top:var(--space-4);color:var(--color-text-subtle);font-size:var(--font-size-sm);line-height:var(--line-height-relaxed)}
+.state{max-width:48rem;margin-inline:auto;padding:var(--space-10);background:var(--color-surface);border:1px dashed var(--color-border-strong);border-radius:var(--radius-xl);color:var(--color-text-muted)}
+.state h1{margin-top:var(--space-2);color:var(--color-text);font-size:clamp(1.75rem,4vw,2.5rem)}
+.state>p:last-of-type{margin-top:var(--space-3);line-height:var(--line-height-relaxed)}
+.state .primaryAction{margin-top:var(--space-6)}
+@media(max-width:48rem){
+  .main{width:min(calc(100% - 2 * var(--space-4)),var(--content-max-width));padding-top:var(--space-5)}
+  .layout{grid-template-columns:1fr;gap:var(--space-6);padding:var(--space-6) var(--space-5)}
+  .art{width:min(70vw,16rem);justify-self:center}
+  .actions{align-items:stretch;flex-direction:column}
+  .primaryAction{justify-content:center}
+}
