@@ -11,13 +11,17 @@ const assert: (value: unknown, message: string) => asserts value = (value, messa
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required.");
+  const url = new URL(databaseUrl);
+  assert(["127.0.0.1", "localhost"].includes(url.hostname) && url.port === "5433" && !databaseUrl.toLowerCase().includes("supabase"), "Printing regression requires local PostgreSQL.");
+  assert(url.pathname === "/deckdeal_share_printing_test" || url.pathname === "/deckdeal_multigame_dryrun" || url.pathname.startsWith("/deckdeal_mobile_qa_"), "Printing regression requires a disposable clone.");
   const database = new DatabaseService(new ConfigService({ DATABASE_URL: databaseUrl }));
   await database.onModuleInit();
   try {
     const name = await database.client.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
     assert(
       name[0]?.current_database.startsWith("deckdeal_mobile_qa_") ||
-        name[0]?.current_database === "deckdeal_multigame_dryrun",
+        name[0]?.current_database === "deckdeal_multigame_dryrun" ||
+        name[0]?.current_database === "deckdeal_share_printing_test",
       "Printing regression requires a known disposable clone.",
     );
     const users = await database.client.user_profiles.findMany({ take: 2, select: { id: true } });
@@ -60,12 +64,17 @@ async function main() {
     assert(oldRow?.status === "removed" && listingAfter?.status === "removed", "Historical item/listing must be preserved and closed.");
 
     const trading = await createItem();
+    const tradingListing = await database.client.listings.create({ data: {
+      inventory_item_id: trading.id, seller_user_id: users[0]!.id,
+      accepts_trade: true, status: "active", game_id: first.game_id,
+    }});
     const transaction = await database.client.transactions.create({ data: {
+      listing_id: tradingListing.id,
       seller_user_id: users[0]!.id, counterparty_user_id: users[1]!.id,
-      transaction_type: "trade", status: "agreed", game_id: first.game_id,
+      transaction_type: "card_trade", status: "agreed", game_id: first.game_id,
     }});
     await database.client.transaction_items.create({ data: {
-      transaction_id: transaction.id, inventory_item_id: trading.id, item_role: "listing_item",
+      transaction_id: transaction.id, inventory_item_id: trading.id, item_role: "listed_item",
       quantity: 1, from_user_id: users[0]!.id, to_user_id: users[1]!.id, game_id: first.game_id,
     }});
     const blocked = await service.preflightPrintingChange(users[0]!.id, trading.id, { printingId: second.id, finish: second.printing_finishes[0]!.finish });

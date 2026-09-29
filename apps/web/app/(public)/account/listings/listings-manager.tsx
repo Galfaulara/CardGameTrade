@@ -4,13 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import type { PublicListing } from "../../../../features/marketplace/api";
+import type { ManagementListing } from "../../../../features/account/listing-types";
 import styles from "./page.module.css";
 
 const pretty = (value: string) =>
   value.replaceAll("_", " ");
 
-const artwork = (listing: PublicListing) =>
+const artwork = (listing: ManagementListing) =>
   listing.inventory_item?.printing
     .image_large_uri ??
   listing.inventory_item?.printing
@@ -19,7 +19,7 @@ const artwork = (listing: PublicListing) =>
     .image_small_uri ??
   null;
 
-const cardHref = (listing: PublicListing) => {
+const cardHref = (listing: ManagementListing) => {
   const canonicalCardId =
     listing.inventory_item?.printing
       .canonical_cards.id;
@@ -48,7 +48,7 @@ const parseBody = async (
 export function ListingsManager({
   listings,
 }: {
-  listings: PublicListing[];
+  listings: ManagementListing[];
 }) {
   const router = useRouter();
   const [pending, startTransition] =

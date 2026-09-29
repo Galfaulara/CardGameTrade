@@ -16,7 +16,7 @@ import type {
   DiscoveryUserWishlistQuery,
 } from "@repo/validation";
 import { DatabaseService } from "../database/database.service";
-import { activePublicListingWhere as activeListing } from "../marketplace/active-public-listing";
+import { publicListingWhere as activeListing } from "../marketplace/active-public-listing";
 
 const available = { status: "available" } as const;
 const eligibleStore = {
@@ -906,36 +906,12 @@ export class DiscoveryService {
           : query.intent === "mixed"
             ? { accepts_trade: true, accepts_cash: true }
             : { OR: [{ accepts_trade: true }, { accepts_cash: true }] };
-    const ownership: Prisma.listingsWhereInput = {
-      OR: [
-        {
-          seller_user_id: { not: null },
-          seller_store_id: null,
-          inventory_items_listings_inventory_item_id_seller_user_idToinventory_items:
-            {
-              is: {
-                ...available,
-                owner_store_id: null,
-                user_profiles: { status: "active" },
-              },
-            },
-        },
-        {
-          seller_store_id: { not: null },
-          seller_user_id: null,
-          inventory_items_listings_inventory_item_id_seller_store_idToinventory_items:
-            {
-              is: { ...available, owner_user_id: null, stores: eligibleStore },
-            },
-        },
-      ],
-    };
     const where: Prisma.listingsWhereInput = {
       status: "active",
       ...(gameId ? { game_id: gameId } : {}),
       AND: [
         intent,
-        ownership,
+        activeListing,
         ...(cursor && cursorDate
           ? [
               {

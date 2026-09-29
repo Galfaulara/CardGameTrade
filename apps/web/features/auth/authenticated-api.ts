@@ -8,7 +8,7 @@ import type {
 import type { MyProfile } from "../account/profile-types";
 import type { MyTrade } from "../account/trade-types";
 import type { StoreHandoff } from "../store/handoff-types";
-import type { PublicListing } from "../marketplace/api";
+import type { ManagementListing } from "../account/listing-types";
 
 const apiBase = process.env.DECKDEAL_API_URL ?? "http://localhost:4000/api";
 
@@ -108,7 +108,7 @@ export async function getMyInventory(
 export async function getMyListings(userId: string) {
   return (await authenticatedApiFetch(
     `/listings/users/${encodeURIComponent(userId)}`,
-  )).json() as Promise<PublicListing[]>;
+  )).json() as Promise<ManagementListing[]>;
 }
 
 export async function getMySentOffers(userId: string, gameSlug?: string) {
@@ -192,6 +192,15 @@ export async function tryGetAuthenticatedCurrentUser() {
       return null;
     }
 
+    throw error;
+  }
+}
+
+export async function getAccountListing(userId: string, listingId: string): Promise<ManagementListing | null> {
+  try {
+    return await (await authenticatedApiFetch(`/listings/users/${encodeURIComponent(userId)}/${encodeURIComponent(listingId)}`)).json();
+  } catch (error) {
+    if (error instanceof AuthenticatedApiError && error.status === 404) return null;
     throw error;
   }
 }

@@ -14,6 +14,7 @@ import type {
 } from "@repo/validation";
 
 import { DatabaseService } from "../database/database.service";
+import { publicListingWhere } from "../marketplace/active-public-listing";
 
 type ListingPreferredStore = {
   id: string;
@@ -275,7 +276,7 @@ export class ListingsService {
     );
   }
 
-  private mapListing(
+  private mapManagementListing(
     listing: any,
   ) {
     const inventoryItem =
@@ -343,7 +344,91 @@ export class ListingsService {
     };
   }
 
-  private getListingSelect() {
+  private getPublicListingSelect() {
+    const management = this.getManagementListingSelect();
+    const user = management.inventory_items_listings_inventory_item_id_seller_user_idToinventory_items.select;
+    const store = management.inventory_items_listings_inventory_item_id_seller_store_idToinventory_items.select;
+    const physicalCard = {
+      finish: true, condition: true, language_code: true,
+      is_signed: true, is_altered: true, is_graded: true,
+      printing_finishes: user.printing_finishes,
+    } as const;
+    return {
+      id: true, game_id: true, seller_user_id: true, seller_store_id: true,
+      accepts_cash: true, accepts_trade: true, asking_price: true,
+      currency_code: true, title: true, description: true, created_at: true,
+      store_games: management.store_games,
+      inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: {
+        select: { ...physicalCard, user_profiles: user.user_profiles },
+      },
+      inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: {
+        select: { ...physicalCard, stores: store.stores },
+      },
+    } as const;
+  }
+
+  private mapPublicListing(listing: any) {
+    const item = listing.inventory_items_listings_inventory_item_id_seller_user_idToinventory_items
+      ?? listing.inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
+    const store = listing.store_games?.stores;
+    return {
+      id: listing.id, game_id: listing.game_id, available: true,
+      seller_user_id: listing.seller_user_id, seller_store_id: listing.seller_store_id,
+      accepts_cash: listing.accepts_cash, accepts_trade: listing.accepts_trade,
+      asking_price: listing.asking_price, currency_code: listing.currency_code,
+      title: listing.title, description: listing.description, created_at: listing.created_at,
+      preferred_store: store ? {
+        id: store.id, name: store.name, slug: store.slug, logo_url: store.logo_url,
+        city: store.city, state_region: store.state_region, country_code: store.country_code,
+      } : null,
+      inventory_item: item ? {
+        finish: item.finish, condition: item.condition, language_code: item.language_code,
+        is_signed: item.is_signed, is_altered: item.is_altered, is_graded: item.is_graded,
+        user_profiles: item.user_profiles, stores: item.stores,
+        printing: { ...item.printing_finishes.card_printings, finish: item.printing_finishes.finish },
+      } : null,
+    };
+  }
+
+  private async getManagementListing(userId: string, listingId: string) {
+    const listing = await this.database.client.listings.findFirst({
+      where: { id: listingId, seller_user_id: userId, seller_store_id: null },
+      select: this.getManagementListingSelect(),
+    });
+    if (!listing) throw new NotFoundException("Listing was not found or does not belong to this user.");
+    return this.mapManagementListing(listing);
+  }
+
+  async getTradeContext(listingId: string) {
+    const listing = await this.database.client.listings.findFirst({
+      where: { ...publicListingWhere, id: listingId, accepts_trade: true },
+      select: {
+        inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: { select: { quantity: true } },
+        inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: { select: { quantity: true } },
+      },
+    });
+    if (!listing) throw new NotFoundException("Listing was not found.");
+    const item = listing.inventory_items_listings_inventory_item_id_seller_user_idToinventory_items
+      ?? listing.inventory_items_listings_inventory_item_id_seller_store_idToinventory_items;
+    return { targetQuantity: item!.quantity };
+  }
+
+  async getAccountListing(userId: string, listingId: string) {
+    const listing = await this.database.client.listings.findFirst({
+      where: {
+        id: listingId,
+        OR: [
+          { seller_user_id: userId },
+          { listing_offers: { some: { offerer_user_id: userId } } },
+        ],
+      },
+      select: this.getManagementListingSelect(),
+    });
+    if (!listing) throw new NotFoundException("Listing was not found.");
+    return this.mapManagementListing(listing);
+  }
+
+  private getManagementListingSelect() {
     return {
       id: true,
       game_id: true,
@@ -581,52 +666,11 @@ export class ListingsService {
       await this.database.client.listings.findMany({
         where: {
           ...(gameId ? { game_id: gameId } : {}),
-          status:
-            "active",
-
-          OR: [
-            {
-              accepts_trade: true,
-            },
-            {
-              accepts_cash: true,
-            },
-          ],
-
-          AND: {
-            OR: [
-              {
-                seller_user_id: { not: null },
-                seller_store_id: null,
-                inventory_items_listings_inventory_item_id_seller_user_idToinventory_items: {
-                  is: {
-                    status: "available",
-                    owner_store_id: null,
-                    user_profiles: { status: "active" },
-                  },
-                },
-              },
-              {
-                seller_store_id: { not: null },
-                seller_user_id: null,
-                inventory_items_listings_inventory_item_id_seller_store_idToinventory_items: {
-                  is: {
-                    status: "available",
-                    owner_user_id: null,
-                    stores: {
-                      status: "active",
-                      verification_status: "verified",
-                      trade_mediation_enabled: true,
-                    },
-                  },
-                },
-              },
-            ],
-          },
+          ...publicListingWhere,
         },
 
         select:
-          this.getListingSelect(),
+          this.getPublicListingSelect(),
 
         orderBy: {
           created_at:
@@ -636,24 +680,32 @@ export class ListingsService {
 
     return listings.map(
       (listing) =>
-        this.mapListing(
+        this.mapPublicListing(
           listing,
         ),
     );
   }
 
+  /**
+   * Unauthenticated public lookup. Applies the authoritative public listing
+   * rule so a paused, closed, sold, traded or removed listing — or one whose
+   * backing inventory is no longer available — is indistinguishable from a
+   * listing that never existed. Owners inspect their inactive listings through
+   * the authorized account endpoints instead.
+   */
   async getListing(
     listingId: string,
   ) {
     const listing =
-      await this.database.client.listings.findUnique({
+      await this.database.client.listings.findFirst({
         where: {
           id:
             listingId,
+          ...publicListingWhere,
         },
 
         select:
-          this.getListingSelect(),
+          this.getPublicListingSelect(),
       });
 
     if (!listing) {
@@ -662,7 +714,7 @@ export class ListingsService {
       );
     }
 
-    return this.mapListing(
+    return this.mapPublicListing(
       listing,
     );
   }
@@ -718,7 +770,7 @@ export class ListingsService {
         },
 
         select:
-          this.getListingSelect(),
+          this.getManagementListingSelect(),
 
         orderBy: {
           created_at:
@@ -728,7 +780,7 @@ export class ListingsService {
 
     return listings.map(
       (listing) =>
-        this.mapListing(
+        this.mapManagementListing(
           listing,
         ),
     );
@@ -884,8 +936,8 @@ export class ListingsService {
         },
       });
 
-    return this.getListing(
-      listing.id,
+    return this.getManagementListing(
+      userId, listing.id,
     );
   }
 
@@ -1082,8 +1134,8 @@ export class ListingsService {
       },
     });
 
-    return this.getListing(
-      listingId,
+    return this.getManagementListing(
+      userId, listingId,
     );
   }
 
@@ -1174,8 +1226,8 @@ export class ListingsService {
       },
     });
 
-    return this.getListing(
-      listingId,
+    return this.getManagementListing(
+      userId, listingId,
     );
   }
 }

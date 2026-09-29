@@ -1,3 +1,4 @@
+import type { ManagementListing } from "../../../../features/account/listing-types";
 import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
@@ -20,15 +21,14 @@ import {
 import {
   AuthenticatedApiError,
   getAuthenticatedCurrentUser,
+  getAccountListing,
   getMyReceivedOffers,
   getMySentOffers,
   getMyTransactions,
 } from "../../../../features/auth/authenticated-api";
 import {
-  getPublicListing,
   getLatestMarketPrices,
   getTradeMediators,
-  type PublicListing,
   type TradeMediatorStore,
 } from "../../../../features/marketplace/api";
 import { loadGames } from "../../../../features/games/games.server";
@@ -53,7 +53,7 @@ const views = new Set(["sent", "received"]);
 const offersGameHref = (view: "sent" | "received", gameSlug: string) =>
   `/account/offers?${new URLSearchParams({ view, game: gameSlug }).toString()}`;
 
-const cardHref = (listing: PublicListing | null) => {
+const cardHref = (listing: ManagementListing | null) => {
   const canonicalCardId = listing?.inventory_item?.printing.canonical_cards.id;
   const printingId = listing?.inventory_item?.printing.id;
 
@@ -64,7 +64,7 @@ const cardHref = (listing: PublicListing | null) => {
   return `/cards/${canonicalCardId}${printingId ? `?printing=${printingId}` : ""}`;
 };
 
-const sellerMeta = (listing: PublicListing | null) => {
+const sellerMeta = (listing: ManagementListing | null) => {
   const user = listing?.inventory_item?.user_profiles;
   if (user?.id) {
     return {
@@ -87,6 +87,7 @@ const sellerMeta = (listing: PublicListing | null) => {
 };
 
 async function loadOfferEntries(
+  userId: string,
   offers: MyListingOffer[],
   transactionIdByOfferId: Map<string, string>,
 ): Promise<MyOfferEntry[]> {
@@ -94,10 +95,10 @@ async function loadOfferEntries(
     await Promise.all(
       [...new Set(offers.map((offer) => offer.listing_id))].map(
         async (listingId) => {
-          const result = await getPublicListing(listingId);
+          const result = await getAccountListing(userId, listingId);
           return [
             listingId,
-            result.status === "ready" ? result.data : null,
+            result,
           ] as const;
         },
       ),
@@ -412,7 +413,7 @@ export default async function AccountOffersPage({
       ),
     );
 
-    const entries = await loadOfferEntries(offers, transactionIdByOfferId);
+    const entries = await loadOfferEntries(currentUser.user.id, offers, transactionIdByOfferId);
     const mediatorsByOfferId =
       view === "received" ? await loadMediatorsByOfferId(entries, games) : {};
     const receivedMarketPrices =

@@ -70,6 +70,20 @@ export class ListingsController {
     );
   }
 
+  // Authenticated offer valuation context; never part of the public DTO.
+  @Get(":listingId/trade-context")
+  getTradeContext(@Param("listingId", new ParseUUIDPipe({ version: "4" })) listingId: string) {
+    return this.listingsService.getTradeContext(listingId);
+  }
+
+  @Get("users/:userId/:listingId")
+  getAccountListing(
+    @Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string,
+    @Param("listingId", new ParseUUIDPipe({ version: "4" })) listingId: string,
+  ) {
+    return this.listingsService.getAccountListing(userId, listingId);
+  }
+
   @Post("users/:userId")
   createUserListing(
     @Param(

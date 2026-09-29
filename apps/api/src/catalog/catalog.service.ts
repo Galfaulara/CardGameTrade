@@ -3,6 +3,7 @@ import { Prisma } from "@repo/db";
 import { normalizeCatalogSearchText } from "@repo/validation";
 
 import { DatabaseService } from "../database/database.service";
+import { publicListingWhere } from "../marketplace/active-public-listing";
 
 @Injectable()
 export class CatalogService {
@@ -439,27 +440,24 @@ export class CatalogService {
     const selected = /^[0-9a-f-]{36}$/i.test(selectedPrintingId)
       ? selectedPrintingId
       : "00000000-0000-0000-0000-000000000000";
-    const [ids, countRows] = await Promise.all([
-      this.database.client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT l.id FROM listings l JOIN inventory_items i ON i.id = l.inventory_item_id
-        JOIN card_printings cp ON cp.id = i.printing_id
-        WHERE cp.canonical_card_id = ${canonicalCardId}::uuid AND l.status = 'active'
-          AND i.status = 'available' AND (l.accepts_trade OR l.accepts_cash)
-          AND ((l.seller_user_id = i.owner_user_id AND l.seller_store_id IS NULL)
-            OR (l.seller_store_id = i.owner_store_id AND l.seller_user_id IS NULL))
-        ORDER BY CASE WHEN i.printing_id = ${selected}::uuid THEN 0 ELSE 1 END,
-          CASE WHEN l.accepts_trade THEN 0 ELSE 1 END, l.created_at DESC, l.id ASC
-        OFFSET ${(page - 1) * pageSize} LIMIT ${pageSize}`),
-      this.database.client.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
-        SELECT COUNT(*) count FROM listings l JOIN inventory_items i ON i.id = l.inventory_item_id
-        JOIN card_printings cp ON cp.id = i.printing_id
-        WHERE cp.canonical_card_id = ${canonicalCardId}::uuid AND l.status = 'active'
-          AND i.status = 'available' AND (l.accepts_trade OR l.accepts_cash)
-          AND ((l.seller_user_id = i.owner_user_id AND l.seller_store_id IS NULL)
-            OR (l.seller_store_id = i.owner_store_id AND l.seller_user_id IS NULL))`),
-    ]);
+    const eligible = await this.database.client.listings.findMany({
+      where: {
+        ...publicListingWhere,
+        inventory_items_listings_inventory_item_id_game_idToinventory_items: {
+          is: { card_printings: { canonical_card_id: canonicalCardId } },
+        },
+      },
+      select: { id: true },
+    });
+    // Rank only eligible IDs, preserving exact-printing preference and pagination.
+    const ids = eligible.length ? await this.database.client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT l.id FROM listings l JOIN inventory_items i ON i.id = l.inventory_item_id
+      WHERE l.id = ANY(${eligible.map(row => row.id)}::uuid[])
+      ORDER BY CASE WHEN i.printing_id = ${selected}::uuid THEN 0 ELSE 1 END,
+        CASE WHEN l.accepts_trade THEN 0 ELSE 1 END, l.created_at DESC, l.id ASC
+      OFFSET ${(page - 1) * pageSize} LIMIT ${pageSize}`) : [];
     const hydrated = await this.database.client.listings.findMany({
-      where: { id: { in: ids.map((row) => row.id) } },
+      where: { ...publicListingWhere, id: { in: ids.map((row) => row.id) } },
       select,
     });
     const byId = new Map(hydrated.map((listing) => [listing.id, listing]));
@@ -467,7 +465,7 @@ export class CatalogService {
       const item = byId.get(id);
       return item ? [item] : [];
     });
-    const total = Number(countRows[0]?.count ?? 0);
+    const total = eligible.length;
     return {
       items: ranked
         .map((listing) => {

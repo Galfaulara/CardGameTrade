@@ -1,4 +1,4 @@
-import type { PublicListing } from "../marketplace/api";
+import type { ManagementListing } from "./listing-types";
 
 export type MyListingOfferItem = {
   id: string;
@@ -87,7 +87,7 @@ export type MyListingOffer = {
 
 export type MyOfferEntry = {
   offer: MyListingOffer;
-  listing: PublicListing | null;
+  listing: ManagementListing | null;
   transactionId: string | null;
 };
 

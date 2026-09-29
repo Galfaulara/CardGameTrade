@@ -6,6 +6,7 @@ import { NavigationBack } from "../../../../components/navigation-back/navigatio
 import type { MyInventoryListResult } from "../../../../features/account/inventory-types";
 import {
   AuthenticatedApiError,
+  authenticatedApiFetch,
   getAuthenticatedCurrentUser,
   getMyInventory,
 } from "../../../../features/auth/authenticated-api";
@@ -57,10 +58,9 @@ const normalizeQuery = (value: string | string[] | undefined) => {
 };
 
 const listingAvailable = (listing: PublicListing) =>
-  listing.status === "active" &&
+  listing.available &&
   listing.accepts_trade &&
-  Boolean(listing.inventory_item) &&
-  listing.inventory_item?.status === "available";
+  Boolean(listing.inventory_item);
 
 const sellerLabel = (listing: PublicListing) => {
   const user = listing.inventory_item?.user_profiles;
@@ -222,6 +222,9 @@ export default async function TradePage({
       inventoryQuery(page, q, listingGame.slug),
     )) as MyInventoryListResult;
     const target = listing.inventory_item!;
+    const tradeContext: { targetQuantity: number } = await (
+      await authenticatedApiFetch(`/listings/${encodeURIComponent(listing.id)}/trade-context`)
+    ).json();
     const marketPrices = await getLatestMarketPrices([
       { printingId: target.printing.id, finish: target.finish },
       ...inventory.items.map((item) => ({
@@ -297,7 +300,7 @@ export default async function TradePage({
             initialInventory={inventory}
             targetPrintingId={target.printing.id}
             targetFinish={target.finish}
-            targetQuantity={target.quantity}
+            targetQuantity={tradeContext.targetQuantity}
             initialMarketPrices={marketPrices}
           />
         </section>

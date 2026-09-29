@@ -78,29 +78,23 @@ export type Listing = {
 export type PublicListing = {
   id: string;
   game_id: string;
-  inventory_item_id: string;
+  available: boolean;
   seller_user_id: string | null;
   seller_store_id: string | null;
   accepts_cash: boolean;
   accepts_trade: boolean;
   asking_price: string | null;
   currency_code: string | null;
-  preferred_store_id: string | null;
   title: string | null;
   description: string | null;
-  status: string;
   created_at: string;
-  updated_at: string;
   inventory_item: {
-    id: string;
     finish: string;
     condition: string;
     language_code: string;
-    quantity: number;
     is_signed: boolean;
     is_altered: boolean;
     is_graded: boolean;
-    status: string;
     user_profiles?: {
       id: string;
       display_name: string | null;
@@ -114,6 +108,9 @@ export type PublicListing = {
     };
     printing: CardPrinting & {
       image_large_uri: string | null;
+      language_code: string;
+      printed_name: string | null;
+      treatment: string | null;
       canonical_cards: {
         id: string;
         name: string;
