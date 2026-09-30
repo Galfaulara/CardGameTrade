@@ -1,3 +1,5 @@
+import { ShareButton } from "../../../../components/share-button/share-button";
+import { getPublicTradeList } from "../../../../features/marketplace/api";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import {
@@ -60,9 +62,12 @@ export default async function AccountListingsPage() {
       currentUser.user.id,
     );
 
+    const tradeList = await getPublicTradeList(currentUser.user.id, 1, 1);
+
     return (
       <AccountShell
         section="listings"
+        actions={<ShareButton path={`/users/${currentUser.user.id}?view=listings`} title="My trade list" text="My trade cards on DeckDeal" label="Share trade list" showLabelOnMobile disabled={tradeList.status !== "ready" || tradeList.data.pagination.total_count === 0} />}
         title="My Listings"
         intro="Manage the exact cards you’ve actively listed for trade on DeckDeal. Available inventory alone does not create marketplace intent."
       >

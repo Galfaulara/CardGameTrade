@@ -24,7 +24,7 @@ export default async function StoreWorkspace({ params }: { params: Promise<{ sto
       <p className={styles.eyebrow}>Store Workspace</p>
       <h1>{workspace.store.name}</h1>
       <p>Trade Handoffs</p>
-      <ShareButton path={`/stores/${storeId}`} title={workspace.store.name} text={`${workspace.store.name} on DeckDeal`} label="Share" disabled={publicStore.status !== "ready"} />
+      <ShareButton path={`/stores/${storeId}`} title={workspace.store.name} text={`${workspace.store.name} on DeckDeal`} label="Share store" showLabelOnMobile disabled={publicStore.status !== "ready"} />
     </header>
     {handoffs.length ? <ul className={styles.list}>{handoffs.map((handoff) => <li key={handoff.id}>
       <article className={styles.handoff}>

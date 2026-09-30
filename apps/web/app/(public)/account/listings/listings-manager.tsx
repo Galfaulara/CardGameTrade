@@ -1,6 +1,5 @@
 "use client";
 
-import { ShareButton } from "../../../../components/share-button/share-button";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -139,7 +138,6 @@ export function ListingsManager({
                   )}
                 </Link>
                 <div className={styles.info}>
-                  <ShareButton path={`/listings/${listing.id}`} title={item?.printing.canonical_cards.name ?? "Listing"} text="Listing on DeckDeal" label="Share" disabled={!listing.public_share_path} />
                   <div className={styles.heading}>
                     <div>
                       <p className={styles.kicker}>

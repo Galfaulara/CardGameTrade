@@ -59,10 +59,10 @@ export default async function AccountProfilePage() {
     return (
       <AccountShell
         section="profile"
+        actions={<ShareButton path={`/users/${profile.id}`} title={profile.display_name ?? profile.username ?? "My profile"} text="My DeckDeal profile" label="Share profile" showLabelOnMobile disabled={!profile.public_profile_available} />}
         title="DeckDeal public profile"
         intro="Manage your DeckDeal public identity, display name, and preferred local game store without changing Clerk sign-in controls."
       >
-        <ShareButton path={`/users/${profile.id}`} title={profile.display_name ?? profile.username ?? "My profile"} text="My DeckDeal profile" label="Share" disabled={!profile.public_profile_available} />
         <ProfileForm initialProfile={profile} />
       </AccountShell>
     );
