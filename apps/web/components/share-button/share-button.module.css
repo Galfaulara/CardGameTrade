@@ -67,3 +67,6 @@
 }
 
 .button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.visibleLabel { white-space: nowrap; }
+.button:has(.visibleLabel) { padding-inline: var(--space-3); }

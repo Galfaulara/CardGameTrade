@@ -35,7 +35,8 @@
     "test:share-actions": "node --experimental-strip-types test/share-actions-regression.ts",
     "test:public-listing-sharing": "node --experimental-strip-types test/public-listing-sharing-regression.ts",
     "test:printing-actionability": "node --experimental-strip-types test/printing-actionability-regression.ts",
-    "test:owner-share-controls": "node test/owner-share-controls-regression.mjs"
+    "test:owner-share-controls": "node test/owner-share-controls-regression.mjs",
+    "test:trade-list-sharing": "node --experimental-strip-types test/trade-list-sharing-regression.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.2",

@@ -1,3 +1,4 @@
+import { PublicTradeList } from "./public-trade-list";
 /* eslint-disable @typescript-eslint/no-explicit-any -- Public profile DTO variants are narrowed by API status at runtime. */
 import Image from "next/image";
 import Link from "next/link";
@@ -17,11 +18,12 @@ import {
 import styles from "./page.module.css";
 import { ProfileSocialActions } from "../../../../components/profile-social-actions/profile-social-actions";
 
-type View = "overview" | "collections" | "available" | "wants";
+type View = "overview" | "collections" | "available" | "wants" | "listings";
 const views: Array<{ id: View; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "collections", label: "Collections" },
   { id: "available", label: "Available" },
+  { id: "listings", label: "Trade list" },
   { id: "wants", label: "Wishlists" },
 ];
 const pageNumber = (value: string | string[] | undefined) => {
@@ -99,6 +101,7 @@ export default async function UserPage({
     name = publicUserLabel(user) ?? "DeckDeal collector",
     headingName = user.display_name ?? user.username ?? "DeckDeal collector",
     initials = collectorInitials(user.display_name, user.username);
+  if (view === "listings") return <PublicTradeList userId={userId} name={headingName} page={page} />;
   const resources =
     view === "overview"
       ? await Promise.all([

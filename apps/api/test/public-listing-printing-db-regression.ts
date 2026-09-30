@@ -139,6 +139,17 @@ async function main() {
     for (const id of listings) assertPublic(list.body.find((l: any) => l.id === id));
     assert.notEqual(`/listings/${listings[0]}`, `/listings/${listings[1]}`);
     console.log(JSON.stringify({ listingA: `/listings/${listings[0]}`, listingB: `/listings/${listings[1]}`, samePrinting: firstItem.printing_id }));
+    const aggregatePath = `/api/listings/public/users/${owner.deckdealUserId}?page=1&pageSize=48&gameSlug=mtg`;
+    const aggregate = await harness.as(null).get(aggregatePath).expect(200);
+    assert(aggregate.body.items.every((item: any) => item.seller_user_id === owner.deckdealUserId && item.game_id === firstItem.game_id));
+    assertPublic(aggregate.body.items.find((item: any) => item.id === listings[0]));
+    assert(!aggregate.body.items.some((item: any) => item.id === listings[1]));
+    assert(!JSON.stringify(aggregate.body).includes('inventory_item_id'));
+    for (const item of aggregate.body.items) { assert(!('id' in item.inventory_item)); assert(!('quantity' in item.inventory_item)); assert(!('status' in item.inventory_item)); }
+    const one = await harness.as(null).get(`/api/listings/public/users/${owner.deckdealUserId}?pageSize=1&gameSlug=mtg`).expect(200);
+    assert.equal(one.body.items.length, 1);
+    assert.equal(one.body.pagination.total_count, aggregate.body.pagination.total_count);
+    await harness.as(null).get(`/api/listings/public/users/${randomUUID()}`).expect(404);
     const tradeable = await harness.as(null).get(`/api/discovery/collections/${collection.id}?page=1&pageSize=24`).expect(200);
     assert.equal(tradeable.body.items.find((i: any) => i.id === firstItem.id).listing.id, listings[0]);
     const cardListings = await harness.as(null).get(`/api/catalog/cards/${balmor.id}/listings?printing=${firstItem.printing_id}&pageSize=24`).expect(200);
@@ -156,6 +167,8 @@ async function main() {
     for (const status of ["paused", "closed", "sold", "traded", "removed"]) {
       await db.listings.update({ where: { id: listings[0]! }, data: { status } });
       await harness.as(null).get(`/api/listings/${listings[0]}`).expect(404);
+      const staleAggregate = await harness.as(null).get(aggregatePath).expect(200);
+      assert(!staleAggregate.body.items.some((item: any) => item.id === listings[0]));
       const account = await harness.as(owner).get(`/api/listings/users/${owner.deckdealUserId}/${listings[0]}`).expect(200);
       assert.equal(account.body.status, status);
       await harness.as(other).get(`/api/listings/users/${other.deckdealUserId}/${listings[0]}`).expect(200);

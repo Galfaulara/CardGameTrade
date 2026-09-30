@@ -773,6 +773,24 @@ export async function getPublicUserCollections(
     : result;
 }
 
+export function getPublicTradeList(
+  userId: string,
+  page: number,
+  pageSize = 24,
+) {
+  return publicUserGet<{
+    items: PublicListing[];
+    pagination: {
+      page: number;
+      page_size: number;
+      total_count: number;
+      has_more: boolean;
+    };
+  }>(
+    `/listings/public/users/${encodeURIComponent(userId)}?page=${page}&pageSize=${pageSize}`,
+  );
+}
+
 export async function getPublicUserListings(
   userId: string,
   page: number,

@@ -13,12 +13,14 @@ import {
   setUserListingStatusSchema,
   updateUserListingSchema,
   listingListQuerySchema,
+  discoveryUserListingQuerySchema,
 } from "@repo/validation";
 import type {
   CreateUserListingInput,
   SetUserListingStatusInput,
   UpdateUserListingInput,
   ListingListQuery,
+  DiscoveryUserListingQuery,
 } from "@repo/validation";
 
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
@@ -35,6 +37,15 @@ export class ListingsController {
   @Public()
   getActiveListings(@Query(new ZodValidationPipe(listingListQuerySchema)) query: ListingListQuery) {
     return this.listingsService.getActiveListings(query.gameSlug);
+  }
+
+  @Get("public/users/:userId")
+  @Public()
+  getPublicTradeList(
+    @Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string,
+    @Query(new ZodValidationPipe(discoveryUserListingQuerySchema)) query: DiscoveryUserListingQuery,
+  ) {
+    return this.listingsService.getPublicTradeList(userId, query);
   }
 
   @Get(":listingId")

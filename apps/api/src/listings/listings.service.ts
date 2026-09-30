@@ -8,6 +8,7 @@ import {
 
 import type {
   CollectionListingInput,
+  DiscoveryUserListingQuery,
   CreateUserListingInput,
   SetUserListingStatusInput,
   UpdateUserListingInput,
@@ -658,6 +659,40 @@ export class ListingsService {
           },
         },
     } as const;
+  }
+
+  async getPublicTradeList(userId: string, query: DiscoveryUserListingQuery) {
+    const user = await this.database.client.user_profiles.findFirst({
+      where: { id: userId, status: "active" },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException("Trade list was not found.");
+    const gameId = await this.resolveGameId(query.gameSlug);
+    const where = {
+      ...publicListingWhere,
+      seller_user_id: userId,
+      seller_store_id: null,
+      ...(gameId ? { game_id: gameId } : {}),
+    };
+    const [listings, total] = await Promise.all([
+      this.database.client.listings.findMany({
+        where,
+        select: this.getPublicListingSelect(),
+        orderBy: [{ created_at: "desc" }, { id: "asc" }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.database.client.listings.count({ where }),
+    ]);
+    return {
+      items: listings.map((listing) => this.mapPublicListing(listing)),
+      pagination: {
+        page: query.page,
+        page_size: query.pageSize,
+        total_count: total,
+        has_more: query.page * query.pageSize < total,
+      },
+    };
   }
 
   async getActiveListings(gameSlug?: string) {

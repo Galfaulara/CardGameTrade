@@ -33,9 +33,10 @@ export type ShareButtonProps = {
   /** Show a visible text label next to the icon. */
   label?: string;
   disabled?: boolean;
+  showLabelOnMobile?: boolean;
 };
 
-export function ShareButton({ path, title, text, label, disabled = false }: ShareButtonProps) {
+export function ShareButton({ path, title, text, label, disabled = false, showLabelOnMobile = false }: ShareButtonProps) {
   const [status, setStatus] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -81,7 +82,7 @@ export function ShareButton({ path, title, text, label, disabled = false }: Shar
         onClick={() => void share()}
       >
         <ShareIcon />
-        {label ? <span className={styles.label}>{label}</span> : null}
+        {label ? <span className={showLabelOnMobile ? styles.visibleLabel : styles.label}>{label}</span> : null}
       </button>
       <span className={styles.status} role="status" aria-live="polite">
         {status}

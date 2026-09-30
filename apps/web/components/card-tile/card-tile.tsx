@@ -15,14 +15,14 @@ const formatPrice = (amount: string, currency: string) => {
   catch { return `${currency} ${amount}`; }
 };
 
-export function CardTile({ card, layout = "rail", canonicalAdd = false, relationship }: { card: CardView; layout?: "rail" | "grid"; canonicalAdd?: boolean; relationship?:{owned:number;inWants:boolean} }) {
+export function CardTile({ card, layout = "rail", canonicalAdd = false, relationship, detailHref }: { card: CardView; detailHref?: string; layout?: "rail" | "grid"; canonicalAdd?: boolean; relationship?:{owned:number;inWants:boolean} }) {
   const specialFinish = isSpecialFinish(card.finish);
   const image = cardImageState(card.imageUrl);
 
   // Scryfall rejects the generic User-Agent used by Next's image optimizer.
   // Its size-specific catalog assets are therefore requested by the browser.
 
-  const href = card.canonicalCardId ? `/cards/${card.canonicalCardId}${card.printingId ? `?printing=${card.printingId}` : ""}` : undefined;
+  const href = detailHref ?? (card.canonicalCardId ? `/cards/${card.canonicalCardId}${card.printingId ? `?printing=${card.printingId}` : ""}` : undefined);
   const artwork = <div className={styles.art}>{image.kind === "image" ? <Image src={image.url} alt={`${card.name} card artwork`} fill sizes="(max-width: 640px) 58vw, (max-width: 832px) 188px, 216px" unoptimized /> : <span role="img" aria-label={`${card.name} image unavailable`}>Card image unavailable</span>}</div>;
   return (
     <article className={`${styles.tile} ${layout === "grid" ? styles.gridTile : ""}`}>
