@@ -205,7 +205,7 @@ export function WantsManager({
           </nav>
           {selected ? (
             <section className={styles.detail}>
-              <header>
+              <header className={styles.selectedHeader}>
                 <div>
                   <p>
                     {selected.visibility} · {selected.status}
@@ -215,11 +215,11 @@ export function WantsManager({
                     <span>{selected.description}</span>
                   ) : null}
                 </div>
-                <div className={styles.actions}>
-                  <OwnerShareControls key={selected.id + selected.visibility} path={`/wishlists/${selected.id}`} title={selected.name}
-                    visibility={selected.visibility} eligible={selected.status === "active"}
-                    updateUrl={`/api/me/wishlists/${selected.id}?gameSlug=${encodeURIComponent(game.slug)}`}
-                    onVisibilityChange={() => setWishlists(values => values.map(value => value.id === selected.id ? { ...value, visibility: "unlisted" } : value))} />
+              </header>
+              <div className={styles.wishlistToolbar} role="group" aria-label="Selected Wishlist actions">
+                <div className={styles.visibilityGroup}>
+                  <label className={styles.visibilityControl}>
+                    <span>Visibility</span>
                   <select
                     aria-label="Wishlist visibility"
                     title="Private: only you. Unlisted: anyone with the link, hidden from discovery. Public: anyone, including public discovery."
@@ -233,22 +233,31 @@ export function WantsManager({
                     <option value="unlisted">Unlisted</option>
                     <option value="public">Public</option>
                   </select>
+                  </label>
+                  <OwnerShareControls key={selected.id + selected.visibility} path={`/wishlists/${selected.id}`} title={selected.name}
+                    showVisibility={false} visibility={selected.visibility} eligible={selected.status === "active"}
+                    updateUrl={`/api/me/wishlists/${selected.id}?gameSlug=${encodeURIComponent(game.slug)}`}
+                    onVisibilityChange={() => setWishlists(values => values.map(value => value.id === selected.id ? { ...value, visibility: "unlisted" } : value))} />
+                </div>
+                <div className={styles.contentActions}>
                   <button
+                    type="button"
                     className={styles.primary}
                     disabled={selected.status !== "active"}
                     onClick={() => setAddOpen(true)}
                   >
-                    + Add wanted card
+                    + Add card
                   </button>
                   <button
+                    type="button"
                     className={styles.secondary}
                     disabled={selected.status !== "active"}
                     onClick={() => setBulkOpen(true)}
                   >
-                    Bulk add wanted cards
+                    Bulk add
                   </button>
                 </div>
-              </header>
+              </div>
               <WishlistMetadataForm
                 key={selected.id + selected.visibility}
                 wishlist={selected}
@@ -262,7 +271,7 @@ export function WantsManager({
                     className={styles.primary}
                     onClick={() => setAddOpen(true)}
                   >
-                    Add wanted card
+                    Add card
                   </button>
                 </div>
               ) : (
@@ -539,7 +548,6 @@ function WishlistMetadataForm({
         void onSave({
           name: data.get("name"),
           description: data.get("description") || null,
-          visibility: data.get("visibility"),
         });
       }}
     >
@@ -559,14 +567,6 @@ function WishlistMetadataForm({
           defaultValue={wishlist.description ?? ""}
           maxLength={1000}
         />
-      </label>
-      <label>
-        Visibility
-        <select title="Private: only you. Unlisted: anyone with the link, hidden from discovery. Public: anyone, including public discovery." name="visibility" defaultValue={wishlist.visibility}>
-          <option value="private">Private</option>
-          <option value="unlisted">Unlisted</option>
-          <option value="public">Public</option>
-        </select>
       </label>
       <button className={styles.primary} disabled={busy} aria-busy={busy}>
         {busy ? "Saving…" : "Save Wishlist details"}

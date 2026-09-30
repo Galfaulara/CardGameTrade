@@ -12,12 +12,14 @@ export function OwnerShareControls({
   updateUrl,
   eligible = true,
   onVisibilityChange,
+  showVisibility = true,
 }: {
   path: string;
   title: string;
   visibility: string;
   updateUrl: string;
   eligible?: boolean;
+  showVisibility?: boolean;
   onVisibilityChange?: () => void;
 }) {
   const router = useRouter();
@@ -51,7 +53,7 @@ export function OwnerShareControls({
   };
   return (
     <div className={styles.group}>
-      <span className={styles.visibility}>{visibility}</span>
+      {showVisibility ? <span className={styles.visibility}>{visibility}</span> : null}
       <ShareButton
         path={path}
         title={title}

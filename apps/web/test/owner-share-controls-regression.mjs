@@ -80,13 +80,35 @@ async function main() {
     for (const privatePath of ['/account/profile', '/account/inventory', '/store/s/handoffs/h']) assert.equal(c.render({ ...props, path: privatePath }), null);
   }
   const surfaces = {
-    'app/(public)/account/inventory/inventory-manager.tsx': ['OwnerShareControls', 'item.public_share_path', 'disabled={!item.public_share_path}'],
+    'app/(public)/account/inventory/inventory-manager.tsx': ['OwnerShareControls', '/collections/${sourceCollection.id}'],
     'app/(public)/account/wants/wants-manager.tsx': ['OwnerShareControls', '/wishlists/${selected.id}'],
     'app/(public)/account/profile/page.tsx': ['ShareButton', '/users/${profile.id}', 'disabled={!profile.public_profile_available}'],
-    'app/(public)/account/listings/listings-manager.tsx': ['ShareButton', '/listings/${listing.id}', 'disabled={!listing.public_share_path}'],
+    'app/(public)/account/listings/page.tsx': ['ShareButton', '?view=listings', 'Share trade list'],
     'app/(public)/store/[storeId]/page.tsx': ['ShareButton', '/stores/${storeId}', 'publicStore.status !== "ready"'],
   };
   for (const [file, contracts] of Object.entries(surfaces)) { const source = read(file); for (const contract of contracts) assert(source.includes(contract), `${file}: ${contract}`); assert.doesNotMatch(source, /<ShareButton[^>]*path=\{?`?"?\/account\//); }
+  const inventory = read('app/(public)/account/inventory/inventory-manager.tsx');
+  const listings = read('app/(public)/account/listings/listings-manager.tsx');
+  assert(!inventory.includes('ShareButton')); assert(!listings.includes('ShareButton'));
+  const wants = read('app/(public)/account/wants/wants-manager.tsx');
+  assert.equal((wants.match(/<OwnerShareControls/g) || []).length, 1);
+  assert(!wants.includes('ShareButton'));
+  const sidebar = wants.slice(wants.indexOf('<nav className={styles.list}'), wants.indexOf('</nav>'));
+  assert(!sidebar.includes('OwnerShareControls'));
+  const rows = wants.slice(wants.indexOf('{selected.items.map'), wants.indexOf('{createOpen'));
+  assert(!rows.includes('OwnerShareControls'));
+  assert(wants.includes('aria-label="Selected Wishlist actions"'));
+  assert(wants.includes('className={styles.visibilityGroup}'));
+  assert(wants.includes('className={styles.contentActions}'));
+  assert(wants.includes('+ Add card')); assert(wants.includes('Bulk add'));
+  assert(!wants.includes('+ Add wanted card')); assert(!wants.includes('Bulk add wanted cards'));
+  assert(wants.indexOf('+ Create wishlist') < wants.indexOf('aria-label="Selected Wishlist actions"'));
+  const wantsCss = read('app/(public)/account/wants/page.module.css');
+  assert(wantsCss.includes('width: 8rem'));
+  assert(wantsCss.includes('white-space: nowrap'));
+  assert(wantsCss.includes('flex-wrap: wrap'));
+  for (const path of ['app/(public)/account/profile/page.tsx','app/(public)/store/[storeId]/page.tsx','app/(public)/account/listings/page.tsx']) assert.equal((read(path).match(/<ShareButton/g) || []).length,1);
+  for (const path of ['app/(public)/listings/[listingId]/page.tsx','app/(public)/cards/[canonicalCardId]/page.tsx']) assert(read(path).includes('<ShareButton'));
   const css = read('components/share-button/owner-share-controls.module.css');
   assert(css.includes('flex-wrap: wrap')); assert(css.includes('min-height: 2.75rem')); assert(css.includes('max-width: 100%'));
   assert(read('app/(public)/account/inventory/page.module.css').includes('grid-template-rows: minmax(1.25rem, auto) auto;'));
